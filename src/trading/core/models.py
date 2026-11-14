@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
+from hashlib import sha256
 from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 from trading.core.enums import (
     BrainLabel,
@@ -139,12 +140,45 @@ class OrderRequest(Contract):
 class ExitRequest(Contract):
     """Position-reducing request; execution derives side from broker position."""
 
-    exit_id: str = Field(default_factory=_new_id)
     position_id: str
     quantity: Decimal = Field(gt=0)
     reason_code: ExitReason
     reason_text: str = ""
+    bar_ts_utc: datetime
     created_ts: datetime
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_only_derived_exit_id(cls, value: Any) -> Any:
+        if not isinstance(value, dict) or "exit_id" not in value:
+            return value
+        supplied = value["exit_id"]
+        reason = (
+            value["reason_code"].value
+            if isinstance(value["reason_code"], ExitReason)
+            else value["reason_code"]
+        )
+        required = f"{value['position_id']}|{reason}|{value['bar_ts_utc'].isoformat()}"
+        expected = sha256(required.encode("utf-8")).hexdigest()
+        if supplied != expected:
+            raise ValueError("exit_id must be derived from position, reason, and bar time")
+        cleaned = dict(value)
+        cleaned.pop("exit_id")
+        return cleaned
+
+    @computed_field  # type: ignore[prop-decorator]  # Pydantic computed-field pattern
+    @property
+    def exit_id(self) -> str:
+        """Stable idempotency key for one position/reason/bar event (I7)."""
+        material = f"{self.position_id}|{self.reason_code.value}|{self.bar_ts_utc.isoformat()}"
+        return sha256(material.encode("utf-8")).hexdigest()
+
+    def apply_to_position(self, position: Position) -> Position:
+        """Apply this exit only after validating against broker position truth."""
+        from trading.core.exits import apply_exit_quantity
+
+        remaining = apply_exit_quantity(position.qty, self.quantity)
+        return position.model_copy(update={"qty": remaining})
 
 
 class Order(Contract):

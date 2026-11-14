@@ -9,6 +9,7 @@ from hypothesis import strategies as st
 from pydantic import ValidationError
 
 from trading.core.enums import ExitReason
+from trading.core.exits import apply_exit_quantity
 from trading.core.models import ExitRequest
 
 
@@ -19,6 +20,7 @@ def test_exit_quantity_must_be_strictly_positive(quantity: Decimal) -> None:
             position_id="position-1",
             quantity=quantity,
             reason_code=ExitReason.STOP,
+            bar_ts_utc=datetime(2026, 1, 1, tzinfo=UTC),
             created_ts=datetime(2026, 1, 1, tzinfo=UTC),
         )
 
@@ -34,6 +36,7 @@ def test_positive_exit_quantities_and_reasons_are_preserved(
         position_id="position-1",
         quantity=quantity,
         reason_code=reason,
+        bar_ts_utc=datetime(2026, 1, 1, tzinfo=UTC),
         created_ts=datetime(2026, 1, 1, tzinfo=UTC),
     )
     assert request.quantity == quantity
@@ -48,7 +51,25 @@ def test_caller_cannot_choose_exit_order_side(side: str) -> None:
                 "position_id": "position-1",
                 "quantity": Decimal("1"),
                 "reason_code": ExitReason.STOP,
+                "bar_ts_utc": datetime(2026, 1, 1, tzinfo=UTC),
                 "created_ts": datetime(2026, 1, 1, tzinfo=UTC),
                 "side": side,
             }
         )
+
+
+@given(
+    open_quantity=st.decimals(min_value=Decimal("0.0001"), max_value=Decimal("1000000"), places=4),
+    requested_quantity=st.decimals(
+        min_value=Decimal("0.0001"), max_value=Decimal("1000000"), places=4
+    ),
+)
+def test_i14_exit_never_increases_position(
+    open_quantity: Decimal, requested_quantity: Decimal
+) -> None:
+    if requested_quantity <= open_quantity:
+        remaining = apply_exit_quantity(open_quantity, requested_quantity)
+        assert Decimal("0") <= remaining <= open_quantity
+    else:
+        with pytest.raises(ValueError, match="I14"):
+            apply_exit_quantity(open_quantity, requested_quantity)

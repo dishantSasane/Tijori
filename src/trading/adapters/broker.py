@@ -10,7 +10,7 @@ from typing import Protocol
 
 from trading.core.clock import Clock
 from trading.core.enums import ORDER_STATUS_TRANSITIONS, OrderStatus
-from trading.core.models import Fill, Order, OrderRequest, Position
+from trading.core.models import ExitRequest, Fill, Order, OrderRequest, Position
 
 
 class IllegalOrderTransitionError(RuntimeError):
@@ -91,3 +91,12 @@ class FakePaperBroker:
 
     def positions(self) -> list[Position]:
         return list(self._positions.values())
+
+    def apply_exit(self, request: ExitRequest, position: Position) -> Position:
+        """Validate and apply a position-reducing request (invariant I14)."""
+        updated = request.apply_to_position(position)
+        if updated.qty == 0:
+            self._positions.pop((position.market.value, position.symbol), None)
+        else:
+            self._positions[(position.market.value, position.symbol)] = updated
+        return updated
