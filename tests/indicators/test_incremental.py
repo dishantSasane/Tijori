@@ -73,7 +73,9 @@ def test_incremental_vwap_matches_batch() -> None:
 
 
 def test_incremental_adx_matches_batch() -> None:
-    highs, lows, closes = [10] * 12, [10] * 12, [10] * 12
+    highs = [10.0, 11.0, 12.5, 11.8, 13.2, 14.0, 13.6, 15.1, 14.8, 16.0, 17.2, 16.4]
+    lows = [8.0, 9.0, 10.5, 10.0, 11.4, 12.2, 11.8, 13.0, 12.5, 14.0, 15.0, 14.2]
+    closes = [9.0, 10.5, 11.2, 10.8, 12.7, 13.5, 12.4, 14.6, 13.2, 15.5, 16.8, 15.0]
     state = ADXState(3)
     actual = [
         state.update(high, low, close) for high, low, close in zip(highs, lows, closes, strict=True)

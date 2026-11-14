@@ -17,12 +17,16 @@ class Scorecard:
     total_pnl: Decimal
     max_drawdown: Decimal
     profit_factor: Decimal
+    avg_win: Decimal
+    avg_loss: Decimal
+    expectancy: Decimal
 
 
 def scorecard(trades: list[Trade]) -> Scorecard:
     """Summarize completed trades; unfilled/open trades are excluded upstream."""
     if not trades:
-        return Scorecard(0, 0, 0, Decimal("0"), Decimal("0"), Decimal("0"), Decimal("0"))
+        zero = Decimal("0")
+        return Scorecard(0, 0, 0, zero, zero, zero, zero, zero, zero, zero)
     wins = sum(trade.pnl > 0 for trade in trades)
     losses = sum(trade.pnl < 0 for trade in trades)
     total = sum((trade.pnl for trade in trades), Decimal("0"))
@@ -36,6 +40,8 @@ def scorecard(trades: list[Trade]) -> Scorecard:
         peak = max(peak, equity)
         max_drawdown = max(max_drawdown, peak - equity)
     profit_factor = gross_profit / gross_loss if gross_loss else Decimal("0")
+    avg_win = gross_profit / Decimal(wins) if wins else Decimal("0")
+    avg_loss = -gross_loss / Decimal(losses) if losses else Decimal("0")
     return Scorecard(
         trades=len(trades),
         wins=wins,
@@ -44,4 +50,7 @@ def scorecard(trades: list[Trade]) -> Scorecard:
         total_pnl=total,
         max_drawdown=max_drawdown,
         profit_factor=profit_factor,
+        avg_win=avg_win,
+        avg_loss=avg_loss,
+        expectancy=total / Decimal(len(trades)),
     )
