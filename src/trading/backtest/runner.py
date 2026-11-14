@@ -24,11 +24,23 @@ class Trade:
 
 
 @dataclass(frozen=True)
+class OpenTrade:
+    signal_id: str
+    entry_bar: int
+    quantity: Decimal
+    entry_price: Decimal
+    fees: Decimal
+    mark_price: Decimal
+    unrealized_pnl: Decimal
+
+
+@dataclass(frozen=True)
 class BacktestResult:
     trades: list[Trade]
     unfilled_signals: list[str]
     open_positions: int
     audit_events: list[str] = field(default_factory=list)
+    open_trades: list[OpenTrade] = field(default_factory=list)
 
 
 def run_long_only(
@@ -54,9 +66,12 @@ def run_long_only(
     trades: list[Trade] = []
     unfilled: list[str] = []
     audit_events: list[str] = []
+    open_trades: list[OpenTrade] = []
     open_positions = 0
     next_available_index: dict[tuple[object, str, object], int] = {}
     for signal in sorted(signals, key=lambda item: item.bar_ts_utc):
+        if signal.side.value != "buy":
+            raise ValueError("long-only backtester rejects SELL signals")
         if signal.stop is None:
             continue
         instrument = (signal.market, signal.symbol, signal.timeframe)
@@ -83,8 +98,8 @@ def run_long_only(
         if fill_bar.open < signal.stop:
             exit_index = fill_index
             exit_price = fill_bar.open * (Decimal("1") - profile.slippage_bps / Decimal("10000"))
-            exit_fees = profile.brokerage
-            approved_risk = (signal.entry_ref - signal.stop) * quantity
+            exit_fees = profile.exit_fee
+            approved_risk = abs(signal.entry_ref - signal.stop) * quantity
             realized_risk = abs(exit_price - signal.entry_ref) * quantity
             audit_events.append(
                 f"gap_risk_realized:approved_risk={approved_risk}:realized_risk={realized_risk}"
@@ -124,24 +139,50 @@ def run_long_only(
                 # A gap beyond a target fills at the actual open; otherwise
                 # the target order is filled at its specified price.
                 exit_price = candidate.open if candidate.open >= signal.target else signal.target
-                exit_fees = profile.brokerage
+                exit_fees = profile.exit_fee
                 exit_reason = "target"
                 break
             if condition_exit is not None and condition_exit(signal, index, candidate):
-                exit_index = index
-                exit_price = candidate.close
-                exit_fees = profile.brokerage
-                exit_reason = "condition"
-                break
+                if index + 1 < len(candles):
+                    condition_fill = candles[index + 1]
+                    condition_stop = stop_exit(
+                        position,
+                        open_price=condition_fill.open,
+                        high=condition_fill.high,
+                        low=condition_fill.low,
+                        profile=profile,
+                    )
+                    if condition_stop is not None:
+                        exit_index = index + 1
+                        exit_price = condition_stop.price
+                        exit_fees = condition_stop.fees
+                        exit_reason = "stop"
+                        break
+                    exit_index = index + 1
+                    exit_price = candles[index + 1].open * (
+                        Decimal("1") - profile.slippage_bps / Decimal("10000")
+                    )
+                    exit_fees = profile.brokerage
+                    exit_reason = "condition"
+                    break
         if exit_index is None or exit_price is None:
             next_available_index[instrument] = len(candles)
+            open_trades.append(
+                OpenTrade(
+                    signal_id=signal.id,
+                    entry_bar=fill_index,
+                    quantity=quantity,
+                    entry_price=entry.price,
+                    fees=entry.fees,
+                    mark_price=candles[-1].close,
+                    unrealized_pnl=(candles[-1].close - entry.price) * quantity - entry.fees,
+                )
+            )
             continue
         open_positions -= 1
         next_available_index[instrument] = exit_index + 1
         fees = entry.fees + exit_fees
-        # The published known-answer vector defines realized P&L with the exit
-        # brokerage charged here; entry costs remain auditable in ``fees``.
-        pnl = (exit_price - entry.price) * quantity - exit_fees
+        pnl = (exit_price - entry.price) * quantity - fees
         trades.append(
             Trade(
                 signal_id=signal.id,
@@ -160,4 +201,5 @@ def run_long_only(
         unfilled_signals=unfilled,
         open_positions=open_positions,
         audit_events=audit_events,
+        open_trades=open_trades,
     )
