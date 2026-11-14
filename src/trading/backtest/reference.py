@@ -56,7 +56,9 @@ def run_reference(
             unfilled.append(signal.id)
             continue
         if index + 1 <= last_exit or open_positions:
-            raise ValueError("overlapping positions are outside reference scope")
+            unfilled.append(signal.id)
+            audit_events.append(f"rejected:concurrent_position_exists:signal_id={signal.id}")
+            continue
         entry_bar = index + 1
         slip = profile.slippage_bps / Decimal("10000")
         entry_price = candles[entry_bar].open * (Decimal("1") + slip)
@@ -79,9 +81,23 @@ def run_reference(
             elif condition_exit is not None and condition_exit(signal, exit_bar, bar):
                 if exit_bar + 1 == len(candles):
                     continue
-                exit_bar += 1
-                exit_reason = "condition"
-                exit_price = candles[exit_bar].open * (Decimal("1") - slip)
+                condition_fill_bar = candles[exit_bar + 1]
+                if condition_fill_bar.low <= signal.stop:
+                    exit_bar += 1
+                    exit_reason = "stop"
+                    if condition_fill_bar.open < signal.stop:
+                        exit_price = condition_fill_bar.open * (Decimal("1") - slip)
+                        approved = abs(signal.entry_ref - signal.stop) * quantity
+                        realized = abs(exit_price - signal.entry_ref) * quantity
+                        audit_events.append(
+                            f"gap_risk_realized:approved_risk={approved}:realized_risk={realized}"
+                        )
+                    else:
+                        exit_price = signal.stop
+                else:
+                    exit_bar += 1
+                    exit_reason = "condition"
+                    exit_price = condition_fill_bar.open * (Decimal("1") - slip)
             else:
                 continue
             fees = profile.entry_fee + profile.exit_fee

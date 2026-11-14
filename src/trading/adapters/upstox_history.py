@@ -31,7 +31,13 @@ class UpstoxAccessError(UpstoxHistoryError):
 
 
 def _request(url: str, headers: dict[str, str]) -> bytes:
-    request = Request(url, headers=headers, method="GET")
+    request_headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "Tijori/0.0.1",
+        **headers,
+    }
+    request = Request(url, headers=request_headers, method="GET")
     try:
         with urlopen(request, timeout=30) as response:  # noqa: S310 - fixed HTTPS base URL
             return cast(bytes, response.read())

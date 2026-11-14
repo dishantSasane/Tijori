@@ -153,6 +153,13 @@ def run_long_only(
                         profile=profile,
                     )
                     if condition_stop is not None:
+                        if condition_stop.gap_through_stop:
+                            approved_risk = abs(signal.entry_ref - signal.stop) * quantity
+                            realized_risk = abs(condition_stop.price - signal.entry_ref) * quantity
+                            audit_events.append(
+                                "gap_risk_realized:"
+                                f"approved_risk={approved_risk}:realized_risk={realized_risk}"
+                            )
                         exit_index = index + 1
                         exit_price = condition_stop.price
                         exit_fees = condition_stop.fees

@@ -150,16 +150,16 @@ def test_equivalence_for_varied_stops_and_costs(
     assert reference == run_long_only(bars, [entry], quantity=Decimal("3"), profile=profile)
 
 
-def test_reference_rejects_overlapping_positions() -> None:
+def test_reference_audits_overlapping_positions() -> None:
     bars = [
         bar(0, "10", "11", "9", "10"),
         bar(1, "13", "14", "12", "13"),
         bar(2, "13", "14", "12", "13"),
     ]
-    with pytest.raises(ValueError, match="overlapping"):
-        run_reference(
-            bars, [signal(0), signal(1)], quantity=Decimal("1"), profile=BacktestProfile()
-        )
+    entries = [signal(0), signal(1)]
+    result = run_reference(bars, entries, quantity=Decimal("1"), profile=BacktestProfile())
+    assert result.unfilled_signals == [entries[1].id]
+    assert result.audit_events == [f"rejected:concurrent_position_exists:signal_id={entries[1].id}"]
 
 
 @pytest.mark.parametrize(
@@ -235,6 +235,25 @@ def test_condition_exit_on_closed_bar_fills_next_open(strategy: str) -> None:
         )
     ]
     assert reference.open_positions == 0
+
+
+def test_reference_condition_fill_bar_stop_precedes_condition() -> None:
+    bars = [
+        bar(0, "10", "11", "9", "10"),
+        bar(1, "13", "13.5", "12.5", "13"),
+        bar(2, "13", "14", "12", "12"),
+        bar(3, "8", "9", "7", "8"),
+    ]
+    entry = signal(0)
+    result = run_reference(
+        bars,
+        [entry],
+        quantity=Decimal("1"),
+        profile=BacktestProfile(slippage_bps=Decimal("5")),
+        condition_exit=lambda current_signal, index, candle: index == 2,
+    )
+    assert result.trades[0].exit_reason == "stop"
+    assert result.trades[0].exit_price == Decimal("7.9960")
 
 
 def test_final_bar_condition_exit_remains_unfilled() -> None:

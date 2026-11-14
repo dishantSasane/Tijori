@@ -2,6 +2,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.error import HTTPError
+from urllib.request import Request
 
 import pytest
 
@@ -66,6 +67,29 @@ def test_request_without_token_omits_authorization_header() -> None:
     )
     assert calls[0][0].endswith("/intraday/NSE_INDEX%7CNifty%2050/minutes/1")
     assert "Authorization" not in calls[0][1]
+
+
+def test_request_has_explicit_application_headers(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, str] = {}
+
+    class Response:
+        def __enter__(self) -> object:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"{}"
+
+    def fake_urlopen(request: Request, timeout: int) -> Response:
+        captured.update(dict(request.headers))
+        return Response()
+
+    monkeypatch.setattr("trading.adapters.upstox_history.urlopen", fake_urlopen)
+    _request("https://api.upstox.com", {})
+    assert captured["Content-type"] == "application/json"
+    assert captured["User-agent"] == "Tijori/0.0.1"
 
 
 def test_provider_access_block_is_non_retryable(monkeypatch: pytest.MonkeyPatch) -> None:

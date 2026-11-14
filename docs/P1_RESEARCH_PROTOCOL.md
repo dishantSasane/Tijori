@@ -6,8 +6,10 @@ change the rules that produced it.
 
 ## Dataset window
 
-- Target at least 10 calendar years of daily candles ending on the latest
-  complete trading day available from Upstox.
+- Target exactly the largest supported daily window: 10 calendar years ending
+  on the latest complete trading day available from Upstox. Upstox V3 documents
+  daily history from January 2000 with a maximum retrieval window of one decade
+  ([official API documentation](https://upstox.com/developer/api-documentation/v3/get-historical-candle-data/)).
 - Accept a shorter window only when Upstox actually limits the endpoint; five
   years is the minimum useful fallback. Record the returned coverage in the
   run manifest.
@@ -72,7 +74,7 @@ Collect candles from the explicit manifest (the token is read from the
   --manifest config/india_tier_a.example.yaml \
   --store data/p1/store \
   --archive data/p1/raw \
-  --from-date 2016-01-01 \
+  --from-date 2016-11-13 \
   --to-date 2026-11-13 \
   --ingest-ts 2026-11-14T00:00:00Z
 ```
