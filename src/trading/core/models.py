@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from trading.core.enums import (
     BrainLabel,
+    ExitReason,
     LedgerSource,
     MarketId,
     OrderSide,
@@ -132,6 +133,17 @@ class OrderRequest(Contract):
     limit_price: Decimal | None = Field(default=None, gt=0)
     stop_price: Decimal | None = Field(default=None, gt=0)
     idempotency_key: str
+    created_ts: datetime
+
+
+class ExitRequest(Contract):
+    """Position-reducing request; execution derives side from broker position."""
+
+    exit_id: str = Field(default_factory=_new_id)
+    position_id: str
+    quantity: Decimal = Field(gt=0)
+    reason_code: ExitReason
+    reason_text: str = ""
     created_ts: datetime
 
 

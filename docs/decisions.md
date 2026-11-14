@@ -74,6 +74,21 @@ Context: writing the P0 specs surfaced two design questions genuinely beyond thi
 Decision: left open, flagged in-place rather than silently resolved: (1) condition-based exits (T1/T2/T4/T6) need a new `ExitRequest`-shaped contract and a reduced, exit-only risk-check list (closing risk should not need the full entry check list) — STRATEGY_SPEC.md §1.7. (2) Concurrent delivery of the same `signal.id` needs an explicit `DecisionStore` atomicity design (single-process lock vs. a datastore-level check-and-set) before invariant I7 can be proven under real concurrency, not just sequential retries — RISK_ENGINE_SPEC.md §10, TEST_SPEC_RISK.md §7.
 Consequences: P2's risk-engine implementer should resolve both before or during implementation, not discover them mid-build. Status `proposed` pending that work.
 
+**ADR-0021 · 2026-11-14 · accepted · Exit requests are position-reducing and Brain-independent**
+Context: T1/T2/T4/T6 condition-based exits need a contract distinct from entry
+orders. Protective exits must remain possible during a kill switch, while an
+invalid position or reconciliation state must fail closed rather than guess.
+Decision: introduce an `ExitRequest` with a unique `exit_id`, required
+`position_id`, derived position side, `reason_code` plus non-executable human
+text, and `0 < quantity <= open quantity`. Exits enforce position/broker truth,
+reconciliation, quantity, market-session/queue, paper-mode, and audit checks;
+they skip entry-only sizing, allocation, max-position, and Brain checks.
+`STOP` and `KILL` exits cannot be vetoed. No exit may open or increase a
+position (new invariant I14); duplicate `exit_id` delivery is idempotent.
+Consequences: condition exits can be implemented without routing them through
+entry sizing. Exit execution remains fail-closed on state mismatch, and I14
+requires property-based coverage plus blind tests from the specification.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**

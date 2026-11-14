@@ -7,7 +7,7 @@ paths, UTC timestamps, injected clock) for docs/ARCHITECTURE.md's `core` layer.
 ## 1. Enums (`core/enums.py`)
 
 `MarketId`, `Mode`, `Timeframe`, `OrderSide`, `OrderStatus`, `Route`,
-`BrainLabel`, `OutcomeResult`, `LedgerSource`, `ReasonCode`.
+`BrainLabel`, `OutcomeResult`, `LedgerSource`, `ReasonCode`, `ExitReason`.
 
 `ORDER_STATUS_TRANSITIONS` is the order state machine from
 `docs/RISK_SPEC.md` §6 as data, not scattered `if` statements:
@@ -36,6 +36,7 @@ construction, not at 3am in production.
 | `Tick` | price/size > 0; never persisted long-term (adapters only). |
 | `Signal` | stop, if present, is on the correct side of `entry_ref` for `side`. A **missing** stop is allowed here (it's a risk-engine rejection with `ReasonCode.SIGNAL_MISSING_STOP`, not a contract error — the rejection must be auditable, so the signal has to be constructible first). |
 | `OrderRequest` | qty > 0; carries `idempotency_key` (invariant I7). |
+| `ExitRequest` | unique `exit_id`; required `position_id`; quantity > 0; reason enum plus inert human text. Execution derives side from broker truth and enforces quantity <= open quantity (I14). |
 | `Order` | `qty_filled <= qty` (invariant I3); `status` is only ever changed via `transition()`. |
 | `Fill` | qty, price > 0; tagged with `LedgerSource` (live/user_paper/shadow). |
 | `Position` | — |
