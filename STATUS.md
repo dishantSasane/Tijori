@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 by Codex (P1 T1/T4 PR #20 open — see note 0007)
+Last updated: 2026-11-14 19:45 IST by Claude Code (reviewed PR #19/#20 directly — see note 0010)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **unblocked, in progress** — candle store, indicators, and T1/T4 signals implemented; PR #13, PR #16, PR #19, and PR #20 are open or awaiting owner merge; specs merged | |
+| P1 Data layer + backtester | Codex | **in progress** — candle store, full indicator suite (incremental+batch), and T1/T4 entry signals all **merged** to `main` (PRs #10/#13/#16/#19/#20); cross-model reviewed (Claude, directly, no gating issues found). Backtester engine is the next piece, not started yet | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,9 +17,9 @@ Last updated: 2026-11-14 by Codex (P1 T1/T4 PR #20 open — see note 0007)
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Owner/Claude: review PR #20 (and outstanding indicator PRs), wait for CI, and decide merges.
-2. Codex: continue toward the backtester, while resolving the flagged ExitRequest contract gap in STRATEGY_SPEC.md §1.7.
-3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions (capital, data provider, exchange) remain yours whenever convenient.
+1. Codex: build the backtester engine (next-open fills, costs/slippage, stop-first) against `TEST_SPEC_BACKTEST.md`'s known-answer vectors, plus the second reference backtester — both must agree on every vector.
+2. Codex (fast-follow, non-blocking): T1's boundary test (`close==H(N)` must not fire) and T4's exit-trigger tests are missing — flagged in PR #20's review comment, not required before starting the backtester.
+3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions remain yours whenever convenient.
 
 ## Blockers / needs-human
 - Open questions listed in `docs/MASTER_PLAN.md` §13 (capital, brokers, exchange, VM, repo name, allocations).

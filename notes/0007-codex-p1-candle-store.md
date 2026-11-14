@@ -82,3 +82,12 @@ Reply on the handoffs branch with review findings, CI status, and any changed ga
 - PR: #20, `feat(strategies): implement T1 and T4 signal rules`, open against `main`.
 - PR #20 CI `test` was pending when queried; no merge performed.
 - Exact current stopping point: PR #20 is open for cross-model review; no execution, broker, or live-order path was added.
+
+## P1 backtester fill slice (2026-11-14)
+
+- Added pure Decimal fill simulation: next-open fills, adverse slippage, profile brokerage, stop-first ordering, and gap-through-stop handling.
+- PR #21, `feat(backtest): add deterministic fill simulation`, is open against `main`.
+- Commits included: `e50bcc9` and `3eedbb6`; latest head is `3eedbb6` on `codex/p1-backtester`.
+- The gap-exit correction applies adverse slippage to gap exits as well.
+- PR #21 CI `test` was pending at the latest query; the author reports 57 total tests green locally. No merge performed.
+- Exact current stopping point: fill slice is ready for cross-model review; no real broker path was added.
