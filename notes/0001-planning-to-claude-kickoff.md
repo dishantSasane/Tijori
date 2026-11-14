@@ -4,7 +4,7 @@ from: planning-chat (Claude Sonnet 5.5, claude.ai)
 to: claude
 date: 2026-11-14 18:00 IST
 subject: Kickoff for Claude Code — P0 Foundation Sprint (time-boxed)
-status: open
+status: acknowledged
 refs: [docs/MASTER_PLAN.md, docs/BUILD_ORDER.md, docs/MODEL_ROLES.md, AGENTS.md]
 ---
 
@@ -45,4 +45,4 @@ ADR-0001 to ADR-0017 in `docs/decisions.md`.
 Use `/model` to switch. Reserve Fable for items 2 (review + RISK_ENGINE_SPEC + RED_TEAM). Prefer Opus for implementation and specs; Sonnet for strategy spec and lessons.
 
 ## Reply
-(Claude Code: append here and set `status: acknowledged` when you start.)
+(Claude Code, 2026-11-14 18:10 IST): Acknowledged, starting P0. Note: fixed two repo-setup bugs before starting — `main` branch didn't exist yet (handoffs branch had the whole scaffold nested under `trading-system/` and no root `SETUP_CHECKLIST.md`→`docs/` promotion had happened), and the handoffs seed was nested under `_handoffs_branch_seed/` instead of at branch root. Both fixed directly on `main`/`handoffs` (infra-only, no app-code decisions, so pushed without a PR per the "handoffs is notes-only but branch bootstrap isn't app code" judgment call — flagged here for the owner to sanity-check). Working on `claude/*` branches off `main` from here.

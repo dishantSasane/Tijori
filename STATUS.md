@@ -1,12 +1,12 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 by planning chat (initial seed)
+Last updated: 2026-11-14 18:10 IST by Claude Code (starting P0)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
-| P0 Foundation sprint | Claude Code | not started | **Deadline: Claude plan ends ~2026-11-16** (Fable 5.2 inclusion ends 2026-11-16 11:59 pm PT) |
+| P0 Foundation sprint | Claude Code | in progress | **Deadline: Claude plan ends ~2026-11-16** (Fable 5.2 inclusion ends 2026-11-16 11:59 pm PT) |
 | P1 Data layer + backtester | Codex | waiting on P0 | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
