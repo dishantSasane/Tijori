@@ -15,10 +15,24 @@ class BacktestProfile:
 
     brokerage: Decimal = Decimal("0")
     slippage_bps: Decimal = Decimal("0")
+    entry_brokerage: Decimal | None = None
+    exit_brokerage: Decimal | None = None
 
     def __post_init__(self) -> None:
         if self.brokerage < 0 or self.slippage_bps < 0:
             raise ValueError("brokerage and slippage_bps must be non-negative")
+        if (self.entry_brokerage is not None and self.entry_brokerage < 0) or (
+            self.exit_brokerage is not None and self.exit_brokerage < 0
+        ):
+            raise ValueError("entry and exit brokerage must be non-negative")
+
+    @property
+    def entry_fee(self) -> Decimal:
+        return self.brokerage if self.entry_brokerage is None else self.entry_brokerage
+
+    @property
+    def exit_fee(self) -> Decimal:
+        return self.brokerage if self.exit_brokerage is None else self.exit_brokerage
 
 
 @dataclass(frozen=True)
@@ -59,7 +73,8 @@ def fill_at_next_open(
         price = open_price * (Decimal("1") - slippage)
     else:
         raise ValueError(f"unsupported side: {side}")
-    return Fill(quantity=quantity, price=price, fees=profile.brokerage)
+    fees = profile.entry_fee if side == "buy" else profile.exit_fee
+    return Fill(quantity=quantity, price=price, fees=fees)
 
 
 def stop_exit(
@@ -83,6 +98,6 @@ def stop_exit(
     return StopExit(
         quantity=position.quantity,
         price=execution_price,
-        fees=profile.brokerage,
+        fees=profile.exit_fee,
         gap_through_stop=gap,
     )

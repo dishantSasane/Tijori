@@ -31,7 +31,7 @@ def test_known_stop_vector_matches_both_runners(same_bar: bool) -> None:
         Decimal("13.2066"),
         Decimal("9"),
         Decimal("40"),
-        Decimal("-440.66"),
+        Decimal("-460.66"),
     )
     for runner in (run_reference, run_long_only):
         result = runner(bars, [entry], quantity=Decimal("100"), profile=profile)
@@ -74,9 +74,21 @@ def test_reference_handles_gap_below_stop_on_fill_bar() -> None:
             Decimal("2401.2"),
             Decimal("2398.8"),
             Decimal("40"),
-            Decimal("-260.0"),
+            Decimal("-280.0"),
         )
     ]
+
+
+def test_asymmetric_entry_and_exit_fees_are_both_charged() -> None:
+    bars = [bar(0, "10", "11", "9", "10"), bar(1, "13", "14", "8", "13")]
+    profile = BacktestProfile(
+        brokerage=Decimal("0"),
+        entry_brokerage=Decimal("15"),
+        exit_brokerage=Decimal("25"),
+    )
+    result = run_reference(bars, [signal(0)], quantity=Decimal("1"), profile=profile)
+    assert result.trades[0].fees == Decimal("40")
+    assert result.trades[0].pnl == Decimal("-44")
 
 
 def test_t1_and_t4_signals_produce_identical_trade_lists() -> None:
@@ -218,7 +230,7 @@ def test_condition_exit_on_closed_bar_fills_next_open(strategy: str) -> None:
             Decimal("13.0065"),
             Decimal("11.9940"),
             Decimal("40"),
-            Decimal("-121.2500"),
+            Decimal("-141.2500"),
             "condition",
         )
     ]
