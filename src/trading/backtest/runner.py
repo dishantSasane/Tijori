@@ -118,6 +118,7 @@ def run_long_only(
                 exit_reason = "condition"
                 break
         if exit_index is None or exit_price is None:
+            next_available_index = len(candles)
             continue
         open_positions -= 1
         next_available_index = exit_index + 1
