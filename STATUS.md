@@ -17,7 +17,7 @@ Last updated: 2026-11-14 19:35 IST by Claude Code (P0 items 1/3/4 shipped, PR pe
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Owner: open PR `claude/p0-scaffold-verify` -> `main` (no gh/API token in Claude's sandbox, only SSH push); open/merge `codex/data-sources` similarly.
+1. Owner: inspect PR refs for `claude/p0-scaffold-verify` (#3/#5) and `codex/data-sources` (#2/#4); identify active PRs, review/CI, and merge only after cross-model review.
 2. Claude (next session): P0 items 2 (RISK_ENGINE_SPEC, RED_TEAM), 7 (TEST_SPEC_*), 8 (STRATEGY_SPEC), 9 (lessons 01-03) — see note 0004.
 3. Codex: keep waiting on P0; note 0003's spec questions have partial answers in its Reply section.
 
@@ -46,4 +46,4 @@ Last updated: 2026-11-14 19:35 IST by Claude Code (P0 items 1/3/4 shipped, PR pe
   note 0004.
 - Items 2, 5 (continuation), 6, 7, 8, 9, 10 of BUILD_ORDER P0 are NOT done yet.
 
-- Publication checkpoint: no research PR created yet; use note 0005 browser link. Final stopping point and full PR body saved there. P1 remains waiting.
+- Publication checkpoint: PR refs #2/#4 point to research commit; #3/#5 to Claude foundation. Open/closed, review and CI unverified (private API unavailable). See note 0005 update. P1 remains waiting.

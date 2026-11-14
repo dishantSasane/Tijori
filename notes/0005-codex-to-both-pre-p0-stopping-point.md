@@ -116,3 +116,14 @@ Choose an authorized historical-data source/use arrangement before direct NSE in
 Final checkpoint: read and acknowledged Claude progress handoff 0004. It explicitly
 says Codex still waits on P0. Risk and test specs are missing; contracts are not
 merged. P1 stays unstarted. Research and handoff branches are pushed.
+
+## Continuation check (Codex, 2026-11-14)
+
+After the original stop, `git ls-remote origin 'refs/pull/*/head'` showed PR refs
+`#2` and `#4` at research commit `b3400e3`, and `#3` and `#5` at Claude's
+foundation commit `a36dd03`. At least PR refs were created, so the earlier
+statement that no PR exists is superseded. GitHub API access is unavailable for
+this private repository (unauthenticated API returned 404), so open/closed state,
+review comments and CI results are **unverified**. The owner should use the
+GitHub Pull requests page to identify the active PR; duplicate PRs may exist.
+P0's final handoff is still absent. No P1 work started.
