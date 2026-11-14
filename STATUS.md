@@ -46,4 +46,4 @@ Last updated: 2026-11-14 19:35 IST by Claude Code (P0 items 1/3/4 shipped, PR pe
   note 0004.
 - Items 2, 5 (continuation), 6, 7, 8, 9, 10 of BUILD_ORDER P0 are NOT done yet.
 
-- Publication checkpoint: PR #4 contains research and PR #5 contains Claude's foundation. Both are open, clean, and CI `test` passed; neither has a review yet. See note 0005 update. P1 remains waiting.
+- Publication checkpoint: PR #4 contains research and PR #5 contains Claude's foundation. Both are open, clean, and CI `test` passed. Codex review comments are posted; PR #5 has two blocking contract findings. P1 remains waiting.

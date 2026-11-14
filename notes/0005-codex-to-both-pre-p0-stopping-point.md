@@ -139,3 +139,10 @@ with `repo` scope. Verified through GitHub CLI:
 
 No merge was performed. The token appeared in chat and should be revoked/rotated
 by the owner after use.
+
+Codex reviewed both open PRs. PR #4 received a review comment recording that its
+documentation is ready from the Codex perspective; GitHub could not create an
+approval because the authenticated account is also the PR author. PR #5 received
+a blocking review comment identifying two contract issues: wall-clock defaults in
+`core/models.py` violate the injected-clock rule, and timezone-aware non-UTC
+offsets are accepted despite the UTC-only contract. No P1 code was started.
