@@ -25,6 +25,9 @@ def test_scorecard_reports_trade_metrics_and_drawdown() -> None:
     assert result.total_pnl == Decimal("0")
     assert result.win_rate == Decimal("0.3333333333333333333333333333")
     assert result.max_drawdown == Decimal("10")
+    assert result.avg_win == Decimal("10")
+    assert result.avg_loss == Decimal("-5")
+    assert result.expectancy == Decimal("0")
 
 
 def test_empty_scorecard_is_zeroed() -> None:
@@ -32,3 +35,6 @@ def test_empty_scorecard_is_zeroed() -> None:
     assert result.trades == 0
     assert result.total_pnl == Decimal("0")
     assert result.win_rate == Decimal("0")
+    assert result.avg_win == Decimal("0")
+    assert result.avg_loss == Decimal("0")
+    assert result.expectancy == Decimal("0")
