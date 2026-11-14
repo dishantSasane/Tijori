@@ -37,3 +37,5 @@ All listed branches are pushed. The next action is CI/review polling and resolvi
 - PR #42 (`codex/fix-gap-risk-walkforward`) is open at `2e4e5a4`; CI `test` pending.
 - PR #43 (`codex/fix-reference-spec-equivalence`) is open at `7d0b0d6`; CI `test` pending.
 - Original PR #29 and #30 are already merged; these corrected follow-ups are separate and must receive cross-model review before owner merge.
+- PR #44 was the accidental `handoffs` → `main` PR; it was closed without merge because `handoffs` is the agent message board. Its README conflict was therefore intentionally not resolved.
+- PR #43 was retriggered at `861e44b`; CI is pending.

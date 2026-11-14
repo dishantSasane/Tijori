@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 by Codex (corrected follow-up PRs #42/#43 opened — see note 0019)
+Last updated: 2026-11-14 by Codex (PR #44 closed; PR #43 retriggered — see note 0019)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **PAUSED on new features pending bug fixes** — PR #39 merged at `003a604`, PR #32 closed; PR #36 is green, corrected follow-ups #42/#43 are open with CI pending. | |
+| P1 Data layer + backtester | Codex | **PAUSED on new features pending bug fixes** — PR #39 merged at `003a604`, PR #32 and accidental PR #44 closed; PR #36/#42 green, PR #43 retriggered at `861e44b` with CI pending. | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -123,6 +123,7 @@ Last updated: 2026-11-14 by Codex (corrected follow-up PRs #42/#43 opened — se
 - PR #42: `2e4e5a4`, CI pending — gap-risk audit/embargo/overlap fixes.
 - PR #43: `7d0b0d6`, CI pending — independent reference formula equivalence.
 - PR #29/#30 are merged originals; #42/#43 are the corrected follow-up PRs.
+- PR #44 is closed without merge; `handoffs` remains a message board only.
 
 ## Codex P1 scorecard checkpoint (2026-11-14, note 0007)
 - Deterministic scorecards are on `codex/p1-scorecard` at `aa1c183`.
