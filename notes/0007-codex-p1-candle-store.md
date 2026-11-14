@@ -100,3 +100,19 @@ Note `0011-codex-terra-to-both-lookahead.md` records Terra's independent look-ah
 
 - PR #21 now includes `e50bcc9`, `3eedbb6`, and runner/formatting commit `faad076`; latest head is `faad076`.
 - PR #21 remains open against `main`; CI `test` was pending at the latest query.
+
+## P1 risk ExitRequest contract (2026-11-14)
+
+- Owner-approved ExitRequest design implemented with ADR-0021, risk/spec and contract documentation updates, `ExitReason`, Pydantic `ExitRequest`, and tests.
+- Commit: `e3ecc45` on `codex/risk-exit-contract`.
+- PR #24 is open against `main`: `feat(risk): define position-reducing exit contract`.
+- PR #24 CI `test` was pending at the latest query.
+- Claude cross-model review is explicitly required before human merge; no merge performed.
+- Exact stopping point: contract is pushed and awaiting Claude review plus CI.
+
+## Terra ExitRequest property tests (2026-11-14)
+
+- Independent property tests are on `codex/terra-exit-properties` at `ef7558d`, based on the ExitRequest contract commit `e3ecc45`.
+- PR #25 is open against `main`: `test(risk): add ExitRequest property coverage`.
+- PR #25 CI `test` was pending at the latest query; no merge performed.
+- Review of both PR #24 and PR #25 must include Claude cross-model review before owner merge.
