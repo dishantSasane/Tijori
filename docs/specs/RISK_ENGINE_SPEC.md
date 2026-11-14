@@ -255,6 +255,61 @@ answer test for `TEST_SPEC_BACKTEST.md` should include: approved `qty=100`,
 `2400`, `gap_risk_realized` audit row with `realized_risk = 100 * (2500-2400)
 = 10,000` vs. `approved_risk = 100 * 50 = 5,000`.
 
+### 9.1 `gap_risk_realized` fires on ANY bar, not only the entry bar
+
+The rule above is stated for the entry-fill bar because that is where the
+`RiskDecision` is freshest, but the event is about the **position**, not the
+decision. `gap_risk_realized` MUST be recorded on **every** bar whose open
+is through a live stop of an open position — including an overnight gap on
+a position opened on an earlier bar/day (the `docs/RISK_SPEC.md` §7 case).
+An implementation that only emits the event when the gap bar is the fill bar
+is wrong and silently under-reports the most common form of gap risk.
+
+Worked example (overnight, position already open): position opened 3 bars
+ago at `entry_ref=2500`, `stop=2450`, `qty=100` (so `approved_risk = 100 *
+50 = 5,000`, recorded at approval and **never recomputed**). Today's bar
+opens at `2380`, below the stop → the stop-exit fills at `2380` and a
+`gap_risk_realized` event is written with `approved_risk=5000`,
+`realized_risk = qty * abs(fill_price - entry_ref) = 100 * abs(2380 - 2500)
+= 12,000`.
+
+### 9.2 Realized-risk formula (exact)
+
+```
+realized_risk = qty * abs(fill_price - entry_ref)
+```
+
+- `entry_ref` is **always** the reference price at signal/approval time (the
+  one `qty` and `stop` were computed from in §3). It is never re-derived from
+  the actual entry fill, a slipped price, or a later mark.
+- `fill_price` is the **actual** exit execution price, slippage included
+  (backtest: open adjusted by the market profile's `slippage_bps` against the
+  trader; live: the broker fill).
+- `approved_risk = qty * abs(entry_ref - stop)`, frozen at approval.
+
+Worked example with **nonzero slippage** (this is the one that pins the
+formula; the zero-slippage examples above cannot distinguish `fill_price`
+from `open`): `entry_ref=2500`, `stop=2450`, `qty=100`, `slippage_bps=5`.
+Next open gaps to `2400`. The exit is a sell, so slippage makes the fill
+lower: `fill_price = 2400 * (1 - 5/10000) = 2398.8`. Then
+`realized_risk = 100 * abs(2398.8 - 2500) = 10,120` and `approved_risk =
+5,000`. An implementation that reports `10,000` here has ignored slippage
+in `fill_price`; one that reports `0`-ish or a tiny number has substituted a
+slipped fill for `entry_ref`. Both fail.
+
+### 9.3 Dropped signals are never silent
+
+Any signal that is not turned into an order **for any reason** — including
+an overlap/concurrency guard that refuses a second position on a symbol
+that already has one (backtest or live) — MUST produce an audit row with a
+`ReasonCode`. For the overlap case use
+`ReasonCode.CONCURRENT_POSITION_EXISTS` (`"concurrent_position_exists"`,
+appended to `src/trading/core/enums.py` following its append-only rule).
+A backtester that drops such a signal with no trade, no audit event and no
+unfilled-signal record makes the win-rate denominator unreconstructable;
+the scorecard must be able to report `signals = filled + rejected(by reason)
++ unfilled(data ended)` exactly.
+
 ## 10. Edge cases (adversarial inputs; feed `RED_TEAM.md`)
 
 - NaN/Infinity in any `Decimal` field: already impossible to construct past

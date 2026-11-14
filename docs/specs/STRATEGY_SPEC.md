@@ -167,15 +167,33 @@ filter (optional): close[i] > SMA(200)
 ```
 
 **Known-answer vector T1** (`N=3`, `M=2`, `k=2`, no SMA filter, ATR seeded
-elsewhere as `2.0` for this vector so the arithmetic stays simple):
-closes `[10, 11, 9, 10, 13]`, so at bar index 4 (0-based), `H(3) =
-max(close[1..3]) = max(11, 9, 10) = 11`. `close[4] = 13 > 11` → entry signal
-at bar 4's close. `entry_ref = 13` (the close that triggered it — the
-template reads its own trigger price as the reference, not the next bar's
-open, which is a separate, later concept: the *fill* price). `stop = 13 - 2*2.0
-= 9`. Fill happens at bar 5's open (not given in this vector — this vector
-only proves entry/stop computation, not the fill, which is TEST_SPEC_BACKTEST's
-job).
+elsewhere as `2.0` for this vector so the arithmetic stays simple).
+**For this worked example only, every bar has `high == close`** (so the
+numbers below can be read off a single series); a real OHLC series uses the
+true `high` per the `H(N)` definition above, never the close. With that
+assumption, `high = close = [10, 11, 9, 10, 13]`, so at bar index 4
+(0-based), `H(3) = max(high[1..3]) = max(11, 9, 10) = 11`. `close[4] = 13 >
+11` → entry signal at bar 4's close. `entry_ref = 13` (the close that
+triggered it — the template reads its own trigger price as the reference,
+not the next bar's open, which is a separate, later concept: the *fill*
+price). `stop = 13 - 2*2.0 = 9`. Fill happens at bar 5's open (not given in
+this vector — this vector only proves entry/stop computation, not the fill,
+which is TEST_SPEC_BACKTEST's job).
+
+**Boundary vector T1-B (`close == H(N)` must NOT fire):** same parameters and
+the same `high == close` simplification, series `[10, 11, 9, 10, 11]`. At bar
+index 4, `H(3) = max(11, 9, 10) = 11` and `close[4] = 11`. `11 > 11` is
+false → **no entry signal**. The comparison is strict; an implementation
+using `>=` fires here and fails this vector. (A test for this boundary must
+use a series where `close[i]` literally equals `H(N)`, as this one does — a
+series where close exceeds `H(N)` tests nothing about the boundary.)
+
+**Highs-vs-closes vector T1-H (true highs matter):** drop the simplification.
+Bars 1..3 have `high = [12, 9, 10]` and `close = [11, 9, 10]`; bar 4 has
+`close = 11.5`. Using closes gives `max(11, 9, 10) = 11 < 11.5` and would
+fire; using highs as defined gives `H(3) = max(12, 9, 10) = 12` and
+`11.5 > 12` is false → **no entry signal**. An implementation that computes
+`H(N)` from closes fires here and fails this vector.
 
 ### 2.2 T2 — MA trend + ADX
 
