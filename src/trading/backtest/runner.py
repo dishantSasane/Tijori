@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -34,6 +35,7 @@ def run_long_only(
     *,
     quantity: Decimal,
     profile: BacktestProfile,
+    condition_exit: Callable[[Signal, int, Candle], bool] | None = None,
 ) -> BacktestResult:
     """Replay signals with next-open fills and long stop-first exits.
 
@@ -86,6 +88,11 @@ def run_long_only(
                 # A gap beyond a target fills at the actual open; otherwise
                 # the target order is filled at its specified price.
                 exit_price = candidate.open if candidate.open >= signal.target else signal.target
+                exit_fees = profile.brokerage
+                break
+            if condition_exit is not None and condition_exit(signal, index, candidate):
+                exit_index = index
+                exit_price = candidate.close
                 exit_fees = profile.brokerage
                 break
         if exit_index is None or exit_price is None:

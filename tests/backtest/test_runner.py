@@ -97,3 +97,20 @@ def test_target_exit_uses_target_price() -> None:
         profile=BacktestProfile(),
     )
     assert result.trades[0].exit_price == Decimal("14")
+
+
+def test_condition_exit_is_evaluated_at_close_after_protective_checks() -> None:
+    candles = [
+        bar(0, "10", "11", "9", "10"),
+        bar(1, "13", "13.5", "12.5", "13"),
+        bar(2, "13", "14", "12", "12"),
+    ]
+    pending = signal(0)
+    result = run_long_only(
+        candles,
+        [pending],
+        quantity=Decimal("1"),
+        profile=BacktestProfile(),
+        condition_exit=lambda current_signal, index, candle: index == 2,
+    )
+    assert result.trades[0].exit_price == Decimal("12")
