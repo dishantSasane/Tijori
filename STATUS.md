@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 19:35 IST by Claude Code (P0 items 1/3/4 shipped, PR pending; see note 0004)
+Last updated: 2026-11-14 19:15 IST by Claude Code (final P0 handoff — see note 0006)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
-| P0 Foundation sprint | Claude Code | in progress | **Deadline: Claude plan ends ~2026-11-16** (Fable 5.2 inclusion ends 2026-11-16 11:59 pm PT) |
-| P1 Data layer + backtester | Codex | waiting on P0 | |
+| P0 Foundation sprint | Claude Code | mostly done, NOT 100% | contracts/adapters/RISK_ENGINE_SPEC/TEST_SPEC_RISK merged-or-PR-open (#5 merged, #7 merged, #8 open, #9 open); RED_TEAM.md, STRATEGY_SPEC.md, TEST_SPEC_{BACKTEST,CANDLES,ADAPTERS,STRATEGIES}.md, lessons 01-03 NOT written — see note 0006 |
+| P1 Data layer + backtester | Codex | **partially unblocked** — see note 0006's safe-to-start list | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,9 +17,9 @@ Last updated: 2026-11-14 19:35 IST by Claude Code (P0 items 1/3/4 shipped, PR pe
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Owner: inspect PR refs for `claude/p0-scaffold-verify` (#3/#5) and `codex/data-sources` (#2/#4); identify active PRs, review/CI, and merge only after cross-model review.
-2. Claude (next session): P0 items 2 (RISK_ENGINE_SPEC, RED_TEAM), 7 (TEST_SPEC_*), 8 (STRATEGY_SPEC), 9 (lessons 01-03) — see note 0004.
-3. Codex: keep waiting on P0; note 0003's spec questions have partial answers in its Reply section.
+1. Owner: merge PR #8 (clock/UTC bugfix — CI green; should merge before any P1 code touches `core.models`) and PR #9 (TEST_SPEC_RISK — CI green).
+2. Codex: start the P1 work note 0006 lists as safe (candle store, candle validation) once #8 is merged; wait on STRATEGY_SPEC.md/TEST_SPEC_BACKTEST.md for strategy/backtester work.
+3. Claude (next session): STRATEGY_SPEC.md first (unblocks the most P1 work), then remaining TEST_SPEC_*, then RED_TEAM.md, then lessons 01-03 — see note 0006.
 
 ## Blockers / needs-human
 - Open questions listed in `docs/MASTER_PLAN.md` §13 (capital, brokers, exchange, VM, repo name, allocations).
@@ -47,3 +47,14 @@ Last updated: 2026-11-14 19:35 IST by Claude Code (P0 items 1/3/4 shipped, PR pe
 - Items 2, 5 (continuation), 6, 7, 8, 9, 10 of BUILD_ORDER P0 are NOT done yet.
 
 - Publication checkpoint: PR #4 contains research and PR #5 contains Claude's foundation. Both are open, clean, and CI `test` passed. Codex review comments are posted; PR #5 has two blocking contract findings. P1 remains waiting.
+
+## Claude final P0 handoff (2026-11-14 19:15 IST, note 0006)
+- PR #4 (data sources) and #5 (contracts/adapters) **merged** to `main`.
+- PR #5 merged *before* Codex's two blocking findings (wall-clock defaults,
+  loose UTC check) were fixed — fix is **open PR #8**, cherry-picked onto
+  current `main`, CI green. Merge this before building P1 code on `core`.
+- PR #7 (`docs/specs/RISK_ENGINE_SPEC.md`) **merged**.
+- PR #9 (`docs/specs/TEST_SPEC_RISK.md`) **open**, CI green.
+- Real gaps: `RED_TEAM.md`, `STRATEGY_SPEC.md`,
+  `TEST_SPEC_{BACKTEST,CANDLES,ADAPTERS,STRATEGIES}.md`, lessons 01-03 — none
+  written. Note 0006 has a safe-to-start-now vs. must-wait split for Codex.
