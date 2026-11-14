@@ -30,6 +30,8 @@ class OpenTrade:
     quantity: Decimal
     entry_price: Decimal
     fees: Decimal
+    mark_price: Decimal
+    unrealized_pnl: Decimal
 
 
 @dataclass(frozen=True)
@@ -90,7 +92,7 @@ def run_long_only(
         if fill_bar.open < signal.stop:
             exit_index = fill_index
             exit_price = fill_bar.open * (Decimal("1") - profile.slippage_bps / Decimal("10000"))
-            exit_fees = profile.brokerage
+            exit_fees = profile.exit_fee
             approved_risk = abs(signal.entry_ref - signal.stop) * quantity
             realized_risk = abs(exit_price - signal.entry_ref) * quantity
             audit_events.append(
@@ -131,7 +133,7 @@ def run_long_only(
                 # A gap beyond a target fills at the actual open; otherwise
                 # the target order is filled at its specified price.
                 exit_price = candidate.open if candidate.open >= signal.target else signal.target
-                exit_fees = profile.brokerage
+                exit_fees = profile.exit_fee
                 exit_reason = "target"
                 break
             if condition_exit is not None and condition_exit(signal, index, candidate):
@@ -166,6 +168,8 @@ def run_long_only(
                     quantity=quantity,
                     entry_price=entry.price,
                     fees=entry.fees,
+                    mark_price=candles[-1].close,
+                    unrealized_pnl=(candles[-1].close - entry.price) * quantity - entry.fees,
                 )
             )
             continue

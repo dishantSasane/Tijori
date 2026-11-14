@@ -230,7 +230,7 @@ def test_condition_exit_on_closed_bar_fills_next_open(strategy: str) -> None:
             Decimal("13.0065"),
             Decimal("11.9940"),
             Decimal("40"),
-            Decimal("-121.2500"),
+            Decimal("-141.2500"),
             "condition",
         )
     ]

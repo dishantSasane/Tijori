@@ -11,7 +11,7 @@ from collections.abc import Callable
 from decimal import Decimal
 
 from trading.backtest.fills import BacktestProfile
-from trading.backtest.runner import BacktestResult, Trade
+from trading.backtest.runner import BacktestResult, OpenTrade, Trade
 from trading.core.enums import OrderSide
 from trading.core.models import Candle, Signal
 
@@ -30,6 +30,7 @@ def run_reference(
     trades: list[Trade] = []
     unfilled: list[str] = []
     audit_events: list[str] = []
+    open_trades: list[OpenTrade] = []
     last_exit = -1
     last_signal = -1
     open_positions = 0
@@ -83,8 +84,7 @@ def run_reference(
                 exit_price = candles[exit_bar].open * (Decimal("1") - slip)
             else:
                 continue
-            # The published vector deducts exit brokerage only from P&L;
-            # total fees separately include both entry and exit brokerage.
+            fees = profile.entry_fee + profile.exit_fee
             trades.append(
                 Trade(
                     signal_id=signal.id,
@@ -93,17 +93,30 @@ def run_reference(
                     quantity=quantity,
                     entry_price=entry_price,
                     exit_price=exit_price,
-                    fees=profile.brokerage * 2,
-                    pnl=(exit_price - entry_price) * quantity - profile.brokerage,
+                    fees=fees,
+                    pnl=(exit_price - entry_price) * quantity - fees,
                     exit_reason=exit_reason,
                 )
             )
             last_exit = exit_bar
             open_positions = 0
             break
+        if open_positions:
+            open_trades = [
+                OpenTrade(
+                    signal_id=signal.id,
+                    entry_bar=entry_bar,
+                    quantity=quantity,
+                    entry_price=entry_price,
+                    fees=profile.entry_fee,
+                    mark_price=candles[-1].close,
+                    unrealized_pnl=(candles[-1].close - entry_price) * quantity - profile.entry_fee,
+                )
+            ]
     return BacktestResult(
         trades=trades,
         unfilled_signals=unfilled,
         open_positions=open_positions,
         audit_events=audit_events,
+        open_trades=open_trades,
     )
