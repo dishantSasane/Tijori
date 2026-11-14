@@ -1,6 +1,6 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 by Codex (pre-P0 research; Claude P0 in progress)
+Last updated: 2026-11-14 19:35 IST by Claude Code (P0 items 1/3/4 shipped, PR pending; see note 0004)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
@@ -17,9 +17,9 @@ Last updated: 2026-11-14 by Codex (pre-P0 research; Claude P0 in progress)
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Codex: publish `codex/data-sources` PR after GitHub device login; Claude reviews it.
-2. Claude: resolve note 0003 spec questions during P0 and deliver the final handoff.
-3. Owner: confirm data-access/provider choices in 0003 and branch protection; approve merges after review. Codex waits for P0 before P1.
+1. Owner: open PR `claude/p0-scaffold-verify` -> `main` (no gh/API token in Claude's sandbox, only SSH push); open/merge `codex/data-sources` similarly.
+2. Claude (next session): P0 items 2 (RISK_ENGINE_SPEC, RED_TEAM), 7 (TEST_SPEC_*), 8 (STRATEGY_SPEC), 9 (lessons 01-03) — see note 0004.
+3. Codex: keep waiting on P0; note 0003's spec questions have partial answers in its Reply section.
 
 ## Blockers / needs-human
 - Open questions listed in `docs/MASTER_PLAN.md` §13 (capital, brokers, exchange, VM, repo name, allocations).
@@ -36,3 +36,12 @@ Last updated: 2026-11-14 by Codex (pre-P0 research; Claude P0 in progress)
 - Local ruff lint/format, mypy, pytest pass (one smoke test).
 - Main/root layout and handoffs/root layout repaired; worktrees operational.
 - P1 waiting on P0. NSE website ingestion is blocked pending authorized source/use; free live universe sizes need reconciliation (note 0003).
+
+## Claude P0 checkpoint (2026-11-14 19:35 IST)
+- Fixed repo bootstrap: `main` created (commit `2839936`), `handoffs` flattened
+  (commit `e058593`) — see note 0004 for why `main` didn't exist before this.
+- Branch `claude/p0-scaffold-verify`: P0 items 1 (verify, no fixes needed), 3
+  (`trading/core/` contracts), 4 (`trading/adapters/` Protocols+fakes). 31
+  tests, ruff/mypy clean. PR not opened (no gh/API token available); link in
+  note 0004.
+- Items 2, 5 (continuation), 6, 7, 8, 9, 10 of BUILD_ORDER P0 are NOT done yet.
