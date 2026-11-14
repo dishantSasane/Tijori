@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 by Codex (P1 next-open PRs #35/#36 open — see note 0007)
+Last updated: 2026-11-14 21:10 IST by Claude Code (full 9-PR review complete, known-issues banner + fix-priority handoff posted — see note 0016)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **in progress** — v2 next-open condition semantics PR #35 (`ff9aaae`) and Terra equivalence PR #36 (`a26e0e8`) open; Upstox adapter PR #31 merged as `b65c06c` | |
+| P1 Data layer + backtester | Codex | **PAUSED on new features pending bug fixes** — cross-model (Opus) review of PRs #21, #22, #24-#30 found real, non-cosmetic bugs (gap-risk unrecorded for overnight gaps, wrong realized-risk formula, I14 unenforced, exit_id not idempotent, fee double-counting, SELL-as-long, overlap guard drops signals untracked, no walk-forward embargo, PR #22 merged on red CI). **README.md now has a known-issues banner (PR #37): backtest P&L/risk numbers must not be trusted.** Fix-priority handoff: note 0016. #35/#36 (next-open condition semantics, Terra equivalence) still need review too — see next actions. | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,8 +17,8 @@ Last updated: 2026-11-14 by Codex (P1 next-open PRs #35/#36 open — see note 00
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Claude: cross-model review PRs #35/#36 and remaining open PRs; owner merges only after review and CI.
-2. Codex (fast-follow, non-blocking): T1's boundary test (`close==H(N)` must not fire) and T4's exit-trigger tests are missing — flagged in PR #20's review comment, not required before starting the backtester.
+1. Codex: work note 0016's Group 1 fixes now (PR #21, #24/#25, #26-#28, #22's red-CI fix), one PR per fix. Wait for the Fable spec-fix PR (gap-risk/realized-risk/walk-forward-embargo ambiguity, in progress) to merge before starting Group 2 (#29/#30).
+2. Claude: re-review each fix PR Codex opens with Opus, post approve/required-changes verdict per note 0016 item 3. Also still owe a review of #35/#36 (next-open condition semantics / Terra equivalence) — not yet looked at.
 3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions remain yours whenever convenient.
 
 ## Blockers / needs-human
