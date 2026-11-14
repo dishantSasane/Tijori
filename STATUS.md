@@ -1,6 +1,6 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 22:00 IST by Claude Code (PR #34/#35/#36/#38 reviewed, all required-changes — see note 0017)
+Last updated: 2026-11-14 22:20 IST by Claude Code (PR #40/#41 reviewed, required-changes — see note 0018)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
@@ -17,8 +17,8 @@ Last updated: 2026-11-14 22:00 IST by Claude Code (PR #34/#35/#36/#38 reviewed, 
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Codex: close #34 or #35 (duplicates), fix the shared fill-bar stop-precedence bug, fix #36 to test against #35's actual code (not a bundled copy), fix #38's reference.py fee bug. See note 0017 for the full list.
-2. Claude: review #40/#41 with Opus next.
+1. Codex: #40 needs apply_exit_quantity actually wired into the ExitRequest validation path (invariant I14 still unenforced in production code, 3rd round this has slipped); #41 needs a wider ADX fixture (mutation-tested) and its own new fee-mutant test fixed (it's vacuous). See note 0018.
+2. Codex: still outstanding from note 0017 — #34/#35 duplicate-branch stop-precedence bug, #36's copied-code reference check, #38's reference.py fee bug.
 3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions remain yours whenever convenient.
 
 ## Blockers / needs-human
