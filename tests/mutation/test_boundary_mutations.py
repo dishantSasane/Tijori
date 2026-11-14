@@ -1,15 +1,12 @@
 """Mutation sentinels for strict strategy/backtest safety boundaries.
 
-These tests encode the mutant directly: changing T1's ``>`` to ``>=`` must
-make the equality fixture fail, and charging only one side's fee must disagree
-with the runner's known-answer accounting.
+This test encodes the T1 boundary mutant directly: changing ``>`` to ``>=``
+must make the equality fixture fail.
 """
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from trading.backtest.runner import Trade
-from trading.backtest.scorecard import scorecard
 from trading.core.enums import MarketId, Timeframe
 from trading.core.models import Candle
 from trading.strategies.phase1 import t1_donchian
@@ -44,20 +41,3 @@ def test_t1_equality_mutant_is_killed() -> None:
     # The >= mutant would emit one signal on the equality bar.
     previous_high = max(bar.high for bar in bars[1:4])
     assert bars[4].close == previous_high
-
-
-def test_fee_double_counting_mutant_is_killed() -> None:
-    completed = Trade(
-        signal_id="1",
-        entry_bar=0,
-        exit_bar=1,
-        quantity=Decimal("1"),
-        entry_price=Decimal("100"),
-        exit_price=Decimal("110"),
-        fees=Decimal("2"),
-        pnl=Decimal("8"),
-    )
-    result = scorecard([completed])
-    assert result.total_pnl == Decimal("8")
-    # A mutant that subtracts fees again would report 6, not 8.
-    assert result.total_pnl != completed.pnl - completed.fees

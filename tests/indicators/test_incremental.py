@@ -1,3 +1,6 @@
+from hypothesis import given
+from hypothesis import strategies as st
+
 from trading.indicators.incremental import (
     ADXState,
     ATRState,
@@ -72,12 +75,30 @@ def test_incremental_vwap_matches_batch() -> None:
     assert actual == vwap(highs, lows, closes, volumes, 2)
 
 
-def test_incremental_adx_matches_batch() -> None:
-    highs = [10.0, 11.0, 12.5, 11.8, 13.2, 14.0, 13.6, 15.1, 14.8, 16.0, 17.2, 16.4]
-    lows = [8.0, 9.0, 10.5, 10.0, 11.4, 12.2, 11.8, 13.0, 12.5, 14.0, 15.0, 14.2]
-    closes = [9.0, 10.5, 11.2, 10.8, 12.7, 13.5, 12.4, 14.6, 13.2, 15.5, 16.8, 15.0]
+@given(
+    st.lists(
+        st.floats(min_value=1, max_value=1000, allow_nan=False, allow_infinity=False),
+        min_size=20,
+        max_size=30,
+    )
+)
+def test_incremental_adx_matches_batch(values: list[float]) -> None:
+    closes = values
+    highs = [close + 1.0 + (index % 3) * 0.25 for index, close in enumerate(closes)]
+    lows = [close - 1.0 - (index % 2) * 0.2 for index, close in enumerate(closes)]
     state = ADXState(3)
     actual = [
         state.update(high, low, close) for high, low, close in zip(highs, lows, closes, strict=True)
     ]
     assert actual == adx(highs, lows, closes, 3)
+
+
+def test_adx_directional_movement_tie_break_is_strict() -> None:
+    highs = [10.0 + index for index in range(20)]
+    lows = [5.0 - index for index in range(20)]
+    closes = [7.5] * 20
+    state = ADXState(3)
+    actual = [
+        state.update(h, low, close) for h, low, close in zip(highs, lows, closes, strict=True)
+    ]
+    assert actual[-1] == 0.0
