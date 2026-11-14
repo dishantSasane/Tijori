@@ -116,11 +116,14 @@ def run_long_only(
                 exit_reason = "target"
                 break
             if condition_exit is not None and condition_exit(signal, index, candidate):
-                exit_index = index
-                exit_price = candidate.close
-                exit_fees = profile.brokerage
-                exit_reason = "condition"
-                break
+                if index + 1 < len(candles):
+                    exit_index = index + 1
+                    exit_price = candles[index + 1].open * (
+                        Decimal("1") - profile.slippage_bps / Decimal("10000")
+                    )
+                    exit_fees = profile.brokerage
+                    exit_reason = "condition"
+                    break
         if exit_index is None or exit_price is None:
             next_available_index = len(candles)
             continue
