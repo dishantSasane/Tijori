@@ -1,4 +1,4 @@
-"""Known-answer and cross-runner tests for the stop-only reference."""
+"""Known-answer and cross-runner tests for the stop-and-target reference."""
 
 from decimal import Decimal
 
@@ -63,6 +63,7 @@ def test_reference_handles_gap_below_stop_on_fill_bar() -> None:
     entry = signal(0).model_copy(update={"entry_ref": Decimal("2500"), "stop": Decimal("2450")})
     profile = BacktestProfile(brokerage=Decimal("20"), slippage_bps=Decimal("5"))
     result = run_reference(bars, [entry], quantity=Decimal("100"), profile=profile)
+    assert result == run_long_only(bars, [entry], quantity=Decimal("100"), profile=profile)
     assert result.trades == [
         Trade(
             entry.id,
@@ -136,7 +137,7 @@ def test_equivalence_for_varied_stops_and_costs(
     assert reference == run_long_only(bars, [entry], quantity=Decimal("3"), profile=profile)
 
 
-def test_reference_rejects_overlapping_positions_and_targets() -> None:
+def test_reference_rejects_overlapping_positions() -> None:
     bars = [
         bar(0, "10", "11", "9", "10"),
         bar(1, "13", "14", "12", "13"),
@@ -146,6 +147,34 @@ def test_reference_rejects_overlapping_positions_and_targets() -> None:
         run_reference(
             bars, [signal(0), signal(1)], quantity=Decimal("1"), profile=BacktestProfile()
         )
-    target_signal = signal(0).model_copy(update={"target": Decimal("15")})
-    with pytest.raises(ValueError, match="no target"):
-        run_reference(bars, [target_signal], quantity=Decimal("1"), profile=BacktestProfile())
+
+
+@pytest.mark.parametrize(
+    ("opening", "high", "low", "expected_price", "expected_reason"),
+    [
+        ("13", "15", "12", "14", "target"),
+        ("15", "16", "12", "15", "target"),
+        ("13", "15", "8", "9", "stop"),
+    ],
+)
+def test_target_and_stop_precedence_matches(
+    opening: str, high: str, low: str, expected_price: str, expected_reason: str
+) -> None:
+    bars = [bar(0, "10", "11", "9", "10"), bar(1, opening, high, low, opening)]
+    entry = signal(0).model_copy(update={"target": Decimal("14")})
+    profile = BacktestProfile(Decimal("20"), Decimal("5"))
+    reference = run_reference(bars, [entry], quantity=Decimal("100"), profile=profile)
+    assert reference.trades[0].exit_price == Decimal(expected_price)
+    assert reference.trades[0].exit_reason == expected_reason
+    assert reference == run_long_only(bars, [entry], quantity=Decimal("100"), profile=profile)
+
+
+def test_zero_slippage_entry_gap_matches_both_runners() -> None:
+    bars = [bar(0, "2500", "2510", "2490", "2500"), bar(1, "2400", "2420", "2390", "2410")]
+    entry = signal(0).model_copy(update={"entry_ref": Decimal("2500"), "stop": Decimal("2450")})
+    profile = BacktestProfile(brokerage=Decimal("20"))
+    reference = run_reference(bars, [entry], quantity=Decimal("100"), profile=profile)
+    assert reference.trades[0].entry_price == Decimal("2400")
+    assert reference.trades[0].exit_price == Decimal("2400")
+    assert reference.audit_events == ["gap_risk_realized:approved_risk=5000:realized_risk=10000"]
+    assert reference == run_long_only(bars, [entry], quantity=Decimal("100"), profile=profile)

@@ -1,8 +1,8 @@
-"""Slow stop-only reference for checking the primary backtest runner.
+"""Slow stop-and-target reference for checking the primary backtest runner.
 
 The reference supports chronological, non-overlapping long entries for one
-instrument. It intentionally rejects unsupported targets and overlapping
-positions; it is not a scorecard or a complete strategy backtester.
+instrument. It rejects overlapping positions and is not a scorecard or a
+complete strategy backtester.
 """
 
 from __future__ import annotations
@@ -22,17 +22,18 @@ def run_reference(
     quantity: Decimal,
     profile: BacktestProfile,
 ) -> BacktestResult:
-    """Replay each entry with an independent, bar-by-bar stop search."""
+    """Replay each entry with an independent, bar-by-bar stop and target search."""
     if quantity <= 0:
         raise ValueError("quantity must be positive")
     trades: list[Trade] = []
     unfilled: list[str] = []
+    audit_events: list[str] = []
     last_exit = -1
     last_signal = -1
     open_positions = 0
     for signal in signals:
-        if signal.side != OrderSide.BUY or signal.stop is None or signal.target is not None:
-            raise ValueError("reference supports long entries with a stop and no target")
+        if signal.side != OrderSide.BUY or signal.stop is None:
+            raise ValueError("reference requires a long entry with a stop")
         matching = [
             i for i, candle in enumerate(candles) if candle.ts_open_utc == signal.bar_ts_utc
         ]
@@ -59,11 +60,22 @@ def run_reference(
         open_positions = 1
         for exit_bar in range(entry_bar, len(candles)):
             bar = candles[exit_bar]
-            if bar.low > signal.stop:
+            if bar.low <= signal.stop:
+                exit_reason = "stop"
+                exit_price = signal.stop
+                if bar.open < signal.stop:
+                    exit_price = bar.open * (Decimal("1") - slip)
+                    if exit_bar == entry_bar:
+                        approved = (signal.entry_ref - signal.stop) * quantity
+                        realized = (signal.entry_ref - exit_price) * quantity
+                        audit_events.append(
+                            f"gap_risk_realized:approved_risk={approved}:realized_risk={realized}"
+                        )
+            elif signal.target is not None and bar.high >= signal.target:
+                exit_reason = "target"
+                exit_price = max(bar.open, signal.target)
+            else:
                 continue
-            exit_price = signal.stop
-            if bar.open < signal.stop:
-                exit_price = bar.open * (Decimal("1") - slip)
             # The published vector deducts exit brokerage only from P&L;
             # total fees separately include both entry and exit brokerage.
             trades.append(
@@ -76,9 +88,15 @@ def run_reference(
                     exit_price=exit_price,
                     fees=profile.brokerage * 2,
                     pnl=(exit_price - entry_price) * quantity - profile.brokerage,
+                    exit_reason=exit_reason,
                 )
             )
             last_exit = exit_bar
             open_positions = 0
             break
-    return BacktestResult(trades=trades, unfilled_signals=unfilled, open_positions=open_positions)
+    return BacktestResult(
+        trades=trades,
+        unfilled_signals=unfilled,
+        open_positions=open_positions,
+        audit_events=audit_events,
+    )
