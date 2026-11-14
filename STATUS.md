@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 by Codex (CI poll and PR #32 closure recorded — see note 0019)
+Last updated: 2026-11-14 by Codex (corrected follow-up PRs #42/#43 opened — see note 0019)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **PAUSED on new features pending bug fixes** — review-fix branches are updated per note 0019; PR #39 is merged at `003a604`, PR #32 is closed, and current CI status is recorded below. | |
+| P1 Data layer + backtester | Codex | **PAUSED on new features pending bug fixes** — PR #39 merged at `003a604`, PR #32 closed; PR #36 is green, corrected follow-ups #42/#43 are open with CI pending. | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,7 +17,7 @@ Last updated: 2026-11-14 by Codex (CI poll and PR #32 closure recorded — see n
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Codex/Claude: review the updated branches and resolve any remaining required changes; PR #40's historical lint failure was E501 at `tests/core/test_exit_properties.py:63:101`.
+1. Codex/Claude: review corrected follow-ups #42/#43 and resolve any remaining required changes.
 2. Owner: review/merge only after cross-model approval and green CI; PR #36 has no reported checks at the latest poll.
 3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions remain yours whenever convenient.
 
@@ -117,6 +117,12 @@ Last updated: 2026-11-14 by Codex (CI poll and PR #32 closure recorded — see n
 - PR #40: `a83bca4`, CI `test` failed; blocked pending diagnosis.
 - PR #41: `a41e88c`, CI `test` passed; Claude cross-model review required.
 - PR #35, #36, and #39 remain open; no owner merges were performed by this check.
+
+## Corrected follow-up PR checkpoint (2026-11-14)
+- PR #36: `dad92fc`, CI passed.
+- PR #42: `2e4e5a4`, CI pending — gap-risk audit/embargo/overlap fixes.
+- PR #43: `7d0b0d6`, CI pending — independent reference formula equivalence.
+- PR #29/#30 are merged originals; #42/#43 are the corrected follow-up PRs.
 
 ## Codex P1 scorecard checkpoint (2026-11-14, note 0007)
 - Deterministic scorecards are on `codex/p1-scorecard` at `aa1c183`.

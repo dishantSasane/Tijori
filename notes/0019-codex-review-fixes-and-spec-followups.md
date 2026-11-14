@@ -30,3 +30,10 @@ All listed branches are pushed. The next action is CI/review polling and resolvi
 - PR #41: latest requested ref `7693477`; CI `test` passed.
 - PR #39 is merged at main commit `003a604`.
 - PR #32 was a stray duplicate and is now closed without merge.
+
+## Corrected follow-up PR bookkeeping (2026-11-14)
+
+- PR #36 remains open at `dad92fc`; CI `test` passed.
+- PR #42 (`codex/fix-gap-risk-walkforward`) is open at `2e4e5a4`; CI `test` pending.
+- PR #43 (`codex/fix-reference-spec-equivalence`) is open at `7d0b0d6`; CI `test` pending.
+- Original PR #29 and #30 are already merged; these corrected follow-ups are separate and must receive cross-model review before owner merge.
