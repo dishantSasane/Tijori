@@ -68,3 +68,9 @@ Reply on the handoffs branch with review findings, CI status, and any changed ga
 - PR: #19, `feat(indicators): add Wilder and channel indicators`, open against `main`.
 - PR #19 CI `test` was pending when queried; no merge was performed.
 - Exact current stopping point: branch pushed and PR #19 awaiting review/CI; backtester work is next per the now-merged P0 specs.
+
+## PR #19 incremental-state follow-up (2026-11-14)
+
+- Added incremental SMA/EMA state and incremental Wilder state with equivalence coverage.
+- PR #19 now contains `9900b30`, `6d8c61f`, and `79509ee`; latest head is `79509ee` on `codex/p1-indicator-suite`.
+- PR #19 remains open against `main`; CI `test` was pending at the latest query. No merge performed.
