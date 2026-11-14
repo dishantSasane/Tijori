@@ -8,6 +8,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Protocol
 
+from trading.core.clock import Clock
 from trading.core.enums import ORDER_STATUS_TRANSITIONS, OrderStatus
 from trading.core.models import Fill, Order, OrderRequest, Position
 
@@ -28,11 +29,15 @@ class Broker(Protocol):
     def positions(self) -> list[Position]: ...
 
 
-def transition(order: Order, new_status: OrderStatus) -> Order:
-    """Apply a status transition, raising if it is illegal (docs/RISK_SPEC.md §6)."""
+def transition(order: Order, new_status: OrderStatus, *, clock: Clock) -> Order:
+    """Apply a status transition, raising if it is illegal (docs/RISK_SPEC.md §6).
+
+    Takes the injected `clock` (never `datetime.now()`, AGENTS.md §6) to stamp
+    `updated_ts` — every transition is a new fact, not an edit of the old one.
+    """
     if new_status not in ORDER_STATUS_TRANSITIONS[order.status]:
         raise IllegalOrderTransitionError(f"{order.status} -> {new_status} is not allowed")
-    return order.model_copy(update={"status": new_status})
+    return order.model_copy(update={"status": new_status, "updated_ts": clock.now()})
 
 
 class FakePaperBroker:
@@ -41,7 +46,8 @@ class FakePaperBroker:
     tests; the real paper broker (with costs/slippage) is a P2 deliverable.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, clock: Clock) -> None:
+        self._clock = clock
         self._orders: dict[str, Order] = {}
         self._fills: list[Fill] = []
         self._positions: dict[tuple[str, str], Position] = {}
@@ -53,12 +59,18 @@ class FakePaperBroker:
         if request.id in self._orders:
             # Idempotency (invariant I7): same request id never places twice.
             return self._orders[request.id]
+        now = self._clock.now()
         order = Order(
-            id=request.id, request_id=request.id, status=OrderStatus.CREATED, qty=request.qty
+            id=request.id,
+            request_id=request.id,
+            status=OrderStatus.CREATED,
+            qty=request.qty,
+            created_ts=now,
+            updated_ts=now,
         )
-        order = transition(order, OrderStatus.RISK_APPROVED)
-        order = transition(order, OrderStatus.ROUTED)
-        order = transition(order, OrderStatus.FILLED)
+        order = transition(order, OrderStatus.RISK_APPROVED, clock=self._clock)
+        order = transition(order, OrderStatus.ROUTED, clock=self._clock)
+        order = transition(order, OrderStatus.FILLED, clock=self._clock)
         order = order.model_copy(
             update={
                 "qty_filled": order.qty,
@@ -70,7 +82,7 @@ class FakePaperBroker:
 
     def cancel_order(self, order_id: str) -> Order:
         order = self._orders[order_id]
-        order = transition(order, OrderStatus.CANCELLED)
+        order = transition(order, OrderStatus.CANCELLED, clock=self._clock)
         self._orders[order_id] = order
         return order
 

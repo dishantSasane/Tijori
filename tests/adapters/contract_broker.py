@@ -10,12 +10,15 @@ so every broker implementation is checked against the same invariants
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
 
 from trading.core.enums import MarketId, OrderSide, OrderStatus
 from trading.core.models import OrderRequest
+
+REQUEST_TS = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 def _request(**overrides: object) -> OrderRequest:
@@ -26,6 +29,7 @@ def _request(**overrides: object) -> OrderRequest:
         side=OrderSide.BUY,
         qty=Decimal(10),
         idempotency_key="idem-1",
+        created_ts=REQUEST_TS,
     )
     base.update(overrides)
     return OrderRequest(**base)  # type: ignore[arg-type]

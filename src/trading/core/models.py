@@ -7,7 +7,7 @@ time happens only at the edges (dashboard, Telegram).
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import uuid4
@@ -26,24 +26,29 @@ from trading.core.enums import (
 )
 
 
-def _utc_now() -> datetime:
-    return datetime.now(UTC)
-
-
 def _new_id() -> str:
     return str(uuid4())
 
 
 class Contract(BaseModel):
-    """Base for all contracts: immutable, extra fields rejected."""
+    """Base for all contracts: immutable, extra fields rejected.
+
+    No field here defaults to wall-clock time (AGENTS.md §6: "inject the
+    clock; never call datetime.now() inside core logic"). Every `*_ts`/`*_at`
+    field is required — the caller supplies it from an injected `Clock`
+    (`core/clock.py`), so a `Contract` is fully deterministic given its inputs.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid", validate_assignment=True)
 
     @field_validator("*", mode="before")
     @classmethod
-    def _reject_naive_datetimes(cls, value: Any) -> Any:
-        if isinstance(value, datetime) and value.tzinfo is None:
-            raise ValueError("datetimes must be timezone-aware (UTC)")
+    def _reject_non_utc_datetimes(cls, value: Any) -> Any:
+        if isinstance(value, datetime):
+            if value.tzinfo is None:
+                raise ValueError("datetimes must be timezone-aware (UTC)")
+            if value.utcoffset() != timedelta(0):
+                raise ValueError("datetimes must be UTC (utcoffset == 0), not another offset")
         return value
 
 
@@ -60,7 +65,7 @@ class Candle(Contract):
     close: Decimal
     volume: Decimal = Field(ge=0)
     source: str
-    ingest_ts: datetime = Field(default_factory=_utc_now)
+    ingest_ts: datetime
     adj_factor: Decimal | None = None
 
     @model_validator(mode="after")
@@ -101,7 +106,7 @@ class Signal(Contract):
     stop: Decimal | None = Field(default=None, gt=0)
     target: Decimal | None = Field(default=None, gt=0)
     bar_ts_utc: datetime
-    created_ts: datetime = Field(default_factory=_utc_now)
+    created_ts: datetime
     reason_codes: tuple[str, ...] = ()
 
     @model_validator(mode="after")
@@ -127,7 +132,7 @@ class OrderRequest(Contract):
     limit_price: Decimal | None = Field(default=None, gt=0)
     stop_price: Decimal | None = Field(default=None, gt=0)
     idempotency_key: str
-    created_ts: datetime = Field(default_factory=_utc_now)
+    created_ts: datetime
 
 
 class Order(Contract):
@@ -140,8 +145,8 @@ class Order(Contract):
     qty: Decimal = Field(gt=0)
     qty_filled: Decimal = Field(default=Decimal(0), ge=0)
     avg_fill_price: Decimal | None = Field(default=None, gt=0)
-    created_ts: datetime = Field(default_factory=_utc_now)
-    updated_ts: datetime = Field(default_factory=_utc_now)
+    created_ts: datetime
+    updated_ts: datetime
 
     @model_validator(mode="after")
     def _check_fill_not_over_qty(self) -> Order:
@@ -180,7 +185,7 @@ class RiskDecision(Contract):
     qty: Decimal = Field(ge=0)
     reason_codes: tuple[ReasonCode, ...] = Field(min_length=1)
     limits_snapshot: dict[str, Any] = Field(default_factory=dict)
-    created_ts: datetime = Field(default_factory=_utc_now)
+    created_ts: datetime
 
     @model_validator(mode="after")
     def _check_consistency(self) -> RiskDecision:
@@ -200,7 +205,7 @@ class BrainVerdict(Contract):
     label: BrainLabel
     size_multiplier: Decimal = Field(ge=0, le=1)
     reasons: tuple[str, ...] = ()
-    created_ts: datetime = Field(default_factory=_utc_now)
+    created_ts: datetime
 
 
 class SignalOutcome(Contract):
@@ -215,7 +220,7 @@ class AuditEvent(Contract):
     """One row per order, risk decision, mode change, or LLM call (AGENTS.md §6)."""
 
     id: str = Field(default_factory=_new_id)
-    ts_utc: datetime = Field(default_factory=_utc_now)
+    ts_utc: datetime
     event_type: str
     actor: str
     payload: dict[str, Any] = Field(default_factory=dict)

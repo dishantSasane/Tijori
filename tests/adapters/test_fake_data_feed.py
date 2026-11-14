@@ -19,6 +19,7 @@ def test_poll_closed_candles_returns_and_clears() -> None:
         close=Decimal(10),
         volume=Decimal(100),
         source="fake",
+        ingest_ts=datetime(2026, 1, 1, tzinfo=UTC),
     )
     feed.push_closed_candle(candle)
     assert feed.poll_closed_candles() == [candle]

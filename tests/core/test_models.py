@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -30,6 +30,7 @@ def test_candle_rejects_high_below_low() -> None:
             close=Decimal(9),
             volume=Decimal(100),
             source="test",
+            ingest_ts=UTC_NOW,
         )
 
 
@@ -46,6 +47,25 @@ def test_candle_rejects_naive_timestamp() -> None:
             close=Decimal(10),
             volume=Decimal(100),
             source="test",
+            ingest_ts=UTC_NOW,
+        )
+
+
+def test_candle_rejects_non_utc_offset() -> None:
+    ist = timezone(timedelta(hours=5, minutes=30))
+    with pytest.raises(ValidationError, match="must be UTC"):
+        Candle(
+            market=MarketId.IN_EQUITY,
+            symbol="RELIANCE",
+            timeframe=Timeframe.D1,
+            ts_open_utc=datetime(2026, 1, 1, tzinfo=ist),
+            open=Decimal(10),
+            high=Decimal(11),
+            low=Decimal(9),
+            close=Decimal(10),
+            volume=Decimal(100),
+            source="test",
+            ingest_ts=UTC_NOW,
         )
 
 
@@ -61,6 +81,7 @@ def test_candle_is_immutable() -> None:
         close=Decimal(10),
         volume=Decimal(100),
         source="test",
+        ingest_ts=UTC_NOW,
     )
     with pytest.raises(ValidationError):
         candle.close = Decimal(20)  # type: ignore[misc]
@@ -78,6 +99,7 @@ def test_buy_signal_requires_stop_below_entry() -> None:
             entry_ref=Decimal(100),
             stop=Decimal(105),
             bar_ts_utc=UTC_NOW,
+            created_ts=UTC_NOW,
         )
 
 
@@ -93,6 +115,7 @@ def test_sell_signal_requires_stop_above_entry() -> None:
             entry_ref=Decimal(100),
             stop=Decimal(95),
             bar_ts_utc=UTC_NOW,
+            created_ts=UTC_NOW,
         )
 
 
@@ -109,6 +132,7 @@ def test_signal_without_stop_is_constructible_but_unapproved_downstream() -> Non
         entry_ref=Decimal(100),
         stop=None,
         bar_ts_utc=UTC_NOW,
+        created_ts=UTC_NOW,
     )
     assert signal.stop is None
 
@@ -120,6 +144,8 @@ def test_order_qty_filled_cannot_exceed_qty() -> None:
             status=OrderStatus.PARTIALLY_FILLED,
             qty=Decimal(10),
             qty_filled=Decimal(11),
+            created_ts=UTC_NOW,
+            updated_ts=UTC_NOW,
         )
 
 
@@ -130,6 +156,7 @@ def test_risk_decision_allowed_requires_positive_qty() -> None:
             allowed=True,
             qty=Decimal(0),
             reason_codes=(ReasonCode.OK,),
+            created_ts=UTC_NOW,
         )
 
 
@@ -140,12 +167,19 @@ def test_risk_decision_rejected_requires_zero_qty() -> None:
             allowed=False,
             qty=Decimal(5),
             reason_codes=(ReasonCode.KILL_SWITCH_ENGAGED,),
+            created_ts=UTC_NOW,
         )
 
 
 def test_risk_decision_requires_at_least_one_reason_code() -> None:
     with pytest.raises(ValidationError):
-        RiskDecision(signal_id="sig-1", allowed=False, qty=Decimal(0), reason_codes=())
+        RiskDecision(
+            signal_id="sig-1",
+            allowed=False,
+            qty=Decimal(0),
+            reason_codes=(),
+            created_ts=UTC_NOW,
+        )
 
 
 def test_brain_verdict_size_multiplier_bounds() -> None:
@@ -156,4 +190,5 @@ def test_brain_verdict_size_multiplier_bounds() -> None:
             signal_id="sig-1",
             label=BrainLabel.SUPPORT,
             size_multiplier=Decimal("1.5"),
+            created_ts=UTC_NOW,
         )
