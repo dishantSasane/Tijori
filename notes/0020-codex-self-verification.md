@@ -12,3 +12,11 @@ Claude declined to review further, so Codex reproduced and fixed the remaining i
 - Corrected-spec #30 follow-up remains on `codex/fix-reference-spec-equivalence` (`7d0b0d6`): independent reference formula and nonzero-slippage 10120 known-answer. Its existing equivalence tests require the fee-corrected runner from #38, so merge/order is #38 before #30.
 
 Exact stopping point: branches are pushed and locally verified; GitHub CI must be rerun on the rebased heads. Merge order is #35 → #36, #38 → #30, and #40/#41 after green checks; owner performs merges.
+
+## CI update
+
+- PR #35 head `0bb5739`: GitHub `test` passed.
+- PR #36 head `dad92fc`: GitHub `test` passed after rebasing onto #35.
+- PR #38 head `c8170c9`: GitHub `test` passed.
+- PR #40 head `29b5055`: GitHub `test` passed.
+- PR #41 head `02d2613`: GitHub `test` passed.
