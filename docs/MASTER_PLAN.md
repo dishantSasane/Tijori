@@ -107,7 +107,7 @@ P0 Foundation sprint (Claude, time-boxed) -> P1 Data + backtester -> P2 Paper br
 ## 13. Open questions for the owner (do not guess; ask via handoff `needs-human`)
 
 1. Starting capital per sleeve (paper and live).
-2. Which broker for free Indian market data (Angel One SmartAPI, Fyers) vs paying for Kite Connect data (Rs 500/mo, verify).
+2. Which provider should supply P3 live Indian market data; P1 historical research uses Upstox.
 3. Order broker for India (Zerodha Kite Connect Personal assumed) and US route (Alpaca paper first; LRS/IBKR later).
 4. Crypto exchange choice and legal/tax approach.
 5. Cloud VM provider (Oracle free tier / student credits / cheap VPS) and static IP plan.

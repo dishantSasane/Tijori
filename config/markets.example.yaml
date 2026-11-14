@@ -14,7 +14,7 @@ india_equity:
     filters: {series: [EQ], min_price_inr: 20, min_avg_daily_value_inr: 50000000, exclude_surveillance: true}
   data:
     live_provider: TBD                 # free: Angel One SmartAPI / Fyers; paid: Kite Connect Rs 500/mo
-    history_provider: TBD
+    history_provider: upstox            # P1 historical candles; live provider remains undecided
   costs:                               # placeholders
     brokerage_per_order_inr: 20
     slippage_bps: 5

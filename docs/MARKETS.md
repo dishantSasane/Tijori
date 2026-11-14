@@ -6,7 +6,7 @@ Per-market profiles. Facts marked **(verified 2026-11-14)** came from web resear
 
 | Market | Tier A (live) | Tier B (daily whole-market) | Data (free-first) | Orders | Phase |
 |---|---|---|---|---|---|
-| India equities (NSE) | Nifty 50 + Next 50 (~100) | NSE bhavcopy + corporate actions | Angel One SmartAPI or Fyers free data; or Kite Connect data | Zerodha Kite Connect Personal (orders only) | P1-P4 |
+| India equities (NSE) | Nifty 50 + Next 50 (~100) | NSE bhavcopy + corporate actions | **Upstox for P1 historical candles**; live source TBD | Zerodha Kite Connect Personal (orders only) | P1-P4 |
 | US stocks/ETFs | Nasdaq 100 (+ key ETFs) | Daily bars for all US stocks via Alpaca | Alpaca free plan | Alpaca paper first; live route (LRS/IBKR) later | P5 |
 | Crypto | BTC, ETH, top ~20 by volume | Daily candles for all pairs on the chosen exchange via CCXT | CCXT public endpoints | Exchange via CCXT (withdrawals disabled) | P5 |
 | MCX commodities | all relevant contracts (few) | not needed | via Indian broker API | Kite | P8 |
@@ -26,7 +26,7 @@ Per-market profiles. Facts marked **(verified 2026-11-14)** came from web resear
 - Fyers: API free, states historical/quotes/market data free.
 - Upstox: APIs free; Rs 10 per executed API order stated until 31 Dec 2026.
 - Dhan: trading API free; data API about Rs 499 per 30 days.
-- Recommended zero-cost split: free data from Angel One or Fyers account; orders via Zerodha Personal. Adapters keep data and execution separate.
+- P1 source decision: use Upstox historical candles for reproducible research and backtests. This does not select the P3 live market-data source or the order broker. Adapters keep data and execution separate.
 **Order rules:** SEBI static-IP rule, see `COMPLIANCE_INDIA.md`.
 **Paper-fill assumptions (placeholders):** brokerage Rs 20/order, slippage 5 bps for large caps, wider for small/illiquid; add statutory charges from the broker's contract note.
 **Intraday:** square off before cut-off (default 15:15 IST) for intraday strategies.

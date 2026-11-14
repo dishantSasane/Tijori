@@ -106,6 +106,19 @@ strategy promotion and go-live remain blocked on this cross-model equivalence
 gate. No implementation may silently treat a stop/target-only reference as
 complete.
 
+**ADR-0023 · 2026-11-14 · accepted · Upstox is the P1 India historical-data source**
+Context: the owner chose one concrete source for the P1 research and backtesting
+slice after the tokenless daily and past-day intraday probes and the validated
+Parquet loader were completed.
+Decision: use the existing Upstox historical-candle adapter for P1 India daily
+and intraday research data. Keep raw provider responses/fixtures, request
+parameters, ingestion timestamps, and candle provenance. This does not select a
+P3 live feed, an execution broker, or authorize live orders.
+Consequences: P1 can collect the Nifty 50/Tier A research set and generate T1/T4
+scorecards against one adapter. Corporate-action adjustment, historical
+membership, and provider terms still need validation before results are called
+survivorship-free or production-ready.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
