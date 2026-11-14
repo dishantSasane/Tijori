@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 21:10 IST by Claude Code (full 9-PR review complete, known-issues banner + fix-priority handoff posted — see note 0016)
+Last updated: 2026-11-14 by Codex (runner accounting PR #38 open — see note 0007)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **PAUSED on new features pending bug fixes** — cross-model (Opus) review of PRs #21, #22, #24-#30 found real, non-cosmetic bugs (gap-risk unrecorded for overnight gaps, wrong realized-risk formula, I14 unenforced, exit_id not idempotent, fee double-counting, SELL-as-long, overlap guard drops signals untracked, no walk-forward embargo, PR #22 merged on red CI). **README.md now has a known-issues banner (PR #37): backtest P&L/risk numbers must not be trusted.** Fix-priority handoff: note 0016. #35/#36 (next-open condition semantics, Terra equivalence) still need review too — see next actions. | |
+| P1 Data layer + backtester | Codex | **PAUSED on new features pending bug fixes** — PR #38 addresses fee double-counting, SELL-as-long, and structured open trades; #35/#36 still need cross-model review. Known-issues banner/fix-priority handoff remain in note 0016. | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,8 +17,8 @@ Last updated: 2026-11-14 21:10 IST by Claude Code (full 9-PR review complete, kn
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Codex: work note 0016's Group 1 fixes now (PR #21, #24/#25, #26-#28, #22's red-CI fix), one PR per fix. Wait for the Fable spec-fix PR (gap-risk/realized-risk/walk-forward-embargo ambiguity, in progress) to merge before starting Group 2 (#29/#30).
-2. Claude: re-review each fix PR Codex opens with Opus, post approve/required-changes verdict per note 0016 item 3. Also still owe a review of #35/#36 (next-open condition semantics / Terra equivalence) — not yet looked at.
+1. Codex: continue note 0016's Group 1 fixes one PR per fix; PR #38 is the runner accounting fix currently awaiting review.
+2. Claude: re-review PR #38 and the remaining fix PRs with Opus, and review #35/#36 before approval.
 3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions remain yours whenever convenient.
 
 ## Blockers / needs-human
@@ -108,6 +108,10 @@ Last updated: 2026-11-14 21:10 IST by Claude Code (full 9-PR review complete, kn
 - Sol v2: PR #35, latest `ff9aaae` (`11d4f27` + `ff9aaae`), CI pending.
 - Terra reference: PR #36, latest `a26e0e8`, no checks reported; 86 tests reported.
 - Both require cross-model review; no merge performed.
+
+## Codex runner accounting checkpoint (2026-11-14, note 0007)
+- PR #38 is open at `970903d`; total fees are counted once, SELL signals are rejected, and end-of-data open trades are structured.
+- CI `test` pending at latest query; cross-model review required.
 
 ## Codex P1 scorecard checkpoint (2026-11-14, note 0007)
 - Deterministic scorecards are on `codex/p1-scorecard` at `aa1c183`.

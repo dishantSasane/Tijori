@@ -169,3 +169,9 @@ Note `0011-codex-terra-to-both-lookahead.md` records Terra's independent look-ah
 - PR #35 is open against `main`; CI `test` pending at latest query. No merge performed.
 - Terra reference branch `codex/terra-reference` is at `a26e0e8`, with independent T1/T4/T6 next-open equivalence and 86 reported tests.
 - PR #36 is open against `main`; no checks were reported at latest query. Both PRs require cross-model review.
+
+## P1 runner accounting fix group #21 (2026-11-14)
+
+- Commit `970903d` on `codex/fix-runner-accounting` fixes total-fee accounting (exactly once in P&L), rejects SELL signals in the long-only runner, and returns structured `open_trades` at end-of-data.
+- PR #38 is open against `main`; CI `test` pending at latest query. No merge performed.
+- Cross-model review is required before owner merge.
