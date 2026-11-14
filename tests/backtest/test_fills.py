@@ -22,7 +22,7 @@ def test_buy_fills_at_next_open_with_adverse_slippage() -> None:
 
 
 def test_stop_first_and_gap_through_stop() -> None:
-    profile = BacktestProfile(brokerage=Decimal("20"), slippage_bps=Decimal("0"))
+    profile = BacktestProfile(brokerage=Decimal("20"), slippage_bps=Decimal("5"))
     position = Position(quantity=Decimal("100"), entry_price=Decimal("2500"), stop=Decimal("2450"))
     exit_fill = stop_exit(
         position,
@@ -32,7 +32,7 @@ def test_stop_first_and_gap_through_stop() -> None:
         profile=profile,
     )
     assert exit_fill is not None
-    assert exit_fill.price == Decimal("2400")
+    assert exit_fill.price == Decimal("2398.8")
     assert exit_fill.gap_through_stop is True
     assert exit_fill.fees == Decimal("20")
 
