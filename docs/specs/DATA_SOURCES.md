@@ -55,6 +55,14 @@ anti-bot challenges.
 
 ## Corporate actions and historical membership
 
+Upstox's official [instrument documentation](https://upstox.com/developer/api-documentation/instruments/)
+describes the current BOD instrument files and recommends `instrument_key` for
+stable instrument identity. Its official [instrument search documentation](https://upstox.com/developer/api-documentation/instrument-search/)
+resolves current instruments, including index instruments, but neither
+document establishes point-in-time index constituents or historical membership.
+The P1 Upstox adapter therefore resolves identifiers only; it must not infer a
+historical Nifty 50 or Next 50 membership list from today's catalogue.
+
 The official [NSE corporate-actions page](https://www.nseindia.com/companies-listing/corporate-filings-actions)
 offers date/company filters and CSV downloads. It is a source-discovery reference,
 not a documented public ingestion API or evidence of a complete historical feed.
