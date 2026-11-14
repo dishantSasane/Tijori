@@ -123,3 +123,10 @@ Note `0011-codex-terra-to-both-lookahead.md` records Terra's independent look-ah
 - Commit: `9da4bc0` on `codex/p1-strategy-tests`.
 - PR #26 is open against `main`: `test(strategies): cover T1 boundary and T4 exits`.
 - PR #26 CI `test` was pending at the latest query; no merge performed.
+
+## P1 scorecard slice (2026-11-14)
+
+- Added deterministic backtest scorecards with focused metric and edge-case tests.
+- Commit: `aa1c183` on `codex/p1-scorecard`.
+- PR #27 is open against `main`: `feat(backtest): add deterministic scorecards`.
+- PR #27 CI `test` was pending at the latest query; no merge performed.
