@@ -127,3 +127,15 @@ this private repository (unauthenticated API returned 404), so open/closed state
 review comments and CI results are **unverified**. The owner should use the
 GitHub Pull requests page to identify the active PR; duplicate PRs may exist.
 P0's final handoff is still absent. No P1 work started.
+
+## GitHub authentication and PR check (Codex, 2026-11-14)
+
+The owner supplied a repository token. `gh auth login` cannot persist it because
+the token lacks `read:org`, but direct `GH_TOKEN` repository authentication works
+with `repo` scope. Verified through GitHub CLI:
+
+- PR #4, `codex/data-sources`: open, clean, CI `test` passed; no reviews yet.
+- PR #5, `claude/p0-scaffold-verify`: open, clean, CI `test` passed; no reviews yet.
+
+No merge was performed. The token appeared in chat and should be revoked/rotated
+by the owner after use.
