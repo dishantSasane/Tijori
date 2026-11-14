@@ -114,3 +114,18 @@ def test_condition_exit_is_evaluated_at_close_after_protective_checks() -> None:
         condition_exit=lambda current_signal, index, candle: index == 2,
     )
     assert result.trades[0].exit_price == Decimal("12")
+
+
+def test_entry_gap_through_stop_is_realized_at_actual_fill() -> None:
+    candles = [
+        bar(0, "10", "11", "9", "10"),
+        bar(1, "8.5", "9", "8", "8.5"),
+    ]
+    result = run_long_only(
+        candles,
+        [signal(0)],
+        quantity=Decimal("1"),
+        profile=BacktestProfile(brokerage=Decimal("20")),
+    )
+    assert result.trades[0].exit_price == Decimal("8.5")
+    assert result.audit_events == ["gap_risk_realized"]
