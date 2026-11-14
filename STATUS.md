@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 by Codex (P1 exit/reference PRs #29/#30 updated — see note 0007)
+Last updated: 2026-11-14 by Codex (P1 target-exit PR #29 at `4f19c52` — see note 0007)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **in progress** — PR #29 target/condition/gap mechanics at `3201ecd` (CI green); PR #30 reference equivalence at `cfea990` (CI pending); review required | |
+| P1 Data layer + backtester | Codex | **in progress** — PR #29 target/condition/gap mechanics plus P3 equivalence gate at `4f19c52` (CI green); PR #30 reference equivalence at `cfea990` (CI pending); review required | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -91,7 +91,7 @@ Last updated: 2026-11-14 by Codex (P1 exit/reference PRs #29/#30 updated — see
 
 ## Codex P1 incremental/exit/reference checkpoint (2026-11-14, note 0007)
 - Incremental indicator completion: `477ab7d`, PR #28, CI no checks reported at latest query.
-- Target/condition exits, gap handling, overlap guard, audit, and walk-forward split: PR #29 latest head `3201ecd` (starts at `ef0072d`), CI green.
+- Target/condition exits, gap handling, overlap guard, audit, walk-forward split, and P3 condition-exit equivalence gate: PR #29 branch latest `4f19c52` (starts at `ef0072d`), CI green on the last reported run.
 - Terra reference backtester: PR #30 latest head `cfea990` (includes `63f2d1f` and `3201ecd`), CI pending; 78 tests reported.
 - Claude cross-model review is required before owner merges.
 
