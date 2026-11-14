@@ -117,6 +117,20 @@ def run_long_only(
                 break
             if condition_exit is not None and condition_exit(signal, index, candidate):
                 if index + 1 < len(candles):
+                    condition_fill = candles[index + 1]
+                    condition_stop = stop_exit(
+                        position,
+                        open_price=condition_fill.open,
+                        high=condition_fill.high,
+                        low=condition_fill.low,
+                        profile=profile,
+                    )
+                    if condition_stop is not None:
+                        exit_index = index + 1
+                        exit_price = condition_stop.price
+                        exit_fees = condition_stop.fees
+                        exit_reason = "stop"
+                        break
                     exit_index = index + 1
                     exit_price = candles[index + 1].open * (
                         Decimal("1") - profile.slippage_bps / Decimal("10000")
