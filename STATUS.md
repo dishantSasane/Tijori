@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 19:15 IST by Claude Code (final P0 handoff — see note 0006)
+Last updated: 2026-11-14 by Codex (P1 candle store merged; follow-up PR #13 open — see note 0007)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
-| P0 Foundation sprint | Claude Code | mostly done, NOT 100% | contracts/adapters/RISK_ENGINE_SPEC/TEST_SPEC_RISK merged-or-PR-open (#5 merged, #7 merged, #8 open, #9 open); RED_TEAM.md, STRATEGY_SPEC.md, TEST_SPEC_{BACKTEST,CANDLES,ADAPTERS,STRATEGIES}.md, lessons 01-03 NOT written — see note 0006 |
-| P1 Data layer + backtester | Codex | **partially unblocked** — see note 0006's safe-to-start list | |
+| P0 Foundation sprint | Claude Code | mostly done, NOT 100% | contracts/adapters/RISK_ENGINE_SPEC/TEST_SPEC_RISK merged-or-PR-open; RED_TEAM.md, STRATEGY_SPEC.md, TEST_SPEC_{BACKTEST,CANDLES,ADAPTERS,STRATEGIES}.md, lessons 01-03 NOT written — see note 0006 |
+| P1 Data layer + backtester | Codex | **in progress** — candle store merged; follow-up PR #13 open; strategy/backtester specs still gate later work | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,9 +17,9 @@ Last updated: 2026-11-14 19:15 IST by Claude Code (final P0 handoff — see note
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Owner: merge PR #8 (clock/UTC bugfix — CI green; should merge before any P1 code touches `core.models`) and PR #9 (TEST_SPEC_RISK — CI green).
-2. Codex: start the P1 work note 0006 lists as safe (candle store, candle validation) once #8 is merged; wait on STRATEGY_SPEC.md/TEST_SPEC_BACKTEST.md for strategy/backtester work.
-3. Claude (next session): STRATEGY_SPEC.md first (unblocks the most P1 work), then remaining TEST_SPEC_*, then RED_TEAM.md, then lessons 01-03 — see note 0006.
+1. Owner/Claude: review PR #13, wait for CI, and decide whether to merge it.
+2. Codex: continue only the safe P1 storage/validation slice; do not start strategies or the backtester before the required specs arrive.
+3. Claude: finish STRATEGY_SPEC.md and TEST_SPEC_BACKTEST.md, then the remaining TEST_SPEC_* and RED_TEAM.md work — see note 0006.
 
 ## Blockers / needs-human
 - Open questions listed in `docs/MASTER_PLAN.md` §13 (capital, brokers, exchange, VM, repo name, allocations).
@@ -35,7 +35,7 @@ Last updated: 2026-11-14 19:15 IST by Claude Code (final P0 handoff — see note
 - Usage snapshot: five-hour window 12% used; weekly window 5% used. Recheck next session.
 - Local ruff lint/format, mypy, pytest pass (one smoke test).
 - Main/root layout and handoffs/root layout repaired; worktrees operational.
-- P1 waiting on P0. NSE website ingestion is blocked pending authorized source/use; free live universe sizes need reconciliation (note 0003).
+- NSE website ingestion is blocked pending an authorized source/use; free live universe sizes need reconciliation (note 0003).
 
 ## Claude P0 checkpoint (2026-11-14 19:35 IST)
 - Fixed repo bootstrap: `main` created (commit `2839936`), `handoffs` flattened
@@ -46,7 +46,7 @@ Last updated: 2026-11-14 19:15 IST by Claude Code (final P0 handoff — see note
   note 0004.
 - Items 2, 5 (continuation), 6, 7, 8, 9, 10 of BUILD_ORDER P0 are NOT done yet.
 
-- Publication checkpoint: PR #4 contains research and PR #5 contains Claude's foundation. Both are open, clean, and CI `test` passed. Codex review comments are posted; PR #5 has two blocking contract findings. P1 remains waiting.
+- Publication checkpoint: PRs #4, #5, #7, #8, and #9 are merged. PR #10 (candle store) is merged at `18310fd`; its CI is green. PR #13 (atomic candle batches) is open at `ccbaf3d`; its CI was pending at the latest query.
 
 ## Claude final P0 handoff (2026-11-14 19:15 IST, note 0006)
 - PR #4 (data sources) and #5 (contracts/adapters) **merged** to `main`.
