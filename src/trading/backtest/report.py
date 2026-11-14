@@ -10,6 +10,7 @@ from typing import Any
 
 from trading.backtest.fills import BacktestProfile
 from trading.backtest.phase1 import StrategyBacktest, run_t1, run_t4
+from trading.backtest.scorecard import block_bootstrap_expectancy
 from trading.backtest.walk_forward import rolling_walk_forward_windows
 from trading.core.models import Candle
 
@@ -150,6 +151,7 @@ def write_phase1_walk_forward_report(
 
 def _strategy_report(result: StrategyBacktest) -> dict[str, Any]:
     score = result.result.scorecard
+    expectancy_interval = block_bootstrap_expectancy(result.result.primary.trades)
     return {
         "signals": len(result.signals),
         "trades": score.trades,
@@ -163,6 +165,14 @@ def _strategy_report(result: StrategyBacktest) -> dict[str, Any]:
             "avg_win": str(score.avg_win),
             "avg_loss": str(score.avg_loss),
             "expectancy": str(score.expectancy),
+            "expectancy_interval": {
+                "lower": str(expectancy_interval.lower),
+                "upper": str(expectancy_interval.upper),
+                "confidence": str(expectancy_interval.confidence),
+                "block_size": expectancy_interval.block_size,
+                "resamples": expectancy_interval.resamples,
+                "seed": expectancy_interval.seed,
+            },
         },
         "equivalence_checked": result.result.primary == result.result.reference,
         "open_positions": result.result.primary.open_positions,

@@ -23,6 +23,11 @@ and excluded under the explicit `censor_open_positions_at_test_end` policy;
 this is not a continuous portfolio simulation. The current run recorded 18
 censored T1 positions and 2 censored T4 positions across the six members.
 
+Each JSON scorecard also records a deterministic 95% circular block-bootstrap
+interval for per-instrument expectancy (block size 5 trades, 2,000 resamples).
+Those intervals are descriptive uncertainty estimates; they are not an IID
+p-value and are not combined across the correlated instruments.
+
 The rules and default parameters were frozen before this run. No parameter
 tuning was performed against these test windows. The six members are the
 provisional representative sample from the main P1 scorecard, not the complete

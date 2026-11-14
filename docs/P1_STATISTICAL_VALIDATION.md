@@ -59,6 +59,13 @@ The following are separate questions:
 
 No single p-value answers all four.
 
+The current JSON reports use a deterministic circular block bootstrap with
+five-trade blocks, 2,000 resamples, and a fixed seed to provide a reproducible
+per-instrument expectancy interval. This is a conservative diagnostic for
+local dependence, not a claim that five trades is a universal market-memory
+length. Aggregate cross-instrument inference is intentionally not reported
+because the tested instruments are correlated.
+
 ## 4. Correct chronological protocol
 
 The periods must be selected before looking at the strategy results:

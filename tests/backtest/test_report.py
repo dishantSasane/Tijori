@@ -41,6 +41,9 @@ def test_phase1_report_is_reproducible_and_decimal_safe(tmp_path: Path) -> None:
     assert report["strategies"]["t1_donchian"]["equivalence_checked"] is True
     assert report["strategies"]["t1_donchian"]["trades"] == 1
     assert isinstance(report["strategies"]["t1_donchian"]["scorecard"]["total_pnl"], str)
+    assert (
+        report["strategies"]["t1_donchian"]["scorecard"]["expectancy_interval"]["block_size"] == 5
+    )
 
 
 def test_walk_forward_report_records_windows_and_equivalence(tmp_path: Path) -> None:
