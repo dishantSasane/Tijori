@@ -60,7 +60,9 @@ def test_caller_cannot_choose_exit_order_side(side: str) -> None:
 
 @given(
     open_quantity=st.decimals(min_value=Decimal("0.0001"), max_value=Decimal("1000000"), places=4),
-    requested_quantity=st.decimals(min_value=Decimal("0.0001"), max_value=Decimal("1000000"), places=4),
+    requested_quantity=st.decimals(
+        min_value=Decimal("0.0001"), max_value=Decimal("1000000"), places=4
+    ),
 )
 def test_i14_exit_never_increases_position(
     open_quantity: Decimal, requested_quantity: Decimal
