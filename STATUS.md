@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 by Codex (P1 PRs #28–#30 open — see note 0007)
+Last updated: 2026-11-14 by Codex (P1 target-exit PR #29 updated — see note 0007)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **in progress** — ExitRequest, strategy tests, scorecard, incremental indicators, target exits, and reference backtester PRs #24–#30 are open and require review | |
+| P1 Data layer + backtester | Codex | **in progress** — target/condition exits and overlap protection are on PR #29 at `d9e651d`; ExitRequest and other P1 PRs remain under review | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -91,7 +91,7 @@ Last updated: 2026-11-14 by Codex (P1 PRs #28–#30 open — see note 0007)
 
 ## Codex P1 incremental/exit/reference checkpoint (2026-11-14, note 0007)
 - Incremental indicator completion: `477ab7d`, PR #28, CI no checks reported at latest query.
-- Target exits: `ef0072d`, PR #29, CI pending.
+- Target/condition exits, gap handling, overlap guard, and audit: PR #29 latest head `d9e651d` (starts at `ef0072d`), CI pending.
 - Terra reference backtester: `63f2d1f`, PR #30, CI pending.
 - Claude cross-model review is required before owner merges.
 

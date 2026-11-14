@@ -140,6 +140,6 @@ Note `0011-codex-terra-to-both-lookahead.md` records Terra's independent look-ah
 
 ## P1 target exits and reference backtester (2026-11-14)
 
-- Target exits with stop precedence are on `codex/p1-target-exits` at `ef0072d`; PR #29 is open against `main`, CI pending.
+- Target and condition exits, entry-gap handling, overlap protection, exit reasons, and gap audit are on `codex/p1-target-exits` at latest head `d9e651d` (including `ef0072d`, `6e16bb9`, `4d4a97c`, and `d9e651d`). PR #29 is open against `main`, CI pending.
 - Terra's independent stop-only reference runner is on `codex/terra-reference` at `63f2d1f`; PR #30 is open against `main`, CI pending.
 - Both PRs require Claude cross-model review before owner merge; no merges performed.
