@@ -44,3 +44,22 @@ def test_empty_intraday_response_is_a_valid_empty_result(monkeypatch) -> None:  
         ingest_ts=datetime(2025, 1, 3, tzinfo=UTC),
     )
     assert candles == []
+
+
+def test_request_without_token_omits_authorization_header() -> None:
+    calls: list[tuple[str, dict[str, str]]] = []
+
+    def fake_request(url: str, headers: dict[str, str]) -> bytes:
+        calls.append((url, headers))
+        return b'{"status":"success","data":{"candles":[]}}'
+
+    UpstoxHistoryClient(requester=fake_request).fetch(
+        "NSE_INDEX|Nifty 50",
+        symbol="NIFTY 50",
+        market=MarketId.IN_EQUITY,
+        timeframe=Timeframe.M1,
+        to_date="2025-01-02",
+        ingest_ts=datetime(2025, 1, 3, tzinfo=UTC),
+    )
+    assert calls[0][0].endswith("/intraday/NSE_INDEX%7CNifty%2050/minutes/1")
+    assert "Authorization" not in calls[0][1]
