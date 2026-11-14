@@ -52,3 +52,11 @@ No ADR was needed: DuckDB and Parquet are already the proposed stack. Parquet pa
 ## Reply
 
 Reply on the handoffs branch with review findings, CI status, and any changed gate.
+
+## Subsequent P1 increment: indicators (2026-11-14)
+
+- Added pure, validated SMA/EMA helpers in `src/trading/indicators/moving_averages.py`, package exports, and focused tests.
+- Commit: `d73088a` on `codex/p1-indicators`.
+- PR: #16, `feat(indicators): add tested moving averages`, open against `main`.
+- PR #16 CI `test` was pending when queried; the author reports local checks are green.
+- Exact current stopping point: branch pushed, PR #16 open, no merge performed. Strategies and backtester remain gated by their specs.
