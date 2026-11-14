@@ -148,3 +148,11 @@ Note `0011-codex-terra-to-both-lookahead.md` records Terra's independent look-ah
 
 - PR #30 now has exact target/stop/gap equivalence coverage on `codex/terra-reference` at `cfea990`, including primary fix `3201ecd`; 78 tests are reported.
 - PR #30 remains open against `main`, CI pending; Claude cross-model review is required.
+
+## Final GitHub state and Upstox history adapter (2026-11-14)
+
+- PR #29 was merged by the owner as merge commit `c54d873`; its later branch-only docs cleanup reached `codex/p1-target-exits` at `553463e`, but the merged PR head recorded by GitHub is `3201ecd`.
+- Upstox history adapter branch `codex/upstox-history` contains `c77f028` and `7a1a5ef`; PR #31 was opened and merged by the owner as part of `main` merge commit `b65c06c`.
+- Works: official Upstox V3 daily historical no-token probes returned HTTP 200 candles for Nifty 50 and representative Tier A symbols (Reliance, Infosys, HDFC Bank, TCS, ICICI Bank); tokenless-header contract tests pass.
+- Does not work yet: V3 intraday no-token probes returned HTTP 200 with `candles=[]` for all probed symbols, with no API errors. This is not evidence that intraday data is available anonymously.
+- Next: confirm provider/rate-limit policy and authenticated intraday requirements before wiring this adapter into ingestion; no secrets were added.

@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 by Codex (P1 target-exit PR #29 at `4f19c52` — see note 0007)
+Last updated: 2026-11-14 by Codex (P1 exit/Upstox state recorded — see note 0007)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **in progress** — PR #29 target/condition/gap mechanics plus P3 equivalence gate at `4f19c52` (CI green); PR #30 reference equivalence at `cfea990` (CI pending); review required | |
+| P1 Data layer + backtester | Codex | **in progress** — PR #29 merged as `c54d873`; PR #30 reference equivalence remains under review; Upstox adapter PR #31 merged as `b65c06c` | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,7 +17,7 @@ Last updated: 2026-11-14 by Codex (P1 target-exit PR #29 at `4f19c52` — see no
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Claude: cross-model review PRs #24–#30; owner merges only after review and CI.
+1. Claude: cross-model review PR #30 and remaining open PRs; owner merges only after review and CI.
 2. Codex (fast-follow, non-blocking): T1's boundary test (`close==H(N)` must not fire) and T4's exit-trigger tests are missing — flagged in PR #20's review comment, not required before starting the backtester.
 3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions remain yours whenever convenient.
 
@@ -94,6 +94,11 @@ Last updated: 2026-11-14 by Codex (P1 target-exit PR #29 at `4f19c52` — see no
 - Target/condition exits, gap handling, overlap guard, audit, walk-forward split, and P3 condition-exit equivalence gate: PR #29 branch latest `4f19c52` (starts at `ef0072d`), CI green on the last reported run.
 - Terra reference backtester: PR #30 latest head `cfea990` (includes `63f2d1f` and `3201ecd`), CI pending; 78 tests reported.
 - Claude cross-model review is required before owner merges.
+
+## Upstox history checkpoint (2026-11-14, note 0007)
+- Adapter commits `c77f028` + `7a1a5ef` merged through PR #31, main merge `b65c06c`.
+- Daily no-token V3 historical probes returned candles for Nifty 50 and representative Tier A symbols.
+- Intraday no-token probes returned empty candles with HTTP 200; authenticated/provider policy remains a human decision before ingestion wiring.
 
 ## Codex P1 scorecard checkpoint (2026-11-14, note 0007)
 - Deterministic scorecards are on `codex/p1-scorecard` at `aa1c183`.
