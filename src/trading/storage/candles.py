@@ -163,10 +163,10 @@ class CandleStore:
             candle.close,
             candle.volume,
             candle.source,
-            CandleStore._to_db_timestamp(candle.ingest_ts),
             candle.adj_factor,
         )
-        return values == row
+        stored_values = (row[0], row[1], row[2], row[3], row[4], row[5], row[7])
+        return values == stored_values
 
     @staticmethod
     def _from_row(row: tuple[object, ...]) -> Candle:

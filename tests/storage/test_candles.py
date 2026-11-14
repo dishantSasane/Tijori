@@ -39,6 +39,16 @@ def test_conflicting_duplicate_is_rejected(tmp_path: Path) -> None:
             store.append([candle(close="106")])
 
 
+def test_exact_duplicate_with_new_ingest_time_is_idempotent(tmp_path: Path) -> None:
+    with CandleStore(tmp_path) as store:
+        store.append([candle()])
+        replay = candle().model_copy(update={"ingest_ts": datetime(2026, 1, 2, tzinfo=UTC)})
+        assert store.append([replay]) == 0
+        assert store.query(MarketId.IN_EQUITY, "RELIANCE", Timeframe.D1)[0].ingest_ts == datetime(
+            2026, 1, 1, tzinfo=UTC
+        )
+
+
 def test_conflicting_batch_rolls_back_all_rows(tmp_path: Path) -> None:
     with CandleStore(tmp_path) as store:
         store.append([candle()])

@@ -5,7 +5,18 @@ universe_id: india_tier_a_p1_provisional
 membership_status: provisional
 as_of: "2026-11-14"
 members:
-  # The index is a smoke-test member. Add Nifty 50 + Next 50 equity members
-  # with exact Upstox instrument keys before calling this a Tier A dataset.
+  # Representative smoke-test members. Add the complete historical Nifty 50 +
+  # Next 50 membership with exact Upstox instrument keys before calling this a
+  # full Tier A dataset.
   - symbol: NIFTY 50
     instrument_key: "NSE_INDEX|Nifty 50"
+  - symbol: RELIANCE
+    instrument_key: "NSE_EQ|INE002A01018"
+  - symbol: TCS
+    instrument_key: "NSE_EQ|INE467B01029"
+  - symbol: INFY
+    instrument_key: "NSE_EQ|INE009A01021"
+  - symbol: HDFCBANK
+    instrument_key: "NSE_EQ|INE040A01034"
+  - symbol: ICICIBANK
+    instrument_key: "NSE_EQ|INE090A01021"
