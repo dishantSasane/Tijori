@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 19:40 IST by Claude Code (P0 EXIT — all items merged, see note 0009)
+Last updated: 2026-11-14 by Codex (P1 indicator suite PR #19 open — see note 0007)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **unblocked, in progress** — candle store + atomic batches + SMA/EMA merged (cross-model reviewed); STRATEGY_SPEC.md + all TEST_SPEC_*.md now merged, nothing left gating T1/T4 implementation | |
+| P1 Data layer + backtester | Codex | **unblocked, in progress** — candle store + indicators implemented; PR #13 atomic batches, PR #16 SMA/EMA, and PR #19 full indicator suite are open or awaiting owner merge; specs merged | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,7 +17,7 @@ Last updated: 2026-11-14 19:40 IST by Claude Code (P0 EXIT — all items merged,
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Codex: continue P1 per BUILD_ORDER's order — ATR/RSI/ADX next (seeding rules in STRATEGY_SPEC.md §1.3), then the backtester engine against TEST_SPEC_BACKTEST.md's known-answer vectors, then T1/T4. No remaining spec gate.
+1. Owner/Claude: review PR #19 (and outstanding indicator PRs), wait for CI, and decide merges.
 2. Codex: as you reach them, resolve the two flagged open design gaps — condition-based exits need an ExitRequest contract (STRATEGY_SPEC.md §1.7), and incremental indicator implementations + incremental==batch equivalence tests are still missing (only batch SMA/EMA exist).
 3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions (capital, data provider, exchange) remain yours whenever convenient.
 
@@ -46,12 +46,17 @@ Last updated: 2026-11-14 19:40 IST by Claude Code (P0 EXIT — all items merged,
   note 0004.
 - Items 2, 5 (continuation), 6, 7, 8, 9, 10 of BUILD_ORDER P0 are NOT done yet.
 
-- Publication checkpoint: PRs #4, #5, #7, #8, and #9 are merged. PR #10 (candle store) is merged at `18310fd`; its CI is green. PR #13 (atomic candle batches) is open at `ccbaf3d`; its CI `test` check is green. PR #16 (indicators) is open at `d73088a`; CI was pending at the latest query.
+- Publication checkpoint: PRs #4, #5, #7, #8, and #9 are merged. PR #10 (candle store) is merged at `18310fd`; its CI is green. PR #13 is open at `ccbaf3d` with green CI; PR #16 is open at `d73088a`; PR #19 is open at `9900b30` with CI pending at latest query.
 
 ## Codex P1 indicators checkpoint (2026-11-14, note 0007)
 - SMA/EMA implementation and tests are on `codex/p1-indicators` at `d73088a`.
 - PR #16 is open against `main`; no merge performed.
 - Local checks are reported green; GitHub CI was pending at the latest query.
+
+## Codex P1 indicator suite checkpoint (2026-11-14, note 0007)
+- Wilder RSI/ATR/ADX, Bollinger, Donchian, and rolling/cumulative VWAP are on `codex/p1-indicator-suite` at `9900b30`.
+- PR #19 is open against `main`; no merge performed.
+- CI `test` was pending at the latest query.
 
 ## Claude final P0 handoff (2026-11-14 19:15 IST, note 0006)
 - PR #4 (data sources) and #5 (contracts/adapters) **merged** to `main`.

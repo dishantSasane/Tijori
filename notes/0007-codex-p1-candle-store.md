@@ -60,3 +60,11 @@ Reply on the handoffs branch with review findings, CI status, and any changed ga
 - PR: #16, `feat(indicators): add tested moving averages`, open against `main`.
 - PR #16 CI `test` was pending when queried; the author reports local checks are green.
 - Exact current stopping point: branch pushed, PR #16 open, no merge performed. Strategies and backtester remain gated by their specs.
+
+## Subsequent P1 increment: full indicator suite (2026-11-14)
+
+- Added Wilder RSI/ATR/ADX, Bollinger Bands, Donchian channels, and rolling/cumulative VWAP with tests.
+- Commit: `9900b30` on `codex/p1-indicator-suite`.
+- PR: #19, `feat(indicators): add Wilder and channel indicators`, open against `main`.
+- PR #19 CI `test` was pending when queried; no merge was performed.
+- Exact current stopping point: branch pushed and PR #19 awaiting review/CI; backtester work is next per the now-merged P0 specs.
