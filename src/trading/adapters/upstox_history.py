@@ -26,14 +26,22 @@ class UpstoxHistoryError(RuntimeError):
     """Raised when Upstox returns a transport or API error."""
 
 
+class UpstoxAccessError(UpstoxHistoryError):
+    """Raised when Upstox or its edge blocks the current API access."""
+
+
 def _request(url: str, headers: dict[str, str]) -> bytes:
     request = Request(url, headers=headers, method="GET")
     try:
         with urlopen(request, timeout=30) as response:  # noqa: S310 - fixed HTTPS base URL
             return cast(bytes, response.read())
     except HTTPError as error:
-        body = error.read().decode("utf-8", errors="replace")
-        raise UpstoxHistoryError(f"Upstox HTTP {error.code}: {body}") from error
+        error.read()  # Consume the response without copying provider text into logs.
+        if error.code in (401, 403):
+            raise UpstoxAccessError(
+                f"Upstox access denied (HTTP {error.code}); do not retry"
+            ) from error
+        raise UpstoxHistoryError(f"Upstox HTTP {error.code}") from error
     except URLError as error:
         raise UpstoxHistoryError(f"Upstox transport error: {error.reason}") from error
 

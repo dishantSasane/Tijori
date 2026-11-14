@@ -33,6 +33,9 @@ The reusable validation entry point is
 `trading.backtest.validation.validate_long_only`; it refuses to return a
 scorecard when the primary and reference results differ.
 
+The dataset window and keep/reject gates are recorded in
+`docs/P1_RESEARCH_PROTOCOL.md`.
+
 ## Common mistakes
 
 - Using the current bar's close as the fill price.
