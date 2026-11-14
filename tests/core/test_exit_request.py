@@ -53,6 +53,17 @@ def test_exit_id_cannot_be_caller_supplied() -> None:
         )
 
 
+def test_exit_id_round_trips_through_serialization() -> None:
+    request = ExitRequest(
+        position_id="position-1",
+        quantity=Decimal("1"),
+        reason_code=ExitReason.STOP,
+        bar_ts_utc=datetime(2026, 1, 1, tzinfo=UTC),
+        created_ts=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    assert ExitRequest.model_validate(request.model_dump()) == request
+
+
 @pytest.mark.parametrize("quantity", [Decimal("0"), Decimal("-1")])
 def test_exit_request_rejects_non_positive_quantity(quantity: Decimal) -> None:
     with pytest.raises(ValidationError):
