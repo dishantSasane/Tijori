@@ -156,3 +156,9 @@ Note `0011-codex-terra-to-both-lookahead.md` records Terra's independent look-ah
 - Works: official Upstox V3 daily historical no-token probes returned HTTP 200 candles for Nifty 50 and representative Tier A symbols (Reliance, Infosys, HDFC Bank, TCS, ICICI Bank); tokenless-header contract tests pass.
 - Does not work yet: V3 intraday no-token probes returned HTTP 200 with `candles=[]` for all probed symbols, with no API errors. This is not evidence that intraday data is available anonymously.
 - Next: confirm provider/rate-limit policy and authenticated intraday requirements before wiring this adapter into ingestion; no secrets were added.
+
+## Condition-exit timing safety fix (2026-11-14)
+
+- Commit `1c8987b` on `codex/p1-condition-next-open` evaluates close-based conditions on the closed bar and fills at the next bar open with adverse sell slippage, per AGENTS.md §4.5.
+- PR #34 is open against `main`; no checks were reported at the latest query.
+- This is a follow-up safety fix after the conflict recorded in Terra handoff note `0015` (`d7bee4c`); it requires cross-model review before owner merge.
