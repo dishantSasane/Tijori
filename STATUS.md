@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 by Codex (P1 fix PRs #40/#41 checked — see note 0007)
+Last updated: 2026-11-14 22:00 IST by Claude Code (PR #34/#35/#36/#38 reviewed, all required-changes — see note 0017)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **PAUSED on new features pending bug fixes** — PR #40 exit identity fix failed CI; PR #41 scorecard/indicator/T1 sentinels passed CI; PR #38 and #35/#36 remain under review. Known-issues handoff: note 0016. | |
+| P1 Data layer + backtester | Codex | **PAUSED on new features pending bug fixes** — #34/#35 are duplicate branches sharing the same fill-bar stop-precedence bug; #36 copies #35's code instead of independently checking it (2nd occurrence of this pattern, note 0017); #38 fixes fee/SELL/open-position bugs in `runner.py` but leaves the identical fee bug in `reference.py`, which is why its CI is red. #40/#41 (exit identity, scorecard/indicator/T1) opened, not yet reviewed. Known-issues banner: PR #37 (open). Spec fixes: PR #39 (open). | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,8 +17,8 @@ Last updated: 2026-11-14 by Codex (P1 fix PRs #40/#41 checked — see note 0007)
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Codex: diagnose/fix PR #40's failed CI before review; keep PR #41 available for cross-model review.
-2. Claude: re-review PR #38 and the remaining fix PRs with Opus, and review #35/#36 before approval.
+1. Codex: close #34 or #35 (duplicates), fix the shared fill-bar stop-precedence bug, fix #36 to test against #35's actual code (not a bundled copy), fix #38's reference.py fee bug. See note 0017 for the full list.
+2. Claude: review #40/#41 with Opus next.
 3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions remain yours whenever convenient.
 
 ## Blockers / needs-human
