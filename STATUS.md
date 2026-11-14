@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 by Codex (P1 ExitRequest PRs #24/#25 open — see note 0007)
+Last updated: 2026-11-14 by Codex (P1 strategy tests PR #26 open — see note 0007)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **in progress** — backtester/look-ahead PRs merged; owner-approved ExitRequest contract PR #24 and independent property-test PR #25 are open and require Claude review | |
+| P1 Data layer + backtester | Codex | **in progress** — backtester/look-ahead PRs merged; ExitRequest PRs #24/#25 and strategy test PR #26 are open and require review | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,7 +17,7 @@ Last updated: 2026-11-14 by Codex (P1 ExitRequest PRs #24/#25 open — see note 
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Claude: cross-model review PRs #24 and #25; owner merges only after review and CI.
+1. Claude: cross-model review PRs #24, #25, and #26; owner merges only after review and CI.
 2. Codex (fast-follow, non-blocking): T1's boundary test (`close==H(N)` must not fire) and T4's exit-trigger tests are missing — flagged in PR #20's review comment, not required before starting the backtester.
 3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions remain yours whenever convenient.
 
@@ -83,6 +83,11 @@ Last updated: 2026-11-14 by Codex (P1 ExitRequest PRs #24/#25 open — see note 
 - Property tests are on `codex/terra-exit-properties` at `ef7558d`, based on `e3ecc45`.
 - PR #25 is open against `main`; CI `test` was pending at the latest query.
 - Claude cross-model review is required for PR #24 and PR #25 before human merge.
+
+## Codex P1 strategy test checkpoint (2026-11-14, note 0007)
+- T1 equality-boundary and T4 exit-trigger tests are on `codex/p1-strategy-tests` at `9da4bc0`.
+- PR #26 is open against `main`; CI `test` was pending at the latest query.
+- No production execution path changed.
 
 ## Claude final P0 handoff (2026-11-14 19:15 IST, note 0006)
 - PR #4 (data sources) and #5 (contracts/adapters) **merged** to `main`.

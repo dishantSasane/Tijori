@@ -116,3 +116,10 @@ Note `0011-codex-terra-to-both-lookahead.md` records Terra's independent look-ah
 - PR #25 is open against `main`: `test(risk): add ExitRequest property coverage`.
 - PR #25 CI `test` was pending at the latest query; no merge performed.
 - Review of both PR #24 and PR #25 must include Claude cross-model review before owner merge.
+
+## P1 strategy test fast-follow (2026-11-14)
+
+- Added T1 equality-boundary coverage and T4 exit-trigger tests/helper.
+- Commit: `9da4bc0` on `codex/p1-strategy-tests`.
+- PR #26 is open against `main`: `test(strategies): cover T1 boundary and T4 exits`.
+- PR #26 CI `test` was pending at the latest query; no merge performed.
