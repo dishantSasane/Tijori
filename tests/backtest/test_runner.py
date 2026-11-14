@@ -125,7 +125,8 @@ def test_entry_gap_through_stop_is_realized_at_actual_fill() -> None:
         candles,
         [signal(0)],
         quantity=Decimal("1"),
-        profile=BacktestProfile(brokerage=Decimal("20")),
+        profile=BacktestProfile(brokerage=Decimal("20"), slippage_bps=Decimal("5")),
     )
-    assert result.trades[0].exit_price == Decimal("8.5")
-    assert result.audit_events == ["gap_risk_realized"]
+    assert result.trades[0].entry_price == Decimal("8.50425")
+    assert result.trades[0].exit_price == Decimal("8.49575")
+    assert result.audit_events == ["gap_risk_realized:approved_risk=4:realized_risk=4.50425"]
