@@ -39,6 +39,14 @@ def test_conflicting_duplicate_is_rejected(tmp_path: Path) -> None:
             store.append([candle(close="106")])
 
 
+def test_conflicting_batch_rolls_back_all_rows(tmp_path: Path) -> None:
+    with CandleStore(tmp_path) as store:
+        store.append([candle()])
+        with pytest.raises(DuplicateCandleError):
+            store.append([candle(ts=1), candle(close="106")])
+        assert store.query(MarketId.IN_EQUITY, "RELIANCE", Timeframe.D1) == [candle()]
+
+
 def test_query_filters_time_range_and_export_is_parquet(tmp_path: Path) -> None:
     output = tmp_path / "daily.parquet"
     with CandleStore(tmp_path) as store:
