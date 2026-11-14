@@ -14,9 +14,12 @@ def _decimal(value: float | int | Decimal) -> Decimal:
     return value if isinstance(value, Decimal) else Decimal(str(value))
 
 
+IndicatorValue = Decimal | float | int | None
+
+
 def t1_donchian(
     candles: Sequence[Candle],
-    atr_values: Sequence[float | None],
+    atr_values: Sequence[IndicatorValue],
     *,
     lookback: int = 20,
     exit_lookback: int = 10,
@@ -34,7 +37,7 @@ def t1_donchian(
         if index < lookback:
             continue
         atr_value = atr_values[index]
-        if atr_value is None or atr_value <= 0:
+        if atr_value is None or _decimal(atr_value) <= 0:
             continue
         previous_high = max(item.high for item in candles[index - lookback : index])
         if candle.close <= previous_high:
@@ -60,12 +63,12 @@ def t1_donchian(
 
 def t4_rsi_pullback(
     candles: Sequence[Candle],
-    sma_values: Sequence[float | None],
-    rsi_values: Sequence[float | None],
-    atr_values: Sequence[float | None],
+    sma_values: Sequence[IndicatorValue],
+    rsi_values: Sequence[IndicatorValue],
+    atr_values: Sequence[IndicatorValue],
     *,
-    rsi_threshold: float = 10.0,
-    atr_multiple: float = 2.5,
+    rsi_threshold: float | Decimal = 10.0,
+    atr_multiple: float | Decimal = 2.5,
     strategy_version: str = "1.0.0",
     created_ts: datetime,
 ) -> list[Signal]:
@@ -78,9 +81,9 @@ def t4_rsi_pullback(
     for candle, sma_value, rsi_value, atr_value in zip(
         candles, sma_values, rsi_values, atr_values, strict=True
     ):
-        if sma_value is None or rsi_value is None or atr_value is None or atr_value <= 0:
+        if sma_value is None or rsi_value is None or atr_value is None or _decimal(atr_value) <= 0:
             continue
-        if float(candle.close) <= sma_value or rsi_value >= rsi_threshold:
+        if candle.close <= _decimal(sma_value) or _decimal(rsi_value) >= _decimal(rsi_threshold):
             continue
         entry = candle.close
         stop = entry - _decimal(atr_multiple) * _decimal(atr_value)

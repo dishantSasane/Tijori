@@ -67,6 +67,26 @@ def test_t4_rsi_pullback_requires_both_conditions() -> None:
     assert t4_rsi_pullback(bars, [100], [12], [2], created_ts=bars[0].ingest_ts) == []
 
 
+def test_t4_uses_exact_decimal_price_boundary() -> None:
+    bars = candles([1])
+    bars[0] = bars[0].model_copy(
+        update={
+            "open": Decimal("1.00000000000000005"),
+            "high": Decimal("1.00000000000000005"),
+            "low": Decimal("0.99999999999999995"),
+            "close": Decimal("1.00000000000000005"),
+        }
+    )
+    signals = t4_rsi_pullback(
+        bars,
+        [Decimal("1.0")],
+        [Decimal("8")],
+        [Decimal("0.1")],
+        created_ts=bars[0].ingest_ts,
+    )
+    assert len(signals) == 1
+
+
 def test_t4_exit_trigger_rules() -> None:
     assert t4_exit_trigger(close=Decimal("106"), sma5=105, rsi=50, bars_held=1)
     assert t4_exit_trigger(close=Decimal("100"), sma5=105, rsi=71, bars_held=1)
