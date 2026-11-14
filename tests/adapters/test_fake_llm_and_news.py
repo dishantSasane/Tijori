@@ -6,6 +6,8 @@ from trading.adapters.news_feed import FakeNewsFeed, NewsItem
 from trading.core.enums import BrainLabel, MarketId, OrderSide, Timeframe
 from trading.core.models import BrainVerdict, Signal
 
+TS = datetime(2026, 1, 1, tzinfo=UTC)
+
 
 def _signal() -> Signal:
     return Signal(
@@ -17,7 +19,8 @@ def _signal() -> Signal:
         side=OrderSide.BUY,
         entry_ref=Decimal(100),
         stop=Decimal(95),
-        bar_ts_utc=datetime(2026, 1, 1, tzinfo=UTC),
+        bar_ts_utc=TS,
+        created_ts=TS,
     )
 
 
@@ -28,7 +31,10 @@ def test_fake_llm_provider_returns_none_when_configured_absent() -> None:
 
 def test_fake_llm_provider_attaches_signal_id() -> None:
     verdict = BrainVerdict(
-        signal_id="placeholder", label=BrainLabel.SUPPORT, size_multiplier=Decimal(1)
+        signal_id="placeholder",
+        label=BrainLabel.SUPPORT,
+        size_multiplier=Decimal(1),
+        created_ts=TS,
     )
     provider = FakeLLMProvider(verdict=verdict)
     signal = _signal()
@@ -38,7 +44,7 @@ def test_fake_llm_provider_attaches_signal_id() -> None:
 
 
 def test_default_absent_verdict_is_neutral_full_size() -> None:
-    verdict = default_absent_verdict("sig-1")
+    verdict = default_absent_verdict("sig-1", now=TS)
     assert verdict.label == BrainLabel.NEUTRAL
     assert verdict.size_multiplier == Decimal(1)
 

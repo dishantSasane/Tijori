@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol
 
 from trading.core.enums import BrainLabel
@@ -33,8 +34,14 @@ class FakeLLMProvider:
         return self._verdict.model_copy(update={"signal_id": signal.id})
 
 
-def default_absent_verdict(signal_id: str) -> BrainVerdict:
-    """What the risk engine should treat a missing/invalid Brain call as."""
+def default_absent_verdict(signal_id: str, *, now: datetime) -> BrainVerdict:
+    """What the risk engine should treat a missing/invalid Brain call as.
+
+    `now` comes from the caller's injected Clock (AGENTS.md §6) — this
+    function never reads wall-clock time itself.
+    """
     from decimal import Decimal
 
-    return BrainVerdict(signal_id=signal_id, label=BrainLabel.NEUTRAL, size_multiplier=Decimal(1))
+    return BrainVerdict(
+        signal_id=signal_id, label=BrainLabel.NEUTRAL, size_multiplier=Decimal(1), created_ts=now
+    )
