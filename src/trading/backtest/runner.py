@@ -59,24 +59,30 @@ def run_long_only(
     """
     if quantity <= 0:
         raise ValueError("quantity must be positive")
-    by_timestamp = {candle.ts_open_utc: index for index, candle in enumerate(candles)}
+    by_identity = {
+        (candle.market, candle.symbol, candle.timeframe, candle.ts_open_utc): index
+        for index, candle in enumerate(candles)
+    }
     trades: list[Trade] = []
     unfilled: list[str] = []
     audit_events: list[str] = []
     open_trades: list[OpenTrade] = []
     open_positions = 0
-    next_available_index = 0
+    next_available_index: dict[tuple[object, str, object], int] = {}
     for signal in sorted(signals, key=lambda item: item.bar_ts_utc):
         if signal.side.value != "buy":
             raise ValueError("long-only backtester rejects SELL signals")
         if signal.stop is None:
             continue
-        signal_index = by_timestamp.get(signal.bar_ts_utc)
+        instrument = (signal.market, signal.symbol, signal.timeframe)
+        signal_index = by_identity.get((*instrument, signal.bar_ts_utc))
         if signal_index is None or signal_index + 1 >= len(candles):
             unfilled.append(signal.id)
             continue
         fill_index = signal_index + 1
-        if fill_index < next_available_index:
+        if fill_index < next_available_index.get(instrument, 0):
+            unfilled.append(signal.id)
+            audit_events.append(f"rejected:concurrent_position_exists:signal_id={signal.id}")
             continue
         fill_bar = candles[fill_index]
         entry = fill_at_next_open(
@@ -160,7 +166,7 @@ def run_long_only(
                     exit_reason = "condition"
                     break
         if exit_index is None or exit_price is None:
-            next_available_index = len(candles)
+            next_available_index[instrument] = len(candles)
             open_trades.append(
                 OpenTrade(
                     signal_id=signal.id,
@@ -174,7 +180,7 @@ def run_long_only(
             )
             continue
         open_positions -= 1
-        next_available_index = exit_index + 1
+        next_available_index[instrument] = exit_index + 1
         fees = entry.fees + exit_fees
         pnl = (exit_price - entry.price) * quantity - fees
         trades.append(
