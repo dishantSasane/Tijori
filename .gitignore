@@ -6,7 +6,7 @@ config/*.yaml
 !config/*.example.yaml
 
 # data and state (large or private; never commit)
-data/
+/data/
 state/
 *.parquet
 *.duckdb

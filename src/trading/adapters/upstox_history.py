@@ -59,6 +59,58 @@ class UpstoxHistoryClient:
         from_date: str | None = None,
         access_token: str | None = None,
     ) -> list[Candle]:
+        raw = self._fetch_raw(
+            instrument_key,
+            timeframe=timeframe,
+            to_date=to_date,
+            from_date=from_date,
+            access_token=access_token,
+        )
+        return self._parse_candles(
+            raw,
+            symbol=symbol,
+            market=market,
+            timeframe=timeframe,
+            ingest_ts=ingest_ts,
+        )
+
+    def fetch_with_raw(
+        self,
+        instrument_key: str,
+        *,
+        symbol: str,
+        market: MarketId,
+        timeframe: Timeframe,
+        to_date: str,
+        ingest_ts: datetime,
+        from_date: str | None = None,
+        access_token: str | None = None,
+    ) -> tuple[bytes, list[Candle]]:
+        """Return the exact response bytes alongside parsed candles for archival."""
+        raw = self._fetch_raw(
+            instrument_key,
+            timeframe=timeframe,
+            to_date=to_date,
+            from_date=from_date,
+            access_token=access_token,
+        )
+        return raw, self._parse_candles(
+            raw,
+            symbol=symbol,
+            market=market,
+            timeframe=timeframe,
+            ingest_ts=ingest_ts,
+        )
+
+    def _fetch_raw(
+        self,
+        instrument_key: str,
+        *,
+        timeframe: Timeframe,
+        to_date: str,
+        from_date: str | None,
+        access_token: str | None,
+    ) -> bytes:
         unit, interval, is_intraday = self._path_parts(timeframe)
         encoded_key = quote(instrument_key, safe="")
         if is_intraday:
@@ -71,7 +123,22 @@ class UpstoxHistoryClient:
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
         try:
-            payload = json.loads(self._requester(path, headers).decode("utf-8"))
+            return self._requester(path, headers)
+        except (HTTPError, URLError) as error:
+            raise UpstoxHistoryError("Upstox request failed") from error
+
+    @classmethod
+    def _parse_candles(
+        cls,
+        raw: bytes,
+        *,
+        symbol: str,
+        market: MarketId,
+        timeframe: Timeframe,
+        ingest_ts: datetime,
+    ) -> list[Candle]:
+        try:
+            payload = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise UpstoxHistoryError("Upstox returned invalid JSON") from error
         if payload.get("status") != "success":
@@ -80,9 +147,7 @@ class UpstoxHistoryClient:
         if not isinstance(candles, list):
             raise UpstoxHistoryError("Upstox response data.candles is not a list")
         return [
-            self._candle(
-                row, symbol=symbol, market=market, timeframe=timeframe, ingest_ts=ingest_ts
-            )
+            cls._candle(row, symbol=symbol, market=market, timeframe=timeframe, ingest_ts=ingest_ts)
             for row in candles
         ]
 
