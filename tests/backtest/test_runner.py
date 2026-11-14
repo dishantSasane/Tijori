@@ -64,3 +64,36 @@ def test_final_bar_signal_is_logged_but_not_counted() -> None:
     assert isinstance(result, BacktestResult)
     assert result.trades == []
     assert result.unfilled_signals == [pending.id]
+
+
+def test_stop_precedes_target_when_both_are_touched() -> None:
+    candles = [
+        bar(0, "10", "11", "9", "10"),
+        bar(1, "13", "13.5", "12.5", "13"),
+        bar(2, "13", "15", "8", "12"),
+    ]
+    pending = signal(0)
+    pending = pending.model_copy(update={"target": Decimal("14")})
+    result = run_long_only(
+        candles,
+        [pending],
+        quantity=Decimal("1"),
+        profile=BacktestProfile(),
+    )
+    assert result.trades[0].exit_price == Decimal("9")
+
+
+def test_target_exit_uses_target_price() -> None:
+    candles = [
+        bar(0, "10", "11", "9", "10"),
+        bar(1, "13", "13.5", "12.5", "13"),
+        bar(2, "13", "14.5", "12", "14"),
+    ]
+    pending = signal(0).model_copy(update={"target": Decimal("14")})
+    result = run_long_only(
+        candles,
+        [pending],
+        quantity=Decimal("1"),
+        profile=BacktestProfile(),
+    )
+    assert result.trades[0].exit_price == Decimal("14")

@@ -81,6 +81,13 @@ def run_long_only(
                 exit_price = stopped.price
                 exit_fees = stopped.fees
                 break
+            if signal.target is not None and candidate.high >= signal.target:
+                exit_index = index
+                # A gap beyond a target fills at the actual open; otherwise
+                # the target order is filled at its specified price.
+                exit_price = candidate.open if candidate.open >= signal.target else signal.target
+                exit_fees = profile.brokerage
+                break
         if exit_index is None or exit_price is None:
             continue
         open_positions -= 1
