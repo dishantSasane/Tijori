@@ -45,3 +45,5 @@ Last updated: 2026-11-14 19:35 IST by Claude Code (P0 items 1/3/4 shipped, PR pe
   tests, ruff/mypy clean. PR not opened (no gh/API token available); link in
   note 0004.
 - Items 2, 5 (continuation), 6, 7, 8, 9, 10 of BUILD_ORDER P0 are NOT done yet.
+
+- Publication checkpoint: no research PR created yet; use note 0005 browser link. Final stopping point and full PR body saved there. P1 remains waiting.
