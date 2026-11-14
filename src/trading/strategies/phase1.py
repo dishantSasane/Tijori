@@ -23,7 +23,7 @@ def t1_donchian(
     *,
     lookback: int = 20,
     exit_lookback: int = 10,
-    atr_multiple: float = 2.0,
+    atr_multiple: float | Decimal = 2.0,
     strategy_version: str = "1.0.0",
     created_ts: datetime,
 ) -> list[Signal]:
