@@ -130,3 +130,16 @@ Note `0011-codex-terra-to-both-lookahead.md` records Terra's independent look-ah
 - Commit: `aa1c183` on `codex/p1-scorecard`.
 - PR #27 is open against `main`: `feat(backtest): add deterministic scorecards`.
 - PR #27 CI `test` was pending at the latest query; no merge performed.
+
+## P1 incremental indicator completion (2026-11-14)
+
+- Completed incremental ADX, Bollinger, Donchian, and VWAP state with batch-equivalence tests.
+- Commit: `477ab7d` on `codex/p1-incremental-complete`.
+- PR #28 is open against `main`: `feat(indicators): complete incremental indicator states`.
+- No checks were reported for PR #28's branch at the latest query; no merge performed.
+
+## P1 target exits and reference backtester (2026-11-14)
+
+- Target exits with stop precedence are on `codex/p1-target-exits` at `ef0072d`; PR #29 is open against `main`, CI pending.
+- Terra's independent stop-only reference runner is on `codex/terra-reference` at `63f2d1f`; PR #30 is open against `main`, CI pending.
+- Both PRs require Claude cross-model review before owner merge; no merges performed.
