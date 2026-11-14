@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import yaml
+
 from trading.adapters.upstox_history import UpstoxHistoryClient
 from trading.core.enums import MarketId, Timeframe
 from trading.core.models import Candle
@@ -55,6 +57,95 @@ class IngestionResult:
     raw_path: Path
     manifest_path: Path
     raw_sha256: str
+
+
+@dataclass(frozen=True)
+class CollectionResult:
+    """Results for one complete manifest collection run."""
+
+    universe_id: str
+    requests: int
+    candles: int
+    inserted: int
+    items: tuple[IngestionResult, ...]
+
+
+def load_upstox_requests(
+    path: Path,
+    *,
+    timeframe: Timeframe,
+    to_date: str,
+    ingest_ts: datetime,
+    from_date: str | None = None,
+    access_token: str | None = None,
+) -> tuple[str, tuple[UpstoxHistoryRequest, ...]]:
+    """Load an explicit, versioned universe manifest into history requests."""
+    with path.open("r", encoding="utf-8") as handle:
+        document = yaml.safe_load(handle)
+    if not isinstance(document, dict):
+        raise IngestionValidationError("universe manifest must be a YAML mapping")
+    universe_id = document.get("universe_id")
+    members = document.get("members")
+    if not isinstance(universe_id, str) or not universe_id:
+        raise IngestionValidationError("universe_id must be a non-empty string")
+    if not isinstance(members, list) or not members:
+        raise IngestionValidationError("universe manifest must contain at least one member")
+    requests: list[UpstoxHistoryRequest] = []
+    seen: set[tuple[str, str]] = set()
+    for member in members:
+        if not isinstance(member, dict):
+            raise IngestionValidationError("each universe member must be a mapping")
+        symbol = member.get("symbol")
+        instrument_key = member.get("instrument_key")
+        if not isinstance(symbol, str) or not symbol or not isinstance(instrument_key, str):
+            raise IngestionValidationError("each member needs symbol and instrument_key")
+        identity = (symbol, instrument_key)
+        if identity in seen:
+            raise IngestionValidationError(f"duplicate universe member: {symbol}")
+        seen.add(identity)
+        requests.append(
+            UpstoxHistoryRequest(
+                instrument_key=instrument_key,
+                symbol=symbol,
+                market=MarketId.IN_EQUITY,
+                timeframe=timeframe,
+                to_date=to_date,
+                from_date=from_date,
+                ingest_ts=ingest_ts,
+                access_token=access_token,
+            )
+        )
+    return universe_id, tuple(requests)
+
+
+def collect_upstox_history(
+    universe_id: str,
+    requests: tuple[UpstoxHistoryRequest, ...],
+    *,
+    client: UpstoxHistoryClient,
+    store: CandleStore,
+    archive_dir: Path,
+) -> CollectionResult:
+    """Collect every request in order, stopping on the first unsafe failure."""
+    if not requests:
+        raise IngestionValidationError("cannot collect an empty request set")
+    results: list[IngestionResult] = []
+    for request in requests:
+        results.append(
+            ingest_upstox_history(
+                request,
+                client=client,
+                store=store,
+                archive_dir=archive_dir,
+            )
+        )
+    return CollectionResult(
+        universe_id=universe_id,
+        requests=len(results),
+        candles=sum(item.candle_count for item in results),
+        inserted=sum(item.inserted_count for item in results),
+        items=tuple(results),
+    )
 
 
 def ingest_upstox_history(

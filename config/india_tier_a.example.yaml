@@ -1,0 +1,11 @@
+# P1 research universe manifest. Keep this file versioned and replace the
+# provisional member list with the owner's explicit Upstox instrument mapping
+# before bulk collection. The P3 live-data provider remains undecided.
+universe_id: india_tier_a_p1_provisional
+membership_status: provisional
+as_of: "2026-11-14"
+members:
+  # The index is a smoke-test member. Add Nifty 50 + Next 50 equity members
+  # with exact Upstox instrument keys before calling this a Tier A dataset.
+  - symbol: NIFTY 50
+    instrument_key: "NSE_INDEX|Nifty 50"
