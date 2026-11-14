@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 from trading.backtest.fills import BacktestProfile
@@ -32,6 +33,8 @@ def run_t1(
     exit_lookback: int = 10,
     atr_period: int = 14,
     atr_multiple: Decimal = Decimal("2"),
+    signal_start: datetime | None = None,
+    signal_end: datetime | None = None,
 ) -> StrategyBacktest:
     """Run T1 Donchian breakout with its closed-bar lower-channel exit."""
     _validate_candles(candles)
@@ -45,6 +48,7 @@ def run_t1(
         atr_multiple=atr_multiple,
         created_ts=candles[0].ingest_ts,
     )
+    signals = _restrict_signals(signals, signal_start=signal_start, signal_end=signal_end)
     _, lower = donchian(highs, lows, exit_lookback)
 
     def exit_rule(signal: Signal, index: int, candle: Candle) -> bool:
@@ -65,6 +69,8 @@ def run_t4(
     atr_period: int = 14,
     rsi_threshold: Decimal = Decimal("10"),
     atr_multiple: Decimal = Decimal("2.5"),
+    signal_start: datetime | None = None,
+    signal_end: datetime | None = None,
 ) -> StrategyBacktest:
     """Run T4 RSI(2) pullback with its closed-bar/time exits."""
     _validate_candles(candles)
@@ -82,6 +88,7 @@ def run_t4(
         atr_multiple=atr_multiple,
         created_ts=candles[0].ingest_ts,
     )
+    signals = _restrict_signals(signals, signal_start=signal_start, signal_end=signal_end)
 
     def exit_rule(signal: Signal, index: int, candle: Candle) -> bool:
         entry_index = next(
@@ -131,6 +138,22 @@ def _validate_candles(candles: list[Candle]) -> None:
         for left, right in zip(candles, candles[1:], strict=False)
     ):
         raise ValueError("candles must be strictly ordered by open time")
+
+
+def _restrict_signals(
+    signals: list[Signal],
+    *,
+    signal_start: datetime | None,
+    signal_end: datetime | None,
+) -> list[Signal]:
+    if signal_start is not None and signal_end is not None and signal_start >= signal_end:
+        raise ValueError("signal_start must precede signal_end")
+    return [
+        signal
+        for signal in signals
+        if (signal_start is None or signal.bar_ts_utc >= signal_start)
+        and (signal_end is None or signal.bar_ts_utc < signal_end)
+    ]
 
 
 def _ohlc_as_float(candles: list[Candle]) -> tuple[list[float], list[float], list[float]]:

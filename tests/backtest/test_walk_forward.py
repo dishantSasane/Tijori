@@ -3,7 +3,11 @@ from decimal import Decimal
 
 import pytest
 
-from trading.backtest.walk_forward import split_walk_forward
+from trading.backtest.walk_forward import (
+    WalkForwardWindow,
+    rolling_walk_forward_windows,
+    split_walk_forward,
+)
 from trading.core.enums import MarketId, Timeframe
 from trading.core.models import Candle
 
@@ -51,3 +55,23 @@ def test_split_applies_embargo_at_both_window_edges() -> None:
     )
     assert [candle.ts_open_utc.day for candle in in_sample] == [1]
     assert [candle.ts_open_utc.day for candle in out_of_sample] == [3]
+
+
+def test_rolling_windows_are_expanding_and_embargoed() -> None:
+    windows = rolling_walk_forward_windows(
+        bars(), train_bars=1, test_bars=1, step_bars=1, embargo_bars=1
+    )
+    assert windows == (
+        WalkForwardWindow(train_start=0, train_end=1, test_start=2, test_end=3),
+        WalkForwardWindow(train_start=0, train_end=2, test_start=3, test_end=4),
+    )
+
+
+def test_rolling_windows_require_enough_data() -> None:
+    with pytest.raises(ValueError, match="not enough"):
+        rolling_walk_forward_windows(bars(), train_bars=3, test_bars=2)
+
+
+def test_rolling_windows_reject_overlapping_tests() -> None:
+    with pytest.raises(ValueError, match="overlapping"):
+        rolling_walk_forward_windows(bars(), train_bars=1, test_bars=2, step_bars=1)

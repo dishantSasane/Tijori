@@ -4,6 +4,11 @@ This is the working protocol for the first Upstox-backed India backtests. It
 keeps research decisions explicit so a profitable-looking result cannot quietly
 change the rules that produced it.
 
+The statistical interpretation and keep/reject gate are defined in
+`docs/P1_STATISTICAL_VALIDATION.md`. T1 and T4 are rules-based hypotheses, not
+supervised-learning models; the existing 2016–2026 representative results are
+retrospective evidence, not an untouched final holdout.
+
 ## Dataset window
 
 - Target exactly the largest supported daily window: 10 calendar years ending

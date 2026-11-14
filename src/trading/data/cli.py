@@ -10,7 +10,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from trading.backtest.fills import BacktestProfile
-from trading.backtest.report import write_phase1_report
+from trading.backtest.report import write_phase1_report, write_phase1_walk_forward_report
 from trading.core.enums import MarketId, Timeframe
 from trading.data.ingestion import collect_upstox_history, load_upstox_requests
 from trading.storage.candles import CandleStore
@@ -37,11 +37,31 @@ def main() -> None:
     report.add_argument("--quantity", type=Decimal, required=True)
     report.add_argument("--brokerage", type=Decimal, default=Decimal("0"))
     report.add_argument("--slippage-bps", type=Decimal, default=Decimal("0"))
+    walk_forward = subparsers.add_parser(
+        "walk-forward-report", help="run chronological T1/T4 validation windows"
+    )
+    walk_forward.add_argument("--store", type=Path, required=True)
+    walk_forward.add_argument("--symbol", required=True)
+    walk_forward.add_argument(
+        "--timeframe", choices=[item.value for item in Timeframe], default="1d"
+    )
+    walk_forward.add_argument("--output", type=Path, required=True)
+    walk_forward.add_argument("--universe-id", required=True)
+    walk_forward.add_argument("--data-status", required=True)
+    walk_forward.add_argument("--quantity", type=Decimal, required=True)
+    walk_forward.add_argument("--brokerage", type=Decimal, default=Decimal("0"))
+    walk_forward.add_argument("--slippage-bps", type=Decimal, default=Decimal("0"))
+    walk_forward.add_argument("--train-bars", type=int, required=True)
+    walk_forward.add_argument("--test-bars", type=int, required=True)
+    walk_forward.add_argument("--step-bars", type=int)
+    walk_forward.add_argument("--embargo-bars", type=int, default=1)
     args = parser.parse_args()
     if args.command == "collect":
         _collect(args)
-    else:
+    elif args.command == "report":
         _report(args)
+    else:
+        _walk_forward_report(args)
 
 
 def _collect(args: argparse.Namespace) -> None:
@@ -91,6 +111,28 @@ def _report(args: argparse.Namespace) -> None:
         ),
         universe_id=args.universe_id,
         data_status=args.data_status,
+    )
+    print(args.output)
+
+
+def _walk_forward_report(args: argparse.Namespace) -> None:
+    timeframe = Timeframe(args.timeframe)
+    with CandleStore(args.store) as store:
+        candles = store.query(MarketId.IN_EQUITY, args.symbol, timeframe)
+    write_phase1_walk_forward_report(
+        candles,
+        output=args.output,
+        quantity=args.quantity,
+        profile=BacktestProfile(
+            brokerage=args.brokerage,
+            slippage_bps=args.slippage_bps,
+        ),
+        universe_id=args.universe_id,
+        data_status=args.data_status,
+        train_bars=args.train_bars,
+        test_bars=args.test_bars,
+        step_bars=args.step_bars,
+        embargo_bars=args.embargo_bars,
     )
     print(args.output)
 

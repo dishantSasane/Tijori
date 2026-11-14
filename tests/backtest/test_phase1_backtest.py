@@ -42,6 +42,22 @@ def test_t1_runs_strategy_through_both_backtesters() -> None:
     assert result.result.scorecard.trades == 1
 
 
+def test_t1_window_restricts_signals_to_the_test_period() -> None:
+    candles = bars([10, 11, 9, 10, 13, 13, 8, 8])
+    result = run_t1(
+        candles,
+        quantity=Decimal("1"),
+        profile=BacktestProfile(),
+        lookback=3,
+        exit_lookback=2,
+        atr_period=2,
+        signal_start=candles[5].ts_open_utc,
+        signal_end=candles[7].ts_open_utc,
+    )
+    assert result.signals == ()
+    assert result.result.scorecard.trades == 0
+
+
 def test_t4_requires_full_trend_warmup_before_signalling() -> None:
     result = run_t4(
         bars([100] * 200),
