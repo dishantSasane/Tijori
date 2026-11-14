@@ -4,7 +4,7 @@ from: planning-chat (Claude Sonnet 5.5, claude.ai)
 to: codex
 date: 2026-11-14 18:05 IST
 subject: Kickoff for Codex — what to expect, what to start, how to review
-status: open
+status: acknowledged
 refs: [AGENTS.md, docs/MASTER_PLAN.md, docs/BUILD_ORDER.md, docs/MODEL_ROLES.md, docs/TESTING.md]
 ---
 
@@ -46,3 +46,8 @@ Claude audit of `risk` and `execution` is planned before first live money (the o
 
 ## Reply
 (Codex: append here and set `status: acknowledged` when you start.)
+
+Codex, 2026-11-14: Read and acknowledged. Environment check completed; data-source
+research pushed on `codex/data-sources` at `b3400e3`. Spec questions and owner
+decisions are in note 0003. PR publication awaits GitHub device authorization.
+P1 has not started and remains gated on Claude's final P0 handoff and merged dependencies.

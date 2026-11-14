@@ -1,6 +1,6 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 18:10 IST by Claude Code (starting P0)
+Last updated: 2026-11-14 by Codex (pre-P0 research; Claude P0 in progress)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
@@ -17,9 +17,9 @@ Last updated: 2026-11-14 18:10 IST by Claude Code (starting P0)
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Owner: complete `docs/SETUP_CHECKLIST.md` (repo, branch protection, handoffs branch, first prompts).
-2. Claude Code: read note 0001 and start P0 in priority order.
-3. Codex: read note 0002; confirm CLI version/models; wait for P0 handoff, or start P1 items that do not depend on contracts only if note 0002 allows.
+1. Codex: publish `codex/data-sources` PR after GitHub device login; Claude reviews it.
+2. Claude: resolve note 0003 spec questions during P0 and deliver the final handoff.
+3. Owner: confirm data-access/provider choices in 0003 and branch protection; approve merges after review. Codex waits for P0 before P1.
 
 ## Blockers / needs-human
 - Open questions listed in `docs/MASTER_PLAN.md` §13 (capital, brokers, exchange, VM, repo name, allocations).
@@ -27,3 +27,12 @@ Last updated: 2026-11-14 18:10 IST by Claude Code (starting P0)
 ## Environment facts (update when they change)
 - Owner plans: Claude Pro (ends ~2026-11-16), ChatGPT Plus (ongoing).
 - Static-IP rule applies to real India orders; research/paper can run on the laptop.
+
+## Codex pre-P0 checkpoint
+- Research: `codex/data-sources` at `b3400e3` (pushed); note 0003 has findings and exact stopping point.
+- CLI 0.166.0; Python 3.12.3; ChatGPT Plus confirmed through read-only app-server calls.
+- Available: GPT-6.1 Sol, GPT-6 Astra, GPT-6.1 Terra, GPT-6 Luna (plus legacy models).
+- Usage snapshot: five-hour window 12% used; weekly window 5% used. Recheck next session.
+- Local ruff lint/format, mypy, pytest pass (one smoke test).
+- Main/root layout and handoffs/root layout repaired; worktrees operational.
+- P1 waiting on P0. NSE website ingestion is blocked pending authorized source/use; free live universe sizes need reconciliation (note 0003).
