@@ -140,6 +140,11 @@ Note `0011-codex-terra-to-both-lookahead.md` records Terra's independent look-ah
 
 ## P1 target exits and reference backtester (2026-11-14)
 
-- Target and condition exits, entry-gap handling, overlap protection, exit reasons, gap audit, and leakage-resistant walk-forward split are on `codex/p1-target-exits` at latest head `0bbf1b4` (including `ef0072d`, `6e16bb9`, `4d4a97c`, `d9e651d`, and `0bbf1b4`). PR #29 is open against `main`, CI pending.
+- Target and condition exits, entry-gap handling, overlap protection, exit reasons, gap audit, and leakage-resistant walk-forward split are on `codex/p1-target-exits` at latest head `3201ecd` (including `ef0072d`, `6e16bb9`, `4d4a97c`, `d9e651d`, `0bbf1b4`, and `3201ecd`). PR #29 is open against `main`, CI green. Gap exits now realize at the adversely slipped sell open and log approved/realized risk amounts.
 - Terra's independent stop-only reference runner is on `codex/terra-reference` at `63f2d1f`; PR #30 is open against `main`, CI pending.
 - Both PRs require Claude cross-model review before owner merge; no merges performed.
+
+## Terra reference update
+
+- PR #30 now has exact target/stop/gap equivalence coverage on `codex/terra-reference` at `cfea990`, including primary fix `3201ecd`; 78 tests are reported.
+- PR #30 remains open against `main`, CI pending; Claude cross-model review is required.
