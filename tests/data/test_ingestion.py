@@ -53,6 +53,8 @@ def test_ingestion_archives_raw_response_and_is_idempotent(tmp_path: Path) -> No
     assert manifest["raw_sha256"] == first.raw_sha256
     assert "must-not-be-archived" not in first.manifest_path.read_text(encoding="utf-8")
     assert manifest["ordering"] == "ascending_ts_open_utc"
+    assert manifest["first_ts_open_utc"] == "2024-12-31T18:30:00+00:00"
+    assert manifest["last_ts_open_utc"] == "2025-01-01T18:30:00+00:00"
 
 
 def test_manifest_loader_and_batch_collection_are_deterministic(tmp_path: Path) -> None:

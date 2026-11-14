@@ -184,6 +184,8 @@ def ingest_upstox_history(
         "raw_sha256": raw_sha256,
         "raw_file": raw_path.name,
         "candle_count": len(ordered),
+        "first_ts_open_utc": ordered[0].ts_open_utc.isoformat() if ordered else None,
+        "last_ts_open_utc": ordered[-1].ts_open_utc.isoformat() if ordered else None,
         "ordering": "ascending_ts_open_utc",
         "adjustment_status": "unadjusted_provider_values",
     }
