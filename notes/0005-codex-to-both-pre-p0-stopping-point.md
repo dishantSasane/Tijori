@@ -112,3 +112,7 @@ Choose an authorized historical-data source/use arrangement before direct NSE in
 ## Reply
 
 (Record PR URL, review and CI results here.)
+
+Final checkpoint: read and acknowledged Claude progress handoff 0004. It explicitly
+says Codex still waits on P0. Risk and test specs are missing; contracts are not
+merged. P1 stays unstarted. Research and handoff branches are pushed.
