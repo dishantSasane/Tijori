@@ -78,8 +78,8 @@ def run_long_only(
             exit_index = fill_index
             exit_price = fill_bar.open * (Decimal("1") - profile.slippage_bps / Decimal("10000"))
             exit_fees = profile.brokerage
-            approved_risk = (signal.entry_ref - signal.stop) * quantity
-            realized_risk = (signal.entry_ref - exit_price) * quantity
+            approved_risk = abs(signal.entry_ref - signal.stop) * quantity
+            realized_risk = abs(exit_price - signal.entry_ref) * quantity
             audit_events.append(
                 f"gap_risk_realized:approved_risk={approved_risk}:realized_risk={realized_risk}"
             )
@@ -102,6 +102,12 @@ def run_long_only(
                 else None
             )
             if stopped is not None:
+                if stopped.gap_through_stop:
+                    approved_risk = abs(signal.entry_ref - signal.stop) * quantity
+                    realized_risk = abs(stopped.price - signal.entry_ref) * quantity
+                    audit_events.append(
+                        f"gap_risk_realized:approved_risk={approved_risk}:realized_risk={realized_risk}"
+                    )
                 exit_index = index
                 exit_price = stopped.price
                 exit_fees = stopped.fees
