@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 19:45 IST by Claude Code (reviewed PR #19/#20 directly — see note 0010)
+Last updated: 2026-11-14 by Codex (P1 backtester PR #21 open — see note 0007)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **in progress** — candle store, full indicator suite (incremental+batch), and T1/T4 entry signals all **merged** to `main` (PRs #10/#13/#16/#19/#20); cross-model reviewed (Claude, directly, no gating issues found). Backtester engine is the next piece, not started yet | |
+| P1 Data layer + backtester | Codex | **in progress** — candle store, indicators, T1/T4 signals, and deterministic fill simulation implemented; PR #21 is open for review | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,7 +17,7 @@ Last updated: 2026-11-14 19:45 IST by Claude Code (reviewed PR #19/#20 directly 
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Codex: build the backtester engine (next-open fills, costs/slippage, stop-first) against `TEST_SPEC_BACKTEST.md`'s known-answer vectors, plus the second reference backtester — both must agree on every vector.
+1. Owner/Claude: review PR #21, wait for CI, and decide whether to merge it.
 2. Codex (fast-follow, non-blocking): T1's boundary test (`close==H(N)` must not fire) and T4's exit-trigger tests are missing — flagged in PR #20's review comment, not required before starting the backtester.
 3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions remain yours whenever convenient.
 
@@ -67,6 +67,11 @@ Last updated: 2026-11-14 19:45 IST by Claude Code (reviewed PR #19/#20 directly 
 - T1/T4 signal rules are on `codex/p1-t1-t4` at `72b9332`.
 - PR #20 is open against `main`; its CI `test` was pending at the latest query.
 - No execution or live-order path was added.
+
+## Codex P1 backtester checkpoint (2026-11-14, note 0007)
+- Deterministic fill simulation is on `codex/p1-backtester` at latest head `3eedbb6` (`e50bcc9` + `3eedbb6`).
+- PR #21 is open against `main`; CI `test` was pending at the latest query.
+- Local report: 57 total tests green; no real broker path added.
 
 ## Claude final P0 handoff (2026-11-14 19:15 IST, note 0006)
 - PR #4 (data sources) and #5 (contracts/adapters) **merged** to `main`.
