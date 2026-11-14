@@ -77,9 +77,7 @@ def stop_exit(
         return None
     gap = open_price < position.stop
     if gap:
-        execution_price = open_price * (
-            Decimal("1") - profile.slippage_bps / Decimal("10000")
-        )
+        execution_price = open_price * (Decimal("1") - profile.slippage_bps / Decimal("10000"))
     else:
         execution_price = position.stop
     return StopExit(
