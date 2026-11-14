@@ -29,7 +29,9 @@ def bars() -> list[Candle]:
 
 
 def test_split_is_half_open_and_non_overlapping() -> None:
-    in_sample, out_of_sample = split_walk_forward(bars(), datetime(2026, 1, 3, tzinfo=UTC))
+    in_sample, out_of_sample = split_walk_forward(
+        bars(), datetime(2026, 1, 3, tzinfo=UTC), embargo_bars=0
+    )
     assert len(in_sample) == 2
     assert len(out_of_sample) == 2
     assert in_sample[-1].ts_open_utc < out_of_sample[0].ts_open_utc
@@ -41,3 +43,11 @@ def test_split_rejects_unsorted_or_empty_windows() -> None:
         split_walk_forward([data[1], data[0], *data[2:]], datetime(2026, 1, 3, tzinfo=UTC))
     with pytest.raises(ValueError, match="non-empty"):
         split_walk_forward(data, datetime(2025, 1, 1, tzinfo=UTC))
+
+
+def test_split_applies_embargo_at_both_window_edges() -> None:
+    in_sample, out_of_sample = split_walk_forward(
+        bars(), datetime(2026, 1, 3, tzinfo=UTC), embargo_bars=1
+    )
+    assert [candle.ts_open_utc.day for candle in in_sample] == [1]
+    assert [candle.ts_open_utc.day for candle in out_of_sample] == [3]
