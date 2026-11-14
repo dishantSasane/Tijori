@@ -1,6 +1,8 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+import pytest
+
 from trading.backtest.fills import BacktestProfile
 from trading.backtest.runner import BacktestResult, run_long_only
 from trading.core.enums import MarketId, OrderSide, Timeframe
@@ -54,7 +56,7 @@ def test_runner_fills_next_open_and_stops_first() -> None:
     )
     assert result.trades[0].entry_price == Decimal("13.2066")
     assert result.trades[0].exit_price == Decimal("9")
-    assert result.trades[0].pnl == Decimal("-440.66")
+    assert result.trades[0].pnl == Decimal("-460.66")
 
 
 def test_final_bar_signal_is_logged_but_not_counted() -> None:
@@ -64,6 +66,25 @@ def test_final_bar_signal_is_logged_but_not_counted() -> None:
     assert isinstance(result, BacktestResult)
     assert result.trades == []
     assert result.unfilled_signals == [pending.id]
+
+
+def test_long_only_runner_rejects_sell_signals() -> None:
+    pending = signal(0).model_copy(update={"side": OrderSide.SELL})
+    with pytest.raises(ValueError, match="SELL"):
+        run_long_only(
+            [bar(0, "10", "11", "9", "10"), bar(1, "10", "11", "9", "10")],
+            [pending],
+            quantity=Decimal("1"),
+            profile=BacktestProfile(),
+        )
+
+
+def test_open_position_is_returned_at_end_of_data() -> None:
+    candles = [bar(0, "10", "11", "9", "10"), bar(1, "13", "14", "12", "13")]
+    result = run_long_only(candles, [signal(0)], quantity=Decimal("2"), profile=BacktestProfile())
+    assert result.trades == []
+    assert result.open_positions == 1
+    assert result.open_trades[0].quantity == Decimal("2")
 
 
 def test_stop_precedes_target_when_both_are_touched() -> None:

@@ -24,11 +24,21 @@ class Trade:
 
 
 @dataclass(frozen=True)
+class OpenTrade:
+    signal_id: str
+    entry_bar: int
+    quantity: Decimal
+    entry_price: Decimal
+    fees: Decimal
+
+
+@dataclass(frozen=True)
 class BacktestResult:
     trades: list[Trade]
     unfilled_signals: list[str]
     open_positions: int
     audit_events: list[str] = field(default_factory=list)
+    open_trades: list[OpenTrade] = field(default_factory=list)
 
 
 def run_long_only(
@@ -51,9 +61,12 @@ def run_long_only(
     trades: list[Trade] = []
     unfilled: list[str] = []
     audit_events: list[str] = []
+    open_trades: list[OpenTrade] = []
     open_positions = 0
     next_available_index = 0
     for signal in sorted(signals, key=lambda item: item.bar_ts_utc):
+        if signal.side.value != "buy":
+            raise ValueError("long-only backtester rejects SELL signals")
         if signal.stop is None:
             continue
         signal_index = by_timestamp.get(signal.bar_ts_utc)
@@ -146,13 +159,20 @@ def run_long_only(
                     break
         if exit_index is None or exit_price is None:
             next_available_index = len(candles)
+            open_trades.append(
+                OpenTrade(
+                    signal_id=signal.id,
+                    entry_bar=fill_index,
+                    quantity=quantity,
+                    entry_price=entry.price,
+                    fees=entry.fees,
+                )
+            )
             continue
         open_positions -= 1
         next_available_index = exit_index + 1
         fees = entry.fees + exit_fees
-        # The published known-answer vector defines realized P&L with the exit
-        # brokerage charged here; entry costs remain auditable in ``fees``.
-        pnl = (exit_price - entry.price) * quantity - exit_fees
+        pnl = (exit_price - entry.price) * quantity - fees
         trades.append(
             Trade(
                 signal_id=signal.id,
@@ -171,4 +191,5 @@ def run_long_only(
         unfilled_signals=unfilled,
         open_positions=open_positions,
         audit_events=audit_events,
+        open_trades=open_trades,
     )
