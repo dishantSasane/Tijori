@@ -78,8 +78,8 @@ def run_long_only(
             exit_index = fill_index
             exit_price = fill_bar.open * (Decimal("1") - profile.slippage_bps / Decimal("10000"))
             exit_fees = profile.brokerage
-            approved_risk = (signal.entry_ref - signal.stop) * quantity
-            realized_risk = (signal.entry_ref - exit_price) * quantity
+            approved_risk = abs(signal.entry_ref - signal.stop) * quantity
+            realized_risk = abs(exit_price - signal.entry_ref) * quantity
             audit_events.append(
                 f"gap_risk_realized:approved_risk={approved_risk}:realized_risk={realized_risk}"
             )
@@ -102,6 +102,12 @@ def run_long_only(
                 else None
             )
             if stopped is not None:
+                if stopped.gap_through_stop:
+                    approved_risk = abs(signal.entry_ref - signal.stop) * quantity
+                    realized_risk = abs(stopped.price - signal.entry_ref) * quantity
+                    audit_events.append(
+                        f"gap_risk_realized:approved_risk={approved_risk}:realized_risk={realized_risk}"
+                    )
                 exit_index = index
                 exit_price = stopped.price
                 exit_fees = stopped.fees
@@ -116,11 +122,28 @@ def run_long_only(
                 exit_reason = "target"
                 break
             if condition_exit is not None and condition_exit(signal, index, candidate):
-                exit_index = index
-                exit_price = candidate.close
-                exit_fees = profile.brokerage
-                exit_reason = "condition"
-                break
+                if index + 1 < len(candles):
+                    condition_fill = candles[index + 1]
+                    condition_stop = stop_exit(
+                        position,
+                        open_price=condition_fill.open,
+                        high=condition_fill.high,
+                        low=condition_fill.low,
+                        profile=profile,
+                    )
+                    if condition_stop is not None:
+                        exit_index = index + 1
+                        exit_price = condition_stop.price
+                        exit_fees = condition_stop.fees
+                        exit_reason = "stop"
+                        break
+                    exit_index = index + 1
+                    exit_price = candles[index + 1].open * (
+                        Decimal("1") - profile.slippage_bps / Decimal("10000")
+                    )
+                    exit_fees = profile.brokerage
+                    exit_reason = "condition"
+                    break
         if exit_index is None or exit_price is None:
             next_available_index = len(candles)
             continue

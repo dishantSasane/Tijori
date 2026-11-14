@@ -104,6 +104,7 @@ def test_condition_exit_is_evaluated_at_close_after_protective_checks() -> None:
         bar(0, "10", "11", "9", "10"),
         bar(1, "13", "13.5", "12.5", "13"),
         bar(2, "13", "14", "12", "12"),
+        bar(3, "11", "12", "10", "11"),
     ]
     pending = signal(0)
     result = run_long_only(
@@ -113,7 +114,25 @@ def test_condition_exit_is_evaluated_at_close_after_protective_checks() -> None:
         profile=BacktestProfile(),
         condition_exit=lambda current_signal, index, candle: index == 2,
     )
-    assert result.trades[0].exit_price == Decimal("12")
+    assert result.trades[0].exit_price == Decimal("11")
+
+
+def test_condition_exit_fill_bar_stop_precedes_condition() -> None:
+    candles = [
+        bar(0, "10", "11", "9", "10"),
+        bar(1, "13", "13.5", "12.5", "13"),
+        bar(2, "13", "14", "12", "12"),
+        bar(3, "8", "9", "7", "8"),
+    ]
+    result = run_long_only(
+        candles,
+        [signal(0)],
+        quantity=Decimal("1"),
+        profile=BacktestProfile(slippage_bps=Decimal("5")),
+        condition_exit=lambda current_signal, index, candle: index == 2,
+    )
+    assert result.trades[0].exit_reason == "stop"
+    assert result.trades[0].exit_price == Decimal("7.9960")
 
 
 def test_entry_gap_through_stop_is_realized_at_actual_fill() -> None:
@@ -130,3 +149,19 @@ def test_entry_gap_through_stop_is_realized_at_actual_fill() -> None:
     assert result.trades[0].entry_price == Decimal("8.50425")
     assert result.trades[0].exit_price == Decimal("8.49575")
     assert result.audit_events == ["gap_risk_realized:approved_risk=4:realized_risk=4.50425"]
+
+
+def test_overnight_gap_through_stop_is_audited() -> None:
+    candles = [
+        bar(0, "10", "11", "9", "10"),
+        bar(1, "13", "14", "12", "13"),
+        bar(2, "13", "14", "12", "13"),
+        bar(3, "8", "9", "7", "8"),
+    ]
+    result = run_long_only(
+        candles,
+        [signal(0).model_copy(update={"entry_ref": Decimal("13"), "stop": Decimal("9")})],
+        quantity=Decimal("100"),
+        profile=BacktestProfile(slippage_bps=Decimal("5")),
+    )
+    assert result.audit_events == ["gap_risk_realized:approved_risk=400:realized_risk=500.4000"]
