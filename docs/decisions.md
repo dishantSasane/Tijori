@@ -104,21 +104,6 @@ strategy promotion and go-live remain blocked on this cross-model equivalence
 gate. No implementation may silently treat a stop/target-only reference as
 complete.
 
-**ADR-0021 · 2026-11-14 · accepted · Exit requests are position-reducing and Brain-independent**
-Context: T1/T2/T4/T6 condition-based exits need a contract distinct from entry
-orders. Protective exits must remain possible during a kill switch, while an
-invalid position or reconciliation state must fail closed rather than guess.
-Decision: introduce an `ExitRequest` with a unique `exit_id`, required
-`position_id`, derived position side, `reason_code` plus non-executable human
-text, and `0 < quantity <= open quantity`. Exits enforce position/broker truth,
-reconciliation, quantity, market-session/queue, paper-mode, and audit checks;
-they skip entry-only sizing, allocation, max-position, and Brain checks.
-`STOP` and `KILL` exits cannot be vetoed. No exit may open or increase a
-position (new invariant I14); duplicate `exit_id` delivery is idempotent.
-Consequences: condition exits can be implemented without routing them through
-entry sizing. Exit execution remains fail-closed on state mismatch, and I14
-requires property-based coverage plus blind tests from the specification.
-
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
