@@ -166,7 +166,7 @@ class ExitRequest(Contract):
         cleaned.pop("exit_id")
         return cleaned
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]  # Pydantic computed-field pattern
     @property
     def exit_id(self) -> str:
         """Stable idempotency key for one position/reason/bar event (I7)."""
