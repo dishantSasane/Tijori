@@ -52,48 +52,54 @@ class CandleStore:
     def append(self, candles: Iterable[Candle]) -> int:
         """Insert validated candles, skipping exact duplicate deliveries."""
         inserted = 0
-        for candle in candles:
-            existing = self._connection.execute(
-                """
-                SELECT open, high, low, close, volume, source, ingest_ts, adj_factor
-                FROM candles
-                WHERE market = ? AND symbol = ? AND timeframe = ? AND ts_open_utc = ?
-                """,
-                [
-                    candle.market.value,
-                    candle.symbol,
-                    candle.timeframe.value,
-                    self._to_db_timestamp(candle.ts_open_utc),
-                ],
-            ).fetchone()
-            if existing is not None:
-                if not self._matches(candle, existing):
-                    raise DuplicateCandleError(
-                        "candle key already exists with different values: "
-                        f"{candle.market.value}/{candle.symbol}/{candle.timeframe.value}/"
-                        f"{candle.ts_open_utc.isoformat()}"
-                    )
-                continue
-            self._connection.execute(
-                """
-                INSERT INTO candles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                [
-                    candle.market.value,
-                    candle.symbol,
-                    candle.timeframe.value,
-                    self._to_db_timestamp(candle.ts_open_utc),
-                    candle.open,
-                    candle.high,
-                    candle.low,
-                    candle.close,
-                    candle.volume,
-                    candle.source,
-                    self._to_db_timestamp(candle.ingest_ts),
-                    candle.adj_factor,
-                ],
-            )
-            inserted += 1
+        self._connection.execute("BEGIN TRANSACTION")
+        try:
+            for candle in candles:
+                existing = self._connection.execute(
+                    """
+                    SELECT open, high, low, close, volume, source, ingest_ts, adj_factor
+                    FROM candles
+                    WHERE market = ? AND symbol = ? AND timeframe = ? AND ts_open_utc = ?
+                    """,
+                    [
+                        candle.market.value,
+                        candle.symbol,
+                        candle.timeframe.value,
+                        self._to_db_timestamp(candle.ts_open_utc),
+                    ],
+                ).fetchone()
+                if existing is not None:
+                    if not self._matches(candle, existing):
+                        raise DuplicateCandleError(
+                            "candle key already exists with different values: "
+                            f"{candle.market.value}/{candle.symbol}/{candle.timeframe.value}/"
+                            f"{candle.ts_open_utc.isoformat()}"
+                        )
+                    continue
+                self._connection.execute(
+                    """
+                    INSERT INTO candles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    [
+                        candle.market.value,
+                        candle.symbol,
+                        candle.timeframe.value,
+                        self._to_db_timestamp(candle.ts_open_utc),
+                        candle.open,
+                        candle.high,
+                        candle.low,
+                        candle.close,
+                        candle.volume,
+                        candle.source,
+                        self._to_db_timestamp(candle.ingest_ts),
+                        candle.adj_factor,
+                    ],
+                )
+                inserted += 1
+        except Exception:
+            self._connection.execute("ROLLBACK")
+            raise
+        self._connection.execute("COMMIT")
         return inserted
 
     def query(
