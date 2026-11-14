@@ -20,3 +20,13 @@ PR #32 is a stray duplicate and should be closed without merge.
 ## Exact stopping point
 
 All listed branches are pushed. The next action is CI/review polling and resolving any failures, followed by owner review/merge. PR #29/#30 corrected-spec follow-ups must be reviewed for formula independence and the nonzero-slippage gate; do not merge them automatically.
+
+## CI/status poll (2026-11-14)
+
+- PR #35: latest requested branch ref `12c8683`; CI `test` passed.
+- PR #36: latest requested ref `213da0c`; no checks reported for the branch at poll time.
+- PR #38: latest requested ref `8bd95ae`; CI `test` passed.
+- PR #40: latest requested ref `ee2df4f`; no checks reported for the branch at poll time. The earlier failed run was lint-only: `tests/core/test_exit_properties.py:63:101` violated Ruff E501 (104 > 100 characters); the current branch ref must be rechecked after that fix.
+- PR #41: latest requested ref `7693477`; CI `test` passed.
+- PR #39 is merged at main commit `003a604`.
+- PR #32 was a stray duplicate and is now closed without merge.

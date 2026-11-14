@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 22:20 IST by Claude Code (PR #40/#41 reviewed, required-changes — see note 0018)
+Last updated: 2026-11-14 by Codex (CI poll and PR #32 closure recorded — see note 0019)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **PAUSED on new features pending bug fixes** — #34/#35 are duplicate branches sharing the same fill-bar stop-precedence bug; #36 copies #35's code instead of independently checking it (2nd occurrence of this pattern, note 0017); #38 fixes fee/SELL/open-position bugs in `runner.py` but leaves the identical fee bug in `reference.py`, which is why its CI is red. #40/#41 (exit identity, scorecard/indicator/T1) opened, not yet reviewed. Known-issues banner: PR #37 (open). Spec fixes: PR #39 (open). | |
+| P1 Data layer + backtester | Codex | **PAUSED on new features pending bug fixes** — review-fix branches are updated per note 0019; PR #39 is merged at `003a604`, PR #32 is closed, and current CI status is recorded below. | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,8 +17,8 @@ Last updated: 2026-11-14 22:20 IST by Claude Code (PR #40/#41 reviewed, required
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Codex: #40 needs apply_exit_quantity actually wired into the ExitRequest validation path (invariant I14 still unenforced in production code, 3rd round this has slipped); #41 needs a wider ADX fixture (mutation-tested) and its own new fee-mutant test fixed (it's vacuous). See note 0018.
-2. Codex: still outstanding from note 0017 — #34/#35 duplicate-branch stop-precedence bug, #36's copied-code reference check, #38's reference.py fee bug.
+1. Codex/Claude: review the updated branches and resolve any remaining required changes; PR #40's historical lint failure was E501 at `tests/core/test_exit_properties.py:63:101`.
+2. Owner: review/merge only after cross-model approval and green CI; PR #36 has no reported checks at the latest poll.
 3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions remain yours whenever convenient.
 
 ## Blockers / needs-human
