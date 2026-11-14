@@ -39,6 +39,10 @@ On every PR: `ruff`, `ruff format --check`, `mypy`, full `pytest`. `main` is pro
 - A second, deliberately simple, slow loop-based backtester written by a different model; results must match to the paisa on test datasets.
 - Survivorship: tests assert delisted instruments appear in history and can be traded in the test universe.
 - Walk-forward and out-of-sample splits are produced by library code with tests, not by hand, so nobody can accidentally tune on the hold-out.
+- **P3 gate:** the second reference backtester must independently implement and
+  match T1, T4, and T6 close-based condition exits. Matching only stop/target
+  exits is insufficient; the gate stays open until exact trade-list
+  equivalence is demonstrated on known-answer and property datasets.
 
 ## 5. Brain tests
 
@@ -49,6 +53,9 @@ On every PR: `ruff`, `ruff format --check`, `mypy`, full `pytest`. `main` is pro
 ## 6. Go-live gates (all must be true before any real order, in `approval` mode and tiny size)
 
 - [ ] All invariants I1-I13 tested and passing; mutation score reviewed for `risk` and `execution`.
+- [ ] P3 condition-exit equivalence gate passed: independent reference
+  implementation matches T1/T4/T6 condition exits, including close-bar timing,
+  next-open fill timing, exit reason, fees, and resulting position state.
 - [ ] Reconciliation and kill-switch drills executed on the paper broker and on the broker sandbox where available.
 - [ ] Strategy instance passed all promotion gates (`STRATEGIES.md` §6) and has weeks of paper record within expectations.
 - [ ] Static IP registered and verified with the order broker; keys scoped (no withdrawal for crypto).

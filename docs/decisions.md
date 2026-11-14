@@ -89,6 +89,23 @@ Consequences: condition exits can be implemented without routing them through
 entry sizing. Exit execution remains fail-closed on state mismatch, and I14
 requires property-based coverage plus blind tests from the specification.
 
+**ADR-0022 · 2026-11-14 · accepted · Reference condition exits are a P3 gate**
+Context: the primary runner now accepts close-based condition exits, but the
+independent reference runner currently covers stop, target, and gap behavior
+only. Condition exits must not be accepted on one implementation alone because
+timing errors can materially change a scorecard.
+Decision: by P3, the second reference backtester must independently implement
+T1, T4, and T6 condition exits and match the primary runner's trade list. The
+condition is evaluated on a closed bar, then the exit fills at the next bar's
+open with adverse sell slippage; a final-bar condition remains pending/unfilled.
+Match timing, reason, fees, and final position state on known-answer and
+property datasets. Until that gate passes, condition-exit scorecards are not
+promotion evidence.
+Consequences: P1 can proceed with non-condition backtester validation, but
+strategy promotion and go-live remain blocked on this cross-model equivalence
+gate. No implementation may silently treat a stop/target-only reference as
+complete.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
