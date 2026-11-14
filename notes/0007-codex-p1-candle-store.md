@@ -91,3 +91,12 @@ Reply on the handoffs branch with review findings, CI status, and any changed ga
 - The gap-exit correction applies adverse slippage to gap exits as well.
 - PR #21 CI `test` was pending at the latest query; the author reports 57 total tests green locally. No merge performed.
 - Exact current stopping point: fill slice is ready for cross-model review; no real broker path was added.
+
+## Terra look-ahead handoff reference
+
+Note `0011-codex-terra-to-both-lookahead.md` records Terra's independent look-ahead prefix tests on `codex/terra-lookahead` at `eb96cbd`. No separate PR was opened. The branch is based on the backtester work and should be reviewed alongside PR #21; owner approval remains required for any merge.
+
+## Updated backtester stopping point (2026-11-14)
+
+- PR #21 now includes `e50bcc9`, `3eedbb6`, and runner/formatting commit `faad076`; latest head is `faad076`.
+- PR #21 remains open against `main`; CI `test` was pending at the latest query.
