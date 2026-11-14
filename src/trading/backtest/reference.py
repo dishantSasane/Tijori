@@ -1,4 +1,4 @@
-"""Slow stop-and-target reference for checking the primary backtest runner.
+"""Slow reference for checking the primary backtest runner.
 
 The reference supports chronological, non-overlapping long entries for one
 instrument. It rejects overlapping positions and is not a scorecard or a
@@ -7,6 +7,7 @@ complete strategy backtester.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from decimal import Decimal
 
 from trading.backtest.fills import BacktestProfile
@@ -21,8 +22,9 @@ def run_reference(
     *,
     quantity: Decimal,
     profile: BacktestProfile,
+    condition_exit: Callable[[Signal, int, Candle], bool] | None = None,
 ) -> BacktestResult:
-    """Replay each entry with an independent, bar-by-bar stop and target search."""
+    """Replay entries with independent stop, target and next-open condition exits."""
     if quantity <= 0:
         raise ValueError("quantity must be positive")
     trades: list[Trade] = []
@@ -73,6 +75,12 @@ def run_reference(
             elif signal.target is not None and bar.high >= signal.target:
                 exit_reason = "target"
                 exit_price = max(bar.open, signal.target)
+            elif condition_exit is not None and condition_exit(signal, exit_bar, bar):
+                if exit_bar + 1 == len(candles):
+                    continue
+                exit_bar += 1
+                exit_reason = "condition"
+                exit_price = candles[exit_bar].open * (Decimal("1") - slip)
             else:
                 continue
             # The published vector deducts exit brokerage only from P&L;

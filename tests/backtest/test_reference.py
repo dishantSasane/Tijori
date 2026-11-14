@@ -10,6 +10,7 @@ from test_runner import bar, signal
 from trading.backtest.fills import BacktestProfile
 from trading.backtest.reference import run_reference
 from trading.backtest.runner import Trade, run_long_only
+from trading.core.models import Candle, Signal
 from trading.strategies.phase1 import t1_donchian, t4_rsi_pullback
 
 
@@ -178,3 +179,85 @@ def test_zero_slippage_entry_gap_matches_both_runners() -> None:
     assert reference.trades[0].exit_price == Decimal("2400")
     assert reference.audit_events == ["gap_risk_realized:approved_risk=5000:realized_risk=10000"]
     assert reference == run_long_only(bars, [entry], quantity=Decimal("100"), profile=profile)
+
+
+@pytest.mark.parametrize("strategy", ["t1", "t4_sma", "t4_rsi", "t4_time", "t6_band", "t6_time"])
+def test_condition_exit_on_closed_bar_fills_next_open(strategy: str) -> None:
+    bars = [
+        bar(0, "13", "14", "12", "13"),
+        bar(1, "13", "14", "10", "11"),
+        bar(2, "12", "13", "10", "12"),
+    ]
+    entry = signal(0)
+
+    def exit_rule(current_signal: Signal, index: int, candle: Candle) -> bool:
+        if strategy == "t1":
+            return candle.close < bars[index - 1].low
+        if strategy.startswith("t4"):
+            sma5 = Decimal("10") if strategy == "t4_sma" else Decimal("20")
+            rsi2 = Decimal("71") if strategy == "t4_rsi" else Decimal("50")
+            bars_held = 5 if strategy == "t4_time" else 1
+            return candle.close > sma5 or rsi2 > 70 or bars_held >= 5
+        middle = Decimal("11") if strategy == "t6_band" else Decimal("20")
+        bars_held = 10 if strategy == "t6_time" else 1
+        return candle.close >= middle or bars_held >= 10
+
+    profile = BacktestProfile(Decimal("20"), Decimal("5"))
+    reference = run_reference(
+        bars, [entry], quantity=Decimal("100"), profile=profile, condition_exit=exit_rule
+    )
+    assert reference == run_long_only(
+        bars, [entry], quantity=Decimal("100"), profile=profile, condition_exit=exit_rule
+    )
+    assert reference.trades == [
+        Trade(
+            entry.id,
+            1,
+            2,
+            Decimal("100"),
+            Decimal("13.0065"),
+            Decimal("11.9940"),
+            Decimal("40"),
+            Decimal("-121.2500"),
+            "condition",
+        )
+    ]
+    assert reference.open_positions == 0
+
+
+def test_final_bar_condition_exit_remains_unfilled() -> None:
+    bars = [bar(0, "13", "14", "12", "13"), bar(1, "13", "14", "10", "11")]
+    entry = signal(0)
+
+    def callback(current_signal: Signal, index: int, candle: Candle) -> bool:
+        return True
+
+    reference = run_reference(
+        bars, [entry], quantity=Decimal("1"), profile=BacktestProfile(), condition_exit=callback
+    )
+    assert reference == run_long_only(
+        bars, [entry], quantity=Decimal("1"), profile=BacktestProfile(), condition_exit=callback
+    )
+    assert reference.trades == []
+    assert reference.open_positions == 1
+
+
+def test_stop_takes_precedence_over_condition_exit() -> None:
+    bars = [
+        bar(0, "13", "14", "12", "13"),
+        bar(1, "13", "14", "8", "11"),
+        bar(2, "12", "13", "10", "12"),
+    ]
+    entry = signal(0)
+
+    def callback(current_signal: Signal, index: int, candle: Candle) -> bool:
+        return True
+
+    reference = run_reference(
+        bars, [entry], quantity=Decimal("1"), profile=BacktestProfile(), condition_exit=callback
+    )
+    assert reference == run_long_only(
+        bars, [entry], quantity=Decimal("1"), profile=BacktestProfile(), condition_exit=callback
+    )
+    assert reference.trades[0].exit_reason == "stop"
+    assert reference.trades[0].exit_price == Decimal("9")
