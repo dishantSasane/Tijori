@@ -121,6 +121,46 @@ range touches both well above any plausible target *and* below the stop.
     longer series than is practical to hand-verify here) — flagged as a
     follow-up, same reasoning as `STRATEGY_SPEC.md` §3's T2/T3/T5/T6
     vectors.
+12. **Embargo at the IS/OOS boundary (required, by construction):** because
+    fills happen at the *next* bar's open, a signal on the last in-sample bar
+    (`split - 1`) would fill on the first out-of-sample bar (`split`) and the
+    resulting trade would belong to neither window honestly. Rule: the
+    walk-forward splitter takes `embargo_bars` (config; default `1`, the
+    exact lookahead of next-open fills) and
+
+    - a signal is **in-sample** only if its signal bar index `s` satisfies
+      `start <= s < split - embargo_bars` (so with the default, the last IS
+      bar can never produce an IS trade);
+    - a signal is **out-of-sample** only if `split <= s < end -
+      embargo_bars`. Indicators for an OOS signal may read bars before
+      `split` (that is history, not leakage); what they may not do is have
+      their *parameters* tuned on bars `>= split` — that is §7.11's check;
+    - a signal with `split - embargo_bars <= s < split` (or `end -
+      embargo_bars <= s < end`) is recorded as **unfilled, embargo** —
+      counted in **neither** window's trades, logged like §4's "unfilled,
+      data ended" (distinct reason) so the signal count still reconciles.
+
+    These are the only three outcomes. The splitter must hand each runner
+    only its own bars (`bars[start:split]`, `bars[split:end]`); a fill can
+    then never cross `split` because the fill bar does not exist in the
+    runner's slice. The embargo is what makes the dropped signal visible and
+    correctly labelled rather than relying on the §4 "data ended" path.
+
+    Known-answer (pseudocode, extends §1's T1 vector): take the 6-bar series
+    of §1 (`close = [10, 11, 9, 10, 13, 13.3]`, bar 5 as given) and set
+    `start=0, split=5, end=6, embargo_bars=1`. T1 fires at bar 4 (`13 > 11`).
+
+    ```
+    is_result, oos_result = walk_forward(bars, start=0, split=5, end=6, embargo_bars=1)
+    assert is_result.trades == []                    # bar 4 is inside the embargo
+    assert oos_result.trades == []                   # bar 4 is not an OOS signal bar
+    assert is_result.unfilled == [Unfilled(bar=4, reason="embargo")]
+    assert oos_result.unfilled == []
+    # The failure this catches: a splitter that runs the strategy over the full
+    # series and then buckets trades by entry bar WOULD fill bar 4's signal at
+    # bar 5's open (13.2066) and report one trade — in IS, OOS, or both.
+    assert all(t.signal_bar != 4 for t in is_result.trades + oos_result.trades)
+    ```
 
 ## 8. What this spec does NOT cover
 

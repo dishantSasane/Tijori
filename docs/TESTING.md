@@ -55,6 +55,7 @@ On every PR: `ruff`, `ruff format --check`, `mypy`, full `pytest`. `main` is pro
 - [ ] Independent audit of `risk` + `execution` by a model from the *other* company than the author (see `MODEL_ROLES.md`: arrange a Claude audit before first live money).
 - [ ] Owner has read the lesson for risk and kill switches and has run the kill-switch drill.
 - [ ] Budget caps set; alerts verified end to end (Telegram test).
+- [ ] No backtest result is trusted for any decision (capital, promotion, go-live) until a known-answer test with **nonzero slippage** (`docs/specs/TEST_SPEC_BACKTEST.md` §3 gap vector with `slippage_bps=5`, per `RISK_ENGINE_SPEC.md` §9.2: `realized_risk=10120`) passes identically in both the primary and the second reference backtester (`TEST_SPEC_BACKTEST.md` §5).
 - [ ] First live sizes are small enough that a total loss of the live sleeve is acceptable to the owner.
 
 ## 7. Test data

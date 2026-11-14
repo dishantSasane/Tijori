@@ -34,6 +34,11 @@ All numbers below are **proposed defaults**; the owner confirms them in `config/
 | 14 | Duplicate/idempotency: same signal id never produces two orders | |
 | 15 | Correlation/concentration: no more than X% of total risk in one symbol/sector/underlying | config; start simple |
 | 16 | Brain verdict (if present) is schema-valid; a `veto` blocks; `size_multiplier` only reduces size (0..1) | Brain cannot increase risk |
+| 17 | No open position (or pending entry) already occupies this symbol slot for the instance | `CONCURRENT_POSITION_EXISTS`; see `specs/RISK_ENGINE_SPEC.md` §9.3 |
+
+A signal that is dropped by **any** guard — including an overlap/concurrency
+guard in the backtester — is a rejection with a reason code and an audit row
+(I11). Silent drops (no trade, no audit, no unfilled record) are a bug.
 
 ## 3. Sizing
 
@@ -99,6 +104,15 @@ A **manual kill switch** (dashboard + Telegram command) must work even if the Br
 ## 7. Gap and overnight risk
 
 Stops cannot guarantee exit price. Track "gap risk" separately (overnight positions, illiquid names). Position limits for illiquid/penny/memecoin are tighter. Prefer broker-held protective orders where available; otherwise the engine checks at open and exits per policy.
+
+Whenever a bar opens through a live stop — on the entry-fill bar **or on any
+later bar of an already-open position** (the overnight case) — a
+`gap_risk_realized` audit event is recorded with `approved_risk = qty *
+abs(entry_ref - stop)` (frozen at approval) and `realized_risk = qty *
+abs(fill_price - entry_ref)`, where `entry_ref` is the original
+signal/approval-time reference price and `fill_price` is the actual,
+slippage-inclusive exit price. Exact formula and worked examples (entry-bar,
+overnight, nonzero slippage): `specs/RISK_ENGINE_SPEC.md` §9.1-§9.2.
 
 ## 8. Interfaces (to be fixed in `docs/specs/CONTRACTS.md`)
 
