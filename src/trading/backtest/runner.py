@@ -74,11 +74,15 @@ def run_long_only(
         exit_price: Decimal | None = None
         exit_fees = Decimal("0")
         exit_reason = "stop"
-        if entry.price <= signal.stop:
+        if fill_bar.open < signal.stop:
             exit_index = fill_index
-            exit_price = entry.price
+            exit_price = fill_bar.open * (Decimal("1") - profile.slippage_bps / Decimal("10000"))
             exit_fees = profile.brokerage
-            audit_events.append("gap_risk_realized")
+            approved_risk = (signal.entry_ref - signal.stop) * quantity
+            realized_risk = (signal.entry_ref - exit_price) * quantity
+            audit_events.append(
+                f"gap_risk_realized:approved_risk={approved_risk}:realized_risk={realized_risk}"
+            )
         else:
             position = Position(quantity=quantity, entry_price=entry.price, stop=signal.stop)
         open_positions += 1
@@ -94,7 +98,7 @@ def run_long_only(
                     low=candidate.low,
                     profile=profile,
                 )
-                if entry.price > signal.stop
+                if fill_bar.open >= signal.stop
                 else None
             )
             if stopped is not None:
