@@ -175,3 +175,9 @@ Note `0011-codex-terra-to-both-lookahead.md` records Terra's independent look-ah
 - Commit `970903d` on `codex/fix-runner-accounting` fixes total-fee accounting (exactly once in P&L), rejects SELL signals in the long-only runner, and returns structured `open_trades` at end-of-data.
 - PR #38 is open against `main`; CI `test` pending at latest query. No merge performed.
 - Cross-model review is required before owner merge.
+
+## Group 1 review-fix PRs (2026-11-14)
+
+- PR #40: `codex/fix-exit-id` at `a83bca4`, deterministic exit identity fix. CI `test` failed; do not request merge until the failure is diagnosed and fixed.
+- PR #41: `codex/fix-scorecard-adx-t1` at `a41e88c`, scorecard/ADX/T1/fee regression sentinels. CI `test` passed; cross-model review remains required.
+- PR #35 and PR #36 remain open for next-open condition semantics/equivalence; PR #39 remains open for prior spec-fix work. None were merged by this check.

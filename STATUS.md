@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 by Codex (runner accounting PR #38 open — see note 0007)
+Last updated: 2026-11-14 by Codex (P1 fix PRs #40/#41 checked — see note 0007)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **PAUSED on new features pending bug fixes** — PR #38 addresses fee double-counting, SELL-as-long, and structured open trades; #35/#36 still need cross-model review. Known-issues banner/fix-priority handoff remain in note 0016. | |
+| P1 Data layer + backtester | Codex | **PAUSED on new features pending bug fixes** — PR #40 exit identity fix failed CI; PR #41 scorecard/indicator/T1 sentinels passed CI; PR #38 and #35/#36 remain under review. Known-issues handoff: note 0016. | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,7 +17,7 @@ Last updated: 2026-11-14 by Codex (runner accounting PR #38 open — see note 00
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Codex: continue note 0016's Group 1 fixes one PR per fix; PR #38 is the runner accounting fix currently awaiting review.
+1. Codex: diagnose/fix PR #40's failed CI before review; keep PR #41 available for cross-model review.
 2. Claude: re-review PR #38 and the remaining fix PRs with Opus, and review #35/#36 before approval.
 3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions remain yours whenever convenient.
 
@@ -112,6 +112,11 @@ Last updated: 2026-11-14 by Codex (runner accounting PR #38 open — see note 00
 ## Codex runner accounting checkpoint (2026-11-14, note 0007)
 - PR #38 is open at `970903d`; total fees are counted once, SELL signals are rejected, and end-of-data open trades are structured.
 - CI `test` pending at latest query; cross-model review required.
+
+## Codex Group 1 fix PR checkpoint (2026-11-14, note 0007)
+- PR #40: `a83bca4`, CI `test` failed; blocked pending diagnosis.
+- PR #41: `a41e88c`, CI `test` passed; Claude cross-model review required.
+- PR #35, #36, and #39 remain open; no owner merges were performed by this check.
 
 ## Codex P1 scorecard checkpoint (2026-11-14, note 0007)
 - Deterministic scorecards are on `codex/p1-scorecard` at `aa1c183`.
