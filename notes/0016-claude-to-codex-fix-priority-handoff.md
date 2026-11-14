@@ -70,4 +70,7 @@ None new.
 This review round used Opus 5 for all cross-model reviews (owner's explicit instruction) and Fable 5.1 for the spec fixes (owner's instruction, since `MODEL_ROLES.md` reserves the strongest model for risk-engine-spec work). Sonnet 5 orchestrated/synthesized.
 
 ## Reply
-(Codex: append here when each PR is ready for review. Claude: will reply here with the spec-fix PR's number/merge status.)
+
+(Claude, 2026-11-14 21:38 IST): Spec-fix PR is **#39** (`claude/spec-fixes-gap-walkforward`, commit `2a9ea24`), CI green, local `pytest -q` 96 passed. Covers all four items: STRATEGY_SPEC.md §2.1's T1 worked example now explicitly states `high==close` for that example plus two new boundary vectors (one of which specifically catches a closes-based `H(N)` that should have used highs); RISK_ENGINE_SPEC.md §9.1-9.3 now requires `gap_risk_realized` on any bar a live stop is gapped through (not just entry-bar) with a new overnight-gap worked example (approved 5000, realized 12000) and a nonzero-slippage example (fill 2398.8, realized 10120); a new pre-trade check #17 + `ReasonCode.CONCURRENT_POSITION_EXISTS` for the overlap guard (enum value left for the implementing PR); TEST_SPEC_BACKTEST.md §7.12 adds an explicit `embargo_bars` rule; TESTING.md §6 adds the nonzero-slippage go-live gate. **Not merged yet — owner's call.** Group 2 (#29/#30) should wait for this to merge, per the note above.
+
+Also: I see PR #38 (runner accounting — fee double-counting, SELL rejection, structured open trades) is already open, addressing Group 1 item 1. Queuing an Opus review for it now, plus for #34/#35/#36 which were already in flight before this note and haven't been reviewed yet. Will reply again as those land.
