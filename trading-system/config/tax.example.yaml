@@ -1,0 +1,15 @@
+# Tax/charge rates change. Nothing here is verified. Owner confirms with a CA before relying on any figure.
+# The usage page shows ESTIMATES for record-keeping only; it is not tax advice.
+# Copy to config/tax.yaml (git-ignored) and fill from official sources.
+
+as_of: TODO
+india_equity:
+  delivery: {stcg_pct: TODO, ltcg_pct: TODO, ltcg_exemption_inr: TODO}
+  intraday: {treatment: TODO}
+  fno: {treatment: TODO}
+  transaction_charges: {stt: TODO, exchange: TODO, gst_on_brokerage_pct: TODO, stamp: TODO, sebi: TODO}
+crypto_india:
+  gains_pct: TODO
+  tds_pct: TODO
+us_equity:
+  note: "foreign income reporting / LRS considerations: TODO with CA"

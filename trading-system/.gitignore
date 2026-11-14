@@ -1,0 +1,30 @@
+# secrets and local config
+.env
+.env.*
+!.env.example
+config/*.yaml
+!config/*.example.yaml
+
+# data and state (large or private; never commit)
+data/
+state/
+*.parquet
+*.duckdb
+*.db
+*.sqlite
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# editors / OS
+.vscode/
+.idea/
+.DS_Store
