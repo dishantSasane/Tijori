@@ -303,3 +303,4 @@ answer test for `TEST_SPEC_BACKTEST.md` should include: approved `qty=100`,
 | I11 (every decision audited) | §4's "every transition has an audit row" + `RiskDecision` always carrying `reason_codes` |
 | I12 (position state matches broker truth or refuses to start) | execution-layer reconciliation on startup, not this spec (P2) |
 | I13 (no look-ahead) | enforced by `Candle`/`DataFeed` (ADAPTERS.md §1), not the risk engine directly — the risk engine only ever sees already-formed `Signal`s |
+| I14 (exits only reduce positions) | `ExitRequest` validation and execution reconciliation: required matching `position_id`, derived side, `0 < qty <= open qty`, and post-execution position quantity never above pre-exit quantity |

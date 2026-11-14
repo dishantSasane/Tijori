@@ -38,6 +38,16 @@ class OrderSide(StrEnum):
     SELL = "sell"
 
 
+class ExitReason(StrEnum):
+    """Position-reducing exit reasons; free text never drives behavior."""
+
+    STOP = "stop"
+    TARGET = "target"
+    CONDITION = "condition"
+    TIME = "time"
+    KILL = "kill"
+
+
 class OrderStatus(StrEnum):
     """docs/RISK_SPEC.md §6 state machine."""
 

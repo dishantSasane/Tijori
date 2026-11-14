@@ -12,6 +12,7 @@ All numbers below are **proposed defaults**; the owner confirms them in `config/
 4. Circuit breakers and kill switches.
 5. Mode gating: nothing becomes a real order unless the gates in `AGENTS.md` §4 hold.
 6. Reconciliation and audit.
+7. Position-reducing exits use `ExitRequest`, not entry `OrderRequest`.
 
 ## 2. Pre-trade checks (ALL must pass; first failure rejects with a reason code)
 
@@ -37,6 +38,25 @@ All numbers below are **proposed defaults**; the owner confirms them in `config/
 ## 3. Sizing
 
 `qty = floor( equity_sleeve * risk_per_trade_pct / |entry_ref - stop| )`, then cap by: max position value %, liquidity cap, lot size/tick size rounding (round **down**), available margin/cash. If qty < 1 lot/share -> reject (no rounding up).
+
+## 3A. Exit requests
+
+An `ExitRequest` is position-reducing only and contains:
+
+- `exit_id`: unique idempotency key; duplicate delivery never creates another order.
+- `position_id`: required and resolved against broker truth.
+- `side`: derived from the open position, never supplied by the caller.
+- `reason_code`: enum (`STOP`, `TARGET`, `CONDITION`, `TIME`, `KILL`) plus
+  free-text context that is never interpreted as logic.
+- `quantity`: `0 < quantity <= open quantity`; a full exit uses the full open quantity.
+
+Exits still require a valid matching position, broker reconciliation, positive
+non-rounded quantity, an open session or explicitly allowed queued order,
+paper-mode checks, and an audit row. The kill switch blocks new entries only;
+protective exits remain allowed and may be triggered by the kill switch itself.
+Risk-per-trade sizing, sleeve allocation, max-open-positions, and Brain verdict
+checks are skipped. `STOP` and `KILL` exits cannot be vetoed by the Brain.
+Invalid state fails closed and alerts the human.
 
 ## 4. Circuit breakers and kill switches
 
@@ -69,6 +89,8 @@ A **manual kill switch** (dashboard + Telegram command) must work even if the Br
 - I11: Every rejected/approved decision is written to the audit log with reason codes.
 - I12: Position state after restart equals broker truth, or the engine refuses to start trading.
 - I13: No code path reads future bars (verified in backtest with truncated-data tests).
+- I14: An exit request never opens or increases a position, for any input; executed
+  exit quantity is positive and never exceeds the matching open quantity.
 
 ## 6. State machine (order)
 
@@ -84,4 +106,4 @@ Stops cannot guarantee exit price. Track "gap risk" separately (overnight positi
 
 ## 9. Required test inputs (from `docs/TESTING.md`)
 
-Invariant/property tests for I1-I13; failure-injection (exceptions mid-check, partial fills, duplicate events); adversarial inputs (malformed Brain JSON, prompt-injection strings in `reason` fields, NaN/inf/negative prices, zero-width stops, huge quantities); mutation testing on this module.
+Invariant/property tests for I1-I14; failure-injection (exceptions mid-check, partial fills, duplicate events); adversarial inputs (malformed Brain JSON, prompt-injection strings in `reason` fields, NaN/inf/negative prices, zero-width stops, huge quantities); mutation testing on this module. I14 must include property tests proving exits cannot increase position quantity.
