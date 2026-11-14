@@ -162,3 +162,10 @@ Note `0011-codex-terra-to-both-lookahead.md` records Terra's independent look-ah
 - Commit `1c8987b` on `codex/p1-condition-next-open` evaluates close-based conditions on the closed bar and fills at the next bar open with adverse sell slippage, per AGENTS.md §4.5.
 - PR #34 is open against `main`; no checks were reported at the latest query.
 - This is a follow-up safety fix after the conflict recorded in Terra handoff note `0015` (`d7bee4c`); it requires cross-model review before owner merge.
+
+## Resolved next-open condition semantics (2026-11-14)
+
+- Sol v2 branch `codex/p1-condition-next-open-v2` contains `11d4f27` and `ff9aaae`: closed-bar condition evaluation, next-open realization with sell slippage, and documentation.
+- PR #35 is open against `main`; CI `test` pending at latest query. No merge performed.
+- Terra reference branch `codex/terra-reference` is at `a26e0e8`, with independent T1/T4/T6 next-open equivalence and 86 reported tests.
+- PR #36 is open against `main`; no checks were reported at latest query. Both PRs require cross-model review.

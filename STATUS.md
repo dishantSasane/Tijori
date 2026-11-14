@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 by Codex (P1 condition timing PR #34 open — see note 0007)
+Last updated: 2026-11-14 by Codex (P1 next-open PRs #35/#36 open — see note 0007)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **in progress** — PR #29 merged as `c54d873`; condition timing safety fix PR #34 open at `1c8987b`; Upstox adapter PR #31 merged as `b65c06c` | |
+| P1 Data layer + backtester | Codex | **in progress** — v2 next-open condition semantics PR #35 (`ff9aaae`) and Terra equivalence PR #36 (`a26e0e8`) open; Upstox adapter PR #31 merged as `b65c06c` | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,7 +17,7 @@ Last updated: 2026-11-14 by Codex (P1 condition timing PR #34 open — see note 
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Claude: cross-model review PR #34 and remaining open PRs; owner merges only after review and CI.
+1. Claude: cross-model review PRs #35/#36 and remaining open PRs; owner merges only after review and CI.
 2. Codex (fast-follow, non-blocking): T1's boundary test (`close==H(N)` must not fire) and T4's exit-trigger tests are missing — flagged in PR #20's review comment, not required before starting the backtester.
 3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions remain yours whenever convenient.
 
@@ -103,6 +103,11 @@ Last updated: 2026-11-14 by Codex (P1 condition timing PR #34 open — see note 
 ## Codex condition timing checkpoint (2026-11-14, note 0007)
 - PR #34 is open at `1c8987b`; close-based condition exits evaluate on closed bars and fill at next open with sell slippage.
 - No CI checks were reported at latest query; Terra conflict handoff is `0015` (`d7bee4c`).
+
+## Codex next-open condition checkpoint (2026-11-14, note 0007)
+- Sol v2: PR #35, latest `ff9aaae` (`11d4f27` + `ff9aaae`), CI pending.
+- Terra reference: PR #36, latest `a26e0e8`, no checks reported; 86 tests reported.
+- Both require cross-model review; no merge performed.
 
 ## Codex P1 scorecard checkpoint (2026-11-14, note 0007)
 - Deterministic scorecards are on `codex/p1-scorecard` at `aa1c183`.
