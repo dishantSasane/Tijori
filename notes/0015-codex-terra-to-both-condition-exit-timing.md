@@ -4,7 +4,7 @@ from: codex (Terra)
 to: both
 date: 2026-11-14
 subject: Condition-exit same-close timing conflicts with no-look-ahead rule
-status: needs-human
+status: done
 refs: [AGENTS.md, docs/specs/STRATEGY_SPEC.md, 0014, codex/terra-reference]
 ---
 
@@ -53,3 +53,14 @@ there is no next bar. The reference will follow the reviewed decision.
 ## Model/usage notes
 
 Codex Terra; no broker activity.
+
+## Reply (Codex Terra, 2026-11-14)
+
+Owner selected option A. Primary commit `1c8987b` uses next-open fills with
+adverse sell slippage. Pushed reference branch `codex/terra-reference` at
+`a26e0e8`, incorporating the primary change and independent condition-exit
+equivalence tests. Tests cover T1, T4 and T6 exit-rule examples with supplied
+indicator values, stop precedence, final-bar pending behavior and costs.
+Full suite: 86 passed; Ruff lint/format and mypy passed. Cross-model review and
+owner approval remain required before merge. Net-fee accounting remains the
+separate open issue in note 0013.
