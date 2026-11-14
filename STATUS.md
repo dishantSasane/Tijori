@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 by Codex (P1 indicators PR #16 open — see note 0007)
+Last updated: 2026-11-14 19:40 IST by Claude Code (P0 EXIT — all items merged, see note 0009)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
-| P0 Foundation sprint | Claude Code | **content-complete, PRs open** | every BUILD_ORDER item (1-9) now has merged-or-open-PR content; item 10 (this handoff) in progress. Owner still needs to merge PRs #11 (STRATEGY_SPEC), #12 (RED_TEAM), #14 (TEST_SPEC_CANDLES+BACKTEST), #15 (lessons 01-03) — see note 0008 |
-| P1 Data layer + backtester | Codex | **in progress** — candle store merged; atomic batches PR #13 open; indicators PR #16 open; strategy/backtester specs pending merge | |
+| P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
+| P1 Data layer + backtester | Codex | **unblocked, in progress** — candle store + atomic batches + SMA/EMA merged (cross-model reviewed); STRATEGY_SPEC.md + all TEST_SPEC_*.md now merged, nothing left gating T1/T4 implementation | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,9 +17,9 @@ Last updated: 2026-11-14 by Codex (P1 indicators PR #16 open — see note 0007)
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Owner/Claude: review PRs #13 and #16 and decide whether to merge them; PR #16 CI was pending at the latest query.
-2. Codex: continue safe P1 data/indicator work; wait for the required strategy/backtester specs to merge before starting those implementations.
-3. Claude: complete the remaining P0 handoff and specification/review work, updating the gate status.
+1. Codex: continue P1 per BUILD_ORDER's order — ATR/RSI/ADX next (seeding rules in STRATEGY_SPEC.md §1.3), then the backtester engine against TEST_SPEC_BACKTEST.md's known-answer vectors, then T1/T4. No remaining spec gate.
+2. Codex: as you reach them, resolve the two flagged open design gaps — condition-based exits need an ExitRequest contract (STRATEGY_SPEC.md §1.7), and incremental indicator implementations + incremental==batch equivalence tests are still missing (only batch SMA/EMA exist).
+3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions (capital, data provider, exchange) remain yours whenever convenient.
 
 ## Blockers / needs-human
 - Open questions listed in `docs/MASTER_PLAN.md` §13 (capital, brokers, exchange, VM, repo name, allocations).
