@@ -60,3 +60,18 @@ def test_query_filters_time_range_and_export_is_parquet(tmp_path: Path) -> None:
         assert [item.ts_open_utc for item in result] == [datetime(2026, 1, 2, tzinfo=UTC)]
         assert store.export_parquet(output) == output
         assert output.exists()
+
+
+def test_load_parquet_round_trip_and_deduplicates(tmp_path: Path) -> None:
+    output = tmp_path / "daily.parquet"
+    with CandleStore(tmp_path / "source") as source:
+        source.append([candle(ts=0), candle(ts=1)])
+        source.export_parquet(output)
+
+    with CandleStore(tmp_path / "loaded") as loaded:
+        assert loaded.load_parquet(output) == 2
+        assert loaded.load_parquet(output) == 0
+        assert loaded.query(MarketId.IN_EQUITY, "RELIANCE", Timeframe.D1) == [
+            candle(ts=0),
+            candle(ts=1),
+        ]

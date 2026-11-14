@@ -132,6 +132,19 @@ class CandleStore:
         self._connection.execute("COPY candles TO ? (FORMAT PARQUET)", [str(path)])
         return path
 
+    def load_parquet(self, path: Path) -> int:
+        """Load a Parquet snapshot through the normal candle validations."""
+        rows = self._connection.execute(
+            """
+            SELECT market, symbol, timeframe, ts_open_utc, open, high, low, close,
+                   volume, source, ingest_ts, adj_factor
+            FROM read_parquet(?)
+            ORDER BY ts_open_utc
+            """,
+            [str(path)],
+        ).fetchall()
+        return self.append(self._from_row(row) for row in rows)
+
     def close(self) -> None:
         self._connection.close()
 
