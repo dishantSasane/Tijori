@@ -59,6 +59,11 @@ immutable version. No single profitable scorecard is sufficient evidence.
 
 ## Commands
 
+The official Upstox NSE instrument file is the source for symbol-to-key
+resolution; do not hand-invent ISINs or exchange tokens. It is refreshed by
+Upstox and contains the current NSE equity catalogue. Historical index
+membership still needs a separately authorized source.
+
 Collect candles from the explicit manifest (the token is read from the
 `UPSTOX_ACCESS_TOKEN` environment variable and is never printed):
 
