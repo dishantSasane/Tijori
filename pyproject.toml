@@ -7,10 +7,10 @@ name = "trading-system"
 version = "0.0.1"
 description = "Multi-market, paper-by-default trading system"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["pydantic>=2.7", "pyyaml>=6"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "hypothesis>=6", "ruff>=0.5", "mypy>=1.10", "pyyaml>=6", "types-PyYAML"]
+dev = ["pytest>=8", "hypothesis>=6", "ruff>=0.5", "mypy>=1.10", "types-PyYAML"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -32,3 +32,7 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 no_implicit_optional = true
 # Tighten to `strict = true` per package as they are created (core, risk, execution).
+
+[[tool.mypy.overrides]]
+module = "trading.core.*"
+strict = true
