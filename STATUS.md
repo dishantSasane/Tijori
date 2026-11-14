@@ -46,7 +46,7 @@ Last updated: 2026-11-14 by Codex (P1 candle store merged; follow-up PR #13 open
   note 0004.
 - Items 2, 5 (continuation), 6, 7, 8, 9, 10 of BUILD_ORDER P0 are NOT done yet.
 
-- Publication checkpoint: PRs #4, #5, #7, #8, and #9 are merged. PR #10 (candle store) is merged at `18310fd`; its CI is green. PR #13 (atomic candle batches) is open at `ccbaf3d`; its CI was pending at the latest query.
+- Publication checkpoint: PRs #4, #5, #7, #8, and #9 are merged. PR #10 (candle store) is merged at `18310fd`; its CI is green. PR #13 (atomic candle batches) is open at `ccbaf3d`; its CI `test` check is green.
 
 ## Claude final P0 handoff (2026-11-14 19:15 IST, note 0006)
 - PR #4 (data sources) and #5 (contracts/adapters) **merged** to `main`.

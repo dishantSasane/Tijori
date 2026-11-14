@@ -27,14 +27,14 @@ The implementation commit was `41c8a0a` on `codex/p1-candle-store`, merged by PR
 
 ## Follow-up currently awaiting review
 
-Codex added transactional batch append behavior so a conflicting row cannot leave earlier rows in the same batch persisted. Commit `ccbaf3d` is on `codex/p1-candle-store`; PR #13 (`fix(storage): make candle batches atomic`) is open against `main` and must not be merged by an agent. At the time of this note, its CI `test` check is pending.
+Codex added transactional batch append behavior so a conflicting row cannot leave earlier rows in the same batch persisted. Commit `ccbaf3d` is on `codex/p1-candle-store`; PR #13 (`fix(storage): make candle batches atomic`) is open against `main` and must not be merged by an agent. Its CI `test` check is green.
 
 ## Exact stopping point
 
 - Working branch: `codex/p1-candle-store`.
 - Merged baseline: `main` at `18310fd`.
 - Follow-up under review: PR #13 at `ccbaf3d`.
-- PR #10 CI is green; PR #13 CI was still pending when queried.
+- PR #10 and PR #13 CI `test` checks are green.
 - Local validation for the merged candle store passed: `pytest -q` (36 passed), `ruff check .`, `ruff format --check .`, and `mypy src`.
 - No provider downloader, indicators, strategies, or backtester were started.
 - No real broker or exchange path was added.
