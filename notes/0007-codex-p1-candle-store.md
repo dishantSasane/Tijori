@@ -74,3 +74,11 @@ Reply on the handoffs branch with review findings, CI status, and any changed ga
 - Added incremental SMA/EMA state and incremental Wilder state with equivalence coverage.
 - PR #19 now contains `9900b30`, `6d8c61f`, and `79509ee`; latest head is `79509ee` on `codex/p1-indicator-suite`.
 - PR #19 remains open against `main`; CI `test` was pending at the latest query. No merge performed.
+
+## P1 T1/T4 strategy slice (2026-11-14)
+
+- Implemented the T1 and T4 signal rules on top of the indicator suite, with tests.
+- Commit: `72b9332` on `codex/p1-t1-t4`; the branch includes PR #19's indicator commits through `79509ee`.
+- PR: #20, `feat(strategies): implement T1 and T4 signal rules`, open against `main`.
+- PR #20 CI `test` was pending when queried; no merge performed.
+- Exact current stopping point: PR #20 is open for cross-model review; no execution, broker, or live-order path was added.
