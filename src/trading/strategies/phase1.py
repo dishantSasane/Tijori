@@ -99,3 +99,16 @@ def t4_rsi_pullback(
             )
         )
     return signals
+
+
+def t4_exit_trigger(
+    *, close: Decimal, sma5: float | Decimal | None, rsi: float | None, bars_held: int
+) -> bool:
+    """Return whether an open T4 position meets a documented exit rule."""
+    if bars_held < 0:
+        raise ValueError("bars_held must be non-negative")
+    return (
+        bars_held >= 5
+        or (sma5 is not None and close > _decimal(sma5))
+        or (rsi is not None and rsi > 70)
+    )
