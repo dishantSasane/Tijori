@@ -74,6 +74,21 @@ Context: writing the P0 specs surfaced two design questions genuinely beyond thi
 Decision: left open, flagged in-place rather than silently resolved: (1) condition-based exits (T1/T2/T4/T6) need a new `ExitRequest`-shaped contract and a reduced, exit-only risk-check list (closing risk should not need the full entry check list) — STRATEGY_SPEC.md §1.7. (2) Concurrent delivery of the same `signal.id` needs an explicit `DecisionStore` atomicity design (single-process lock vs. a datastore-level check-and-set) before invariant I7 can be proven under real concurrency, not just sequential retries — RISK_ENGINE_SPEC.md §10, TEST_SPEC_RISK.md §7.
 Consequences: P2's risk-engine implementer should resolve both before or during implementation, not discover them mid-build. Status `proposed` pending that work.
 
+**ADR-0022 · 2026-11-14 · accepted · Reference condition exits are a P3 gate**
+Context: the primary runner now accepts close-based condition exits, but the
+independent reference runner currently covers stop, target, and gap behavior
+only. Condition exits must not be accepted on one implementation alone because
+timing errors can materially change a scorecard.
+Decision: by P3, the second reference backtester must independently implement
+T1, T4, and T6 condition exits and match the primary runner's trade list,
+close-bar timing, reason, fees, and final position state on known-answer and
+property datasets. Until that gate passes, condition-exit scorecards are not
+promotion evidence.
+Consequences: P1 can proceed with non-condition backtester validation, but
+strategy promotion and go-live remain blocked on this cross-model equivalence
+gate. No implementation may silently treat a stop/target-only reference as
+complete.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
