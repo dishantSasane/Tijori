@@ -65,12 +65,11 @@ def run_reference(
                 exit_price = signal.stop
                 if bar.open < signal.stop:
                     exit_price = bar.open * (Decimal("1") - slip)
-                    if exit_bar == entry_bar:
-                        approved = (signal.entry_ref - signal.stop) * quantity
-                        realized = (signal.entry_ref - exit_price) * quantity
-                        audit_events.append(
-                            f"gap_risk_realized:approved_risk={approved}:realized_risk={realized}"
-                        )
+                    approved = abs(signal.entry_ref - signal.stop) * quantity
+                    realized = abs(exit_price - signal.entry_ref) * quantity
+                    audit_events.append(
+                        f"gap_risk_realized:approved_risk={approved}:realized_risk={realized}"
+                    )
             elif signal.target is not None and bar.high >= signal.target:
                 exit_reason = "target"
                 exit_price = max(bar.open, signal.target)
