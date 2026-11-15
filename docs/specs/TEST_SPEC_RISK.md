@@ -14,7 +14,7 @@ or check (§2) it proves. Build fixtures from `trading.core.models` /
 | S1 baseline | equity=1,000,000; risk_pct=0.5%; entry=2500; stop=2450; lot=1 | `floor(5000/50) = 100` |
 | S2 Brain shrinks | S1 + `size_multiplier=0.6` | `floor(100*0.6) = 60` |
 | S3 lot rounding down | S1 but lot_size=7 | `floor(100/7)*7 = 98`, not 100 or 105 |
-| S4 rounds to zero | equity=10,000; risk_pct=0.5%; entry=2500; stop=2450 → risk budget 50, distance 50 | `qty=0` → `allowed=False`, `reason_codes=(QUANTITY_ROUNDS_TO_ZERO,)` |
+| S4 rounds to zero | equity=9,000; risk_pct=0.5%; entry=2500; stop=2450 → risk budget 45, distance 50 | `qty=0` → `allowed=False`, `reason_codes=(QUANTITY_ROUNDS_TO_ZERO,)` |
 | S5 liquidity cap binds | S1 but `liquidity_cap_qty=40` | `qty=40` |
 | S6 never rounds up | any input producing a non-integer raw qty, e.g. risk budget 999, distance 50 → raw 19.98 | `qty=19`, never `20` |
 
