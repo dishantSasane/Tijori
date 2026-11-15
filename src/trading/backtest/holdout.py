@@ -159,7 +159,29 @@ class HoldoutEvaluator:
             )
             """
         )
+        self._require_authorization_token_column()
         self._lock = RLock()
+
+    def _require_authorization_token_column(self) -> None:
+        """`CREATE TABLE IF NOT EXISTS` leaves a pre-fix ledger file on its old
+        schema (no `authorization_token` column) untouched -- fail with a clear
+        message instead of letting `_consume`'s INSERT hit a confusing DuckDB
+        binder error. There is no migration path: this project has not gone
+        live, so any ledger predating this fix is development-only data; the
+        fix is to delete that `.duckdb` file and re-run, not to migrate it.
+        """
+        columns = {
+            row[0]
+            for row in self._connection.execute(
+                "SELECT column_name FROM duckdb_columns() WHERE table_name = 'consumed_holdouts'"
+            ).fetchall()
+        }
+        if "authorization_token" not in columns:
+            raise RuntimeError(
+                f"{self.path} predates the authorization_token fix (holdout.py's one-shot "
+                "guard forgery fix) and has no safe migration path. Delete this file and "
+                "re-run -- it can only hold pre-launch development data."
+            )
 
     def evaluate_once(self, plan: HoldoutPlan, evaluator: Callable[[], ResultT]) -> ResultT:
         """Record consumption transactionally, then evaluate once.
@@ -261,6 +283,14 @@ class HoldoutEvaluator:
         metrics_hash: str | None = None,
         family_hash: str | None = None,
     ) -> bool:
+        """ "Has this plan been consumed?" -- a status check for bookkeeping,
+        not an access-control gate. Every argument here is public/pre-registered
+        (never a secret), so this answers "did *someone* consume this plan",
+        never "is *this specific caller* the one who did". Never use this
+        alone to decide whether to hand over holdout rows -- that's
+        `validate_authorization`'s job, which checks the caller's actual
+        `authorization_token` against the ledger.
+        """
         with self._lock:
             parameters: list[str] = [plan_id]
             query = "SELECT 1 FROM consumed_holdouts WHERE plan_id = ?"
