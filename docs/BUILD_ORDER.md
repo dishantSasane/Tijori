@@ -50,24 +50,31 @@ not frozen.
 |---|---|---|
 | Tier A daily history in Parquet (candle store + validation) | Sol / Terra | already done for the 6-symbol representative set |
 | Corporate-action adjustment, verified | Terra / Sol | splits/bonuses must not silently corrupt returns; add a known-answer test per action type |
-| Point-in-time Nifty 50 + Next 50 membership | Terra / Sol | **open problem — flag, do not guess.** If no authorized point-in-time source exists, say so in `decisions.md` rather than building on an unverified universe; survivorship bias is not optional to fix |
+| Research universe: rule-based, computed from free NSE bhavcopy | Terra / Sol | **primary universe — resolved, no paid licence.** Top 50 (and separately top 100 for Tier B-adjacent research) by rolling 60-day median turnover, recomputed monthly, keyed on ISIN (not symbol — symbols get renamed/reused, ISINs don't). This is survivorship-free by construction: a stock that was liquid in year N and delisted in year N+2 appears in year N's universe and vanishes after, exactly as it should, with no manifest and no vendor needed. Data: NSE's free bhavcopy archives (`sec_bhavdata_full` daily files; evaluate the maintained `nse-archives` package's licence/maintenance before adopting it, otherwise write a small fetcher) |
+| Nifty 50 point-in-time manifest: reconstructed, benchmark-only | Terra / Sol | Not the research universe — only used so a scorecard can honestly say "vs. Nifty 50 as of 2021-06-30." Reconstruct by anchoring on today's known membership and walking NSE Indices' own public, dated replacement press releases (`niftyindices.com/Press_Release/ind_prsDDMMYYYY.pdf`) backward in time, one replacement at a time. Store as a dated table with the press-release URL cited per row, so every row is auditable. Cross-check against Wikipedia's replacements-since-2005 table, but never treat Wikipedia as the source; flag (don't silently resolve) any disagreement between the two |
 | Chronological split boundaries, written and frozen in config before any strategy runs | Sol / Terra | development period, validation period, untouched holdout; dates committed to config and never read until P1d |
 
-Exit: corporate-action adjustment has known-answer tests; point-in-time
-universe status is either resolved or logged as a `needs-human` blocker; split
-boundaries exist in a committed config file with no strategy code reading the
-holdout range.
+Exit: corporate-action adjustment has known-answer tests; the rule-based
+universe and the reconstructed Nifty 50 benchmark manifest are both built and
+ISIN-joined against the Upstox instrument master; split boundaries exist in a
+committed config file with no strategy code reading the holdout range.
 
 Progress note (2026-11-15): the pure daily split/bonus price-volume transform
 and synthetic known-answer tests are in `trading.storage.corporate_actions`
-and `tests/storage/test_corporate_actions.py`. This is not P1a completion:
-an auditable membership manifest contract and validator are in
-`trading.storage.membership`, but no real membership data has been loaded.
-Upstox's raw/adjusted price basis is undocumented, an authorized point-in-time
-action ledger is still needed, and both backtesters must model share-count
-changes for positions crossing an event before adjusted-data results can be
-used as promotion evidence. Membership source/terms and untouched split
-boundaries are also still gated as recorded in ADR-0025 and handoff 0027.
+and `tests/storage/test_corporate_actions.py`. The membership manifest
+contract and validator in `trading.storage.membership` were built against the
+"authorized vendor" design; they are being repointed at the rule-based
+universe (primary) and the reconstructed press-release manifest (benchmark
+only) instead — see ADR-0026, which supersedes ADR-0025's "pay for a licence"
+branch. **Owner decisions recorded:** no NSE Indices licence purchase, no
+vendor email; research-comparison sizing is 1% per-trade risk on a ₹1,00,000
+placeholder capital (not real trading capital, used only so candidates are
+sized identically). Still open: Upstox's raw/adjusted price basis
+(undocumented — verify empirically against a known corporate action in the
+existing 6-symbol sample, e.g. Infosys's 2018 bonus issue, before trusting any
+adjusted candle), both backtesters modelling share-count changes for
+positions crossing an event, the untouched holdout boundaries, and the
+holding-horizon confirmation (see Open Questions).
 
 ### P1b — Candidate library (pre-registered)
 
@@ -182,17 +189,17 @@ MCX commodities and NSE currencies; ML ranker (walk-forward, champion/challenger
 
 ## Open questions (P1 restructure — owner decision, do not guess)
 
-- **Point-in-time universe source.** Which authorized source provides
-  point-in-time Nifty 50 + Next 50 membership (including delisted symbols)?
-  P1a cannot be marked done without one, or an explicit owner sign-off to
-  proceed with a known survivorship-bias caveat.
-- **Capital and per-trade risk assumptions.** What capital and per-trade risk
-  % should the P1b/P1c candidate comparisons use, so every candidate is sized
-  the same way and results are comparable?
+- ~~Point-in-time universe source~~ — **resolved, see ADR-0026.** Rule-based
+  turnover universe (primary, survivorship-free by construction) plus a
+  reconstructed Nifty 50 manifest from public NSE Indices press releases
+  (benchmark-only). No paid licence, no vendor email.
+- ~~Capital and per-trade risk assumptions~~ — **resolved.** 1% per-trade risk
+  on a ₹1,00,000 placeholder capital for P1b/P1c comparisons; not real trading
+  capital, used only so every candidate is sized identically.
 - **Target holding horizon.** The data collected so far is daily, which
   implies daily swing trading as the default horizon for the candidate
   library. Confirm this is intended, or say which other horizon P1 should
-  target instead.
+  target instead. — **still open.**
 
 No time estimate is given for the restructured P1 — the owner's original
 Claude-Pro time-box applied to the P0 sprint, not to this multi-sub-phase

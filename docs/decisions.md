@@ -143,7 +143,7 @@ explicitly waived by the owner; the untouched holdout from the current
 2016-2026 sample is no longer valid once inspected, so a new, genuinely
 unread holdout range must be committed in P1a config before P1b/P1c runs.
 
-**ADR-0025 · 2026-11-15 · proposed · P1 data and evaluation assumptions requiring owner decision**
+**ADR-0025 · 2026-11-15 · superseded by ADR-0026 (membership branch) · P1 data and evaluation assumptions requiring owner decision**
 Context: P1a-P1c cannot be made reproducible by implementation choices alone.
 Historical index membership has a possible official source, but its coverage,
 licence, and price are unpublished; using today's membership creates
@@ -161,6 +161,72 @@ rank a strategy library as if the results represented the intended system.
 Consequences: P1 can continue on source research, data-contract design, and
 synthetic/known-answer validation that does not consume the holdout. Real-data
 discovery and P1a completion remain blocked on the relevant decisions.
+
+**ADR-0026 · 2026-11-15 · accepted · Point-in-time universe resolved without a paid NSE Indices licence; research sizing set**
+Context: ADR-0025 gated P1a on either a purchased NSE Indices licence for
+point-in-time Nifty 50/Next 50 membership, or an explicit survivorship-bias
+waiver. NSE Indices licensing is priced for institutional buyers (asset
+managers/ETF issuers), not a free or low-cost option, and an agent emailing a
+vendor on the owner's behalf is a bad pattern regardless of price. The data
+actually needed is already public.
+Decision: (1) the **research universe** is rule-based and computed from free
+NSE bhavcopy data (`sec_bhavdata_full`), not from any index membership
+source: top 50 (and, for later Tier B-adjacent work, top 100) by rolling
+60-day median turnover, recomputed monthly, keyed on ISIN rather than symbol.
+This is survivorship-free by construction — no manifest, no vendor, no
+licence. (2) A **Nifty 50 point-in-time manifest is still built, but only as
+a benchmark/scorecard tool**, not the research universe: reconstructed by
+anchoring on today's known membership and walking NSE Indices' own public,
+dated replacement press releases (`niftyindices.com/Press_Release/`)
+backward, with the source press-release URL cited per row. Wikipedia's
+replacements-since-2005 table is a cross-check only, never the source of
+record; disagreements between the two are flagged, not silently resolved.
+(3) No NSE Indices quote/licence inquiry will be sent. (4) Research-comparison
+sizing is set at 1% per-trade risk on a ₹1,00,000 placeholder capital — not
+the owner's real trading capital, used only so every P1b/P1c candidate is
+sized identically and results are comparable.
+Consequences: `trading.storage.membership`'s manifest contract/validator
+(built against the "authorized vendor" design) is repointed at the
+reconstructed press-release manifest for benchmarking, not at a purchased
+feed. P1a's membership blocker from ADR-0025 is closed; its sizing blocker is
+closed. Still open: the holding-horizon confirmation, Upstox's raw/adjusted
+price basis (verify empirically, e.g. against Infosys's 2018 bonus issue,
+before trusting any "adjusted" Upstox candle), and the untouched holdout
+range (the 2016-2026 sample remains burned per ADR-0024).
+
+---
+
+**ADR-0027 · 2026-11-15 · accepted · P2/P3 wiring specs: Telegram state machine, risk test vectors, candle builder/scheduler**
+Context: `PAPER_BROKER_SPEC.md` (P2) and `RISK_SPEC.md` §2A defined the fill
+model and routing rules but not the Telegram approve/paper-test/reject
+state machine or concurrency behaviour; `TEST_SPEC_RISK.md` had no test
+vectors for the paper broker's 6-step kill-switch drill; and P3's live
+candle builder / market-session scheduler was referenced in `ADAPTERS.md`
+and `ARCHITECTURE.md` but never pinned down as one algorithm shared by the
+live and backtest/bhavcopy paths.
+Decision: (1) wrote `docs/specs/TELEGRAM_ALERT_SPEC.md` — a 5-state machine
+(PENDING/APPROVED/PAPER_TESTED/REJECTED/EXPIRED) backed by a
+`telegram_decisions` SQLite table, pre-market batch mechanics, and an
+optimistic-write rule so Telegram and the dashboard can race on the same
+signal without double-deciding it. (2) extended `TEST_SPEC_RISK.md` §8 with
+the drill's automated-test form, explicitly using the real paper broker
+(not `FakePaperBroker`, which can't exercise persistence). (3) wrote
+`docs/specs/CANDLE_BUILDER_AND_SCHEDULER_SPEC.md`, pinning the previously-
+open "which tick's price is `open` under reordering" question
+(`TEST_SPEC_CANDLES.md` §1.3) to "chronologically-earliest tick by its own
+timestamp," and defining a `CLOSED -> PRE_OPEN -> OPEN -> POST_CLOSE ->
+CLOSED` per-market session state machine. (4) cherry-picked
+`PAPER_BROKER_SPEC.md` from the still-open `claude/p2-paper-broker-spec`
+branch (PR #48) into this branch, since the three new specs reference it
+and it wasn't yet present here — the file's content is unchanged from that
+PR; `docs/specs/README.md` was updated to list all P2/P3 spec files in one
+place instead of drifting further out of sync with `ls docs/specs/`.
+Consequences: Codex can implement P2's Telegram wiring and P3's candle
+builder/scheduler against a fixed contract. Two things left genuinely open,
+flagged `needs-human` rather than guessed: MCX's exact session calendar
+(`CANDLE_BUILDER_AND_SCHEDULER_SPEC.md` §3.1 — no confirmed free
+machine-readable source yet) and the daily report's content/format (§3.4,
+deferred to a future spec if P3 proves one is needed).
 
 ---
 <!-- Add new ADRs below. Template:
