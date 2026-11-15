@@ -7,7 +7,7 @@ Last updated: 2026-11-15 by Claude (sleeve allocation tests + non-India data eco
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer, strategy discovery, regime-gated activation | Codex | **ACTIVE; P1a gated on source/owner decisions** — split/bonus transform at `1a31c8e` and membership manifest/validator at `6a24c30`, both with synthetic tests; no real membership/action data loaded. Upstox adjustment basis, licensed action ledger, membership source, sizing/horizon and untouched split remain unresolved. See notes 0027-0029. | |
+| P1 Data layer, strategy discovery, regime-gated activation | Codex | **ACTIVE; P1a data/source gates open** — pure split/bonus transform and membership contracts exist. Upstox corporate-actions API endpoint is documented and a fixture-tested client is local; live probe got Cloudflare 403 instructing not to retry, so no action feed was saved. No NSE/Nifty website collector exists. Universe data, action coverage, position replay, and split freeze remain incomplete. See notes 0027-0033. | |
 | P2 Paper broker + risk engine + minimal alerts | Claude (owner override) | **implemented, under review** — PR #50 (RiskEngine/PaperBroker), #52 (candle builder/scheduler); sleeve allocation cap test coverage added on `claude/sleeve-allocation-and-adapters`. See note 0032. | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,12 +17,13 @@ Last updated: 2026-11-15 by Claude (sleeve allocation tests + non-India data eco
 | P8 Expansion (MCX, NSE currency) | Claude (data layer only) | **data verified, data-only** — MCX found a free source after all (Upstox's own MCX_FO segment); NSE currency confirmed to need no new adapter. Roll-adjustment logic built for MCX, reusable for NSE currency later. On `claude/sleeve-allocation-and-adapters`, not merged. See note 0032. | |
 
 ## Next 3 actions
-1. Owner: decide whether to obtain NSE Indices' point-in-time constituent data after coverage/licence/quote details, or accept only a clearly scoped provisional sample with survivorship caveat.
-2. Owner: set research comparison capital/per-trade risk assumption and confirm daily swing horizon.
-3. Codex: confirm Upstox price basis, validate action records, implement position/action replay in both backtesters, and freeze splits only after the data window is known; never read holdout before P1d.
+1. Codex: resume Upstox action API acquisition only after Cloudflare access is restored externally; do not retry or bypass the current block.
+2. Codex: persist per-ISIN action responses/provenance and establish coverage, including a reviewed source for demergers/unknown events.
+3. Codex: after source gates pass, wire screening into both runners, implement position replay, rebuild datasets, and freeze splits; do not read the holdout before P1d.
 
 ## Blockers / needs-human
-- P1 historical membership source/terms or explicit scoped survivorship-bias caveat.
+- P1 research-universe turnover source and historical membership data are not implemented/acquired; automated NSE/NSE Indices collection is prohibited by source policy.
+- Upstox action endpoint live access and historical completeness are unverified; demerger coverage is not documented.
 - P1 comparison sizing (capital and per-trade risk) and holding horizon.
 - New untouched holdout boundaries: the previously reviewed 2016-2026 sample cannot be reused as an unseen holdout under ADR-0024.
 
