@@ -7,14 +7,16 @@ This combines `scorecard.py`, `metrics.py`, `bootstrap.py` and
 still missing. It deliberately does NOT solve the still-open portfolio
 aggregation / daily-return-construction question (BUILD_ORDER.md: "no
 ranking report can be produced until P1a's source/split gates and the
-portfolio aggregation contract are settled"): `daily_excess_returns` is a
-caller-supplied input here, exactly like `metrics.py`'s symbol/window
-grouping maps are caller-supplied. The moment a real daily series exists,
-this assembles the report; it does not pretend to build that series itself.
+portfolio aggregation contract are settled"): `daily_excess_returns` and
+`daily_returns` are caller-supplied inputs here, exactly like `metrics.py`'s
+symbol/window grouping maps are caller-supplied. The moment a real daily
+series exists, this assembles the report; it does not pretend to build that
+series itself.
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
@@ -29,7 +31,6 @@ from trading.backtest.metrics import (
     pct_profitable_time_windows,
     sharpe_ratio,
     sortino_ratio,
-    trade_returns,
     turnover_and_cost_sensitivity,
     vs_buy_and_hold_pct,
 )
@@ -41,6 +42,8 @@ from trading.backtest.multiple_testing import (
 from trading.backtest.runner import Trade
 from trading.backtest.scorecard import Scorecard, scorecard
 
+_SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
+
 
 @dataclass(frozen=True)
 class RankingReportRow:
@@ -50,16 +53,20 @@ class RankingReportRow:
     only -- every row uses the same `family_size` regardless of this label.
     """
     dataset_manifest_hash: str
-    """Identity of the exact frozen data snapshot (candles + corporate-action
-    coverage + calendar version) this row was computed against -- opaque to
-    this module; Codex's P1a snapshot-manifest contract defines what goes
-    into it. A report row with no hash, or two rows claiming the same
-    candidate under different hashes, is not a comparable result.
+    """Identity of the complete experiment input package (candle snapshot
+    hash + action-register hash + calendar hash + transform/cost versions)
+    this row was computed against. Distinct from the narrower
+    `candle_snapshot_sha256` that P1a's action-preflight binds coverage
+    evidence to -- coverage can't reference this manifest hash, since the
+    manifest itself contains the action register (circular). Opaque to this
+    module; Codex's P1a contract defines what goes into it. Must be a
+    64-character lowercase hex SHA-256 -- not merely non-empty, so a
+    placeholder label can't masquerade as a real hash.
     """
     scorecard: Scorecard
     max_drawdown_pct: Decimal
-    sharpe: Decimal
-    sortino: Decimal
+    sharpe: Decimal | None
+    sortino: Decimal | None
     calmar: Decimal
     turnover: TurnoverAndCosts
     raw_p_value: Decimal
@@ -79,6 +86,7 @@ def build_ranking_report_row(
     trades: Sequence[Trade],
     starting_equity: Decimal,
     daily_excess_returns: Sequence[Decimal],
+    daily_returns: Sequence[Decimal] | None,
     periods_per_year: int,
     years: Decimal,
     bootstrap_seed: int,
@@ -91,17 +99,25 @@ def build_ranking_report_row(
 ) -> RankingReportRow:
     """One row, raw and Bonferroni-adjusted side by side -- never only the
     adjusted figure, so a reader can see what the correction actually did.
+
+    `daily_returns` -- ordinary strategy returns per verified session
+    (including flat sessions), NOT per-trade returns -- is what Sharpe/
+    Sortino are computed from. Per-trade returns have irregular time
+    spacing and omit flat sessions, so annualizing them by `periods_per_year`
+    would be a different, inflated statistic, not the daily Sharpe/Sortino
+    the P1 evaluation contract specifies. If the caller cannot yet supply a
+    real daily series, pass `None` -- `sharpe`/`sortino` come back `None`
+    rather than being silently computed as a trade-frequency ratio.
     """
     if starting_equity <= 0:
         raise ValueError("starting_equity must be positive")
-    if not dataset_manifest_hash:
+    if not dataset_manifest_hash or not _SHA256_HEX.match(dataset_manifest_hash):
         raise ValueError(
-            "dataset_manifest_hash is required -- a row not tied to a frozen "
-            "data snapshot is not a comparable result"
+            "dataset_manifest_hash must be a 64-character lowercase hex SHA-256 -- "
+            "a row not tied to a real frozen data snapshot is not a comparable result"
         )
     card = scorecard(list(trades))
     max_drawdown_pct = card.max_drawdown / starting_equity * Decimal(100)
-    returns = trade_returns(trades, starting_equity=starting_equity)
     total_return_pct = card.total_pnl / starting_equity * Decimal(100)
 
     raw_p = moving_block_excess_p_value(
@@ -124,8 +140,16 @@ def build_ranking_report_row(
         dataset_manifest_hash=dataset_manifest_hash,
         scorecard=card,
         max_drawdown_pct=max_drawdown_pct,
-        sharpe=sharpe_ratio(returns, periods_per_year=periods_per_year),
-        sortino=sortino_ratio(returns, periods_per_year=periods_per_year),
+        sharpe=(
+            sharpe_ratio(daily_returns, periods_per_year=periods_per_year)
+            if daily_returns is not None
+            else None
+        ),
+        sortino=(
+            sortino_ratio(daily_returns, periods_per_year=periods_per_year)
+            if daily_returns is not None
+            else None
+        ),
         calmar=calmar_ratio(
             annualized_return_pct=annualized_return_pct(
                 total_return_pct=total_return_pct, years=years
