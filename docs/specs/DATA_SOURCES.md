@@ -1,11 +1,26 @@
-# Data sources — pre-P0 research
+# Data sources — provider research and P1 boundaries
 
-Checked 2026-11-14. Research only: no downloader, broker login, subscription, or
-provider selection. This supports ADR-0009; it does not change it. Limits are
-provider documentation snapshots, not measured account entitlements. Recheck
-before implementing an adapter. A bhavcopy is an exchange's end-of-day market file.
+Checked 2026-11-14, with the membership-source follow-up checked 2026-11-15.
+Research only: no downloader, broker login, subscription, or external inquiry.
+Limits are provider documentation snapshots, not measured account entitlements.
+Recheck before bulk ingestion. A bhavcopy is an exchange's end-of-day market
+file.
 
-## India: free API candidates
+## India: selected P1 historical candle source
+
+ADR-0023 selects the existing Upstox historical-candle adapter as the **only
+P1 India candle source**. Use it for the P1 daily and intraday research candles;
+do not mix another broker/vendor candle feed into this sample. Preserve the raw
+provider response or fixture, request parameters, ingestion timestamp, and
+candle provenance as required by ADR-0023. This selection does not settle the
+separate point-in-time index-membership or corporate-action sources below, and
+does not choose the P3 live feed or execution broker. Confirm Upstox terms and
+the account's allowed historical use before bulk ingestion.
+
+The alternatives below are pre-P1 research notes. They are not additional
+P1 candle sources under ADR-0023.
+
+## India: other free API candidates (not selected for P1)
 
 | Provider | Official evidence | Constraints for this project |
 |---|---|---|
@@ -55,17 +70,79 @@ anti-bot challenges.
 
 ## Corporate actions and historical membership
 
+### Point-in-time Nifty 50 / Next 50 membership
+
+The official [NSE Indices data-subscription page](https://www.niftyindices.com/offerings/data-subscription)
+says its data products include ongoing and historical index information and
+constituent data with company names, identifiers, market capitalization,
+weights, and prices. It explicitly lists quantitative research as an intended
+use and directs requests for end-of-day constituent data to `indices@nseids.co.in`.
+This is the strongest direct route found. The page does not publish price,
+exact historical coverage, whether membership is daily or only at rebalances,
+delisted-identifier coverage, or a specific licence for this project's
+backtests. Those details must be obtained before acquisition or ingestion; no
+paid purchase is authorized by this research.
+
+Prepared inquiry (not sent): request Nifty 50 and Nifty Next 50 historical
+constituents from the earliest date the provider supports through the latest
+completed session; effective dates for every inclusion, exclusion, and ad-hoc
+change; stable identifiers including ISIN and historical symbols; coverage of
+delisted/renamed companies; file format and update/revision policy; research and
+backtesting licence terms; one-time and recurring fees; and sample files for
+validation against dated official notices. Ask whether the delivered records
+are daily snapshots or event intervals. A response should be saved with the
+dataset manifest before ingestion is approved.
+
+NSE Indices also publishes an [index reconstitution calendar](https://niftyindices.com/resources/index-rebalancing-schedule)
+and a dated [press-release archive](https://www.niftyindices.com/press-release).
+The calendar lists Nifty 50 and Nifty Next 50 as semi-annual reconstitutions
+effective on the last working day of March and September, while noting that
+additional changes may occur for schemes of arrangement, suspension, and
+delisting. The official [equity-index methodology](https://www.niftyindices.com/Methodology/Method_NIFTY_Equity_Indices.pdf)
+describes ad-hoc events and effective-date treatment. These sources make a
+manual, event-based reconstruction plausible, but a calendar alone is not the
+membership history: every ordinary and ad-hoc inclusion/exclusion notice must
+be accounted for and checked against a starting constituent snapshot. The
+press-release archive contains mixed notices (including corporate adjustments
+and launches), so it cannot be treated as a clean membership file without
+review.
+
+If reconstruction is required, the auditable output should be an interval
+table keyed by stable company identity (ISIN where available), with at least
+`index_id`, `isin`, `symbol_at_time`, `company_name_at_time`,
+`effective_from`, `effective_to`, `source_notice_url`, `source_notice_date`,
+`review_status`, and `notes`. Each record should cite its official notice;
+symbol/name changes must be separate identity-mapping events, not guessed from
+similar names. Validation should assert 50 members per normal Nifty 50 interval
+and 50 per normal Next 50 interval, reconcile every notice's before/after
+counts, investigate special-event exceptions, and compare selected dated
+snapshots to official constituent reports. Completeness should not be claimed
+for any interval with an unexplained event or unresolved identity.
+The manifest schema and fail-closed validation rules are specified in
+[`INDEX_MEMBERSHIP.md`](INDEX_MEMBERSHIP.md); they validate a supplied dataset,
+not the source's license or completeness claim.
+
+Commercial data vendors are another possible route, but the source, coverage,
+research-use licence, and cost must be verified with the vendor. Community
+GitHub reconstructions may be useful as cross-checks only; they are not a
+substitute for source notices and validation.
+
 The official [NSE corporate-actions page](https://www.nseindia.com/companies-listing/corporate-filings-actions)
 offers date/company filters and CSV downloads. It is a source-discovery reference,
 not a documented public ingestion API or evidence of a complete historical feed.
 The same website terms above apply.
 
-Open requirements for Claude's P0 contracts/test specs:
+P1 corporate-action adjustment requirements:
 
 - Distinguish raw prices from prices adjusted for splits/bonuses and other events;
   preserve the original file, provider, acquisition time, and adjustment version.
 - Specify treatment of dividends and rights separately. Do not infer factors from
   free-text corporate-action descriptions without validated, known-answer cases.
+- The synthetic split/bonus transformer and known-answer tests are specified in
+  [`CORPORATE_ACTIONS.md`](CORPORATE_ACTIONS.md). It must not be applied to
+  Upstox candles until the provider confirms whether those prices are already
+  adjusted; P1 backtests must also account for share-count changes on held
+  positions before adjusted data can support promotion.
 - Obtain historical instrument identifiers, symbol changes, delistings, and
   point-in-time index membership. Today's Nifty 50 list cannot prove a
   survivorship-free historical Nifty 50 result.
@@ -97,10 +174,14 @@ whole-market volume. Do not infer unlimited daily usage from a forum post.
 
 - Official pages only; no authenticated market-data calls or downloaded datasets.
 - Confirmed by retrieved pages: Angel One's free historical offer, FYERS Standard
-  limits, Alpaca Basic limits, NSE corporate-actions UI and website restrictions.
+  limits, Alpaca Basic limits, NSE corporate-actions UI and website restrictions,
+  NSE Indices' historical constituent-data offering for quantitative research,
+  its reconstitution calendar, and its press-release archive.
 - Indexed evidence only: NSE current bhavcopy filename/cutover and SmartAPI limits.
 - Unresolved: stable bhavcopy URL formats, source permissions for intended use,
-  selected provider/account entitlements, adjusted data and delisted coverage.
-- Claude: reconcile these constraints in P0 specs and review this document in its
-  PR. Owner decisions belong in an approved ADR PR, not an implicit adapter choice.
-- Codex: wait for Claude's P0 handoff and merged foundation before P1.
+  selected provider/account entitlements, adjusted data and delisted coverage,
+  historical constituent-data price/licence/coverage, and whether notices alone
+  permit a complete reconstruction for the required dates.
+- This section preserves pre-P1 alternatives and access research; ADR-0023 and
+  the selected-source section above govern P1 candle ingestion.
+- Owner decisions belong in an approved ADR PR, not an implicit adapter choice.

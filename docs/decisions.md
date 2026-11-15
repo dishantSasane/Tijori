@@ -106,6 +106,62 @@ strategy promotion and go-live remain blocked on this cross-model equivalence
 gate. No implementation may silently treat a stop/target-only reference as
 complete.
 
+**ADR-0023 · 2026-11-14 · accepted · Upstox is the P1 India historical-data source**
+Context: the owner chose one concrete source for the P1 research and backtesting
+slice after the tokenless daily and past-day intraday probes and the validated
+Parquet loader were completed.
+Decision: use the existing Upstox historical-candle adapter for P1 India daily
+and intraday research data. Keep raw provider responses/fixtures, request
+parameters, ingestion timestamps, and candle provenance. This does not select a
+P3 live feed, an execution broker, or authorize live orders.
+Consequences: P1 can collect the Nifty 50/Tier A research set and generate T1/T4
+scorecards against one adapter. Corporate-action adjustment, historical
+membership, and provider terms still need validation before results are called
+survivorship-free or production-ready.
+
+**ADR-0024 · 2026-11-15 · accepted · P1 restructured into pre-registered discovery/validation/holdout + regime-gated activation**
+Context: P1 was originally "pick strategies, backtest them," which ranks
+candidates by historical P&L — the metric most vulnerable to overfitting and
+selection bias. The owner decided to replace this before any strategy
+discovery beyond the existing T1/T4 baselines proceeds.
+Decision: split P1 into P1a (frozen data foundation: corporate-action
+adjustment, point-in-time universe, frozen chronological splits), P1b
+(pre-registered candidate library with a capped parameter grid), P1c
+(evaluation harness with a multiple-testing correction and an experiment
+registry logging every attempt including failures), P1d (one-shot holdout
+evaluation with a pre-written rejection rule), and P1e (a regime-gated
+activation layer that selects the eligible strategy per instrument, subject
+to the same split discipline, defaulting to flat when nothing is eligible).
+Risk engine mode gating is correspondingly tiered: auto-execute only for
+strategies marked `promoted` under declared thresholds, approval required
+otherwise or on an anomaly check, pre-market batch approval, and a Telegram
+spec where silence never means "something broke." Full detail:
+`BUILD_ORDER.md` P1a-P1e, `RISK_SPEC.md` §2A.
+Consequences: strategy-discovery work (beyond T1/T4) does not start until
+P1a's data gaps (point-in-time universe, corporate actions) are resolved or
+explicitly waived by the owner; the untouched holdout from the current
+2016-2026 sample is no longer valid once inspected, so a new, genuinely
+unread holdout range must be committed in P1a config before P1b/P1c runs.
+
+**ADR-0025 · 2026-11-15 · proposed · P1 data and evaluation assumptions requiring owner decision**
+Context: P1a-P1c cannot be made reproducible by implementation choices alone.
+Historical index membership has a possible official source, but its coverage,
+licence, and price are unpublished; using today's membership creates
+survivorship bias. P1's comparison also needs common sizing assumptions and an
+explicit holding horizon before metrics can be interpreted.
+Decision: leave these as hard gates, not defaults. For historical Nifty 50 /
+Next 50 membership, first request a quote and written coverage/licence details
+from NSE Indices; proceed only after the owner accepts the source/terms or
+explicitly signs off on a scoped survivorship-bias caveat. For comparisons,
+the owner must choose (or explicitly authorize a documented research-only
+assumption for) starting capital and per-trade risk. The owner must confirm
+daily swing horizon or specify another target horizon. Until these are settled,
+do not freeze split dates, ingest index history under an assumed licence, or
+rank a strategy library as if the results represented the intended system.
+Consequences: P1 can continue on source research, data-contract design, and
+synthetic/known-answer validation that does not consume the holdout. Real-data
+discovery and P1a completion remain blocked on the relevant decisions.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
