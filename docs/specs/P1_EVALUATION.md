@@ -3,7 +3,9 @@
 Status: pre-registered design. No real-data candidate result has been produced
 under this evaluation plan.
 
-P1 evaluates daily and intraday strategy families from the start. Maintain
+P1's first pass evaluates daily and intraday strategy families on the fixed
+five-symbol pilot declared in `P1_CANDIDATES.md`. This is a survivorship-biased
+methodology study, not evidence for the broad Indian equity universe. Maintain
 separate frozen candidate catalogs and sample/coverage checks for each
 timeframe; use 1-minute/5-minute history only from complete sessions and split
 at session boundaries. Upstox V3 minute requests are capped at one month for
@@ -87,7 +89,8 @@ and conflicts are handled.
   percentiles of the 10,000 replicate means. Record seed, block size,
   replicate count, sample count, and quantile convention.
 - Primary family-wise correction: Bonferroni across the 15 predeclared
-  strategy variants in `P1_CANDIDATES.md`; cash and buy-and-hold are fixed
+  strategy variants in `P1_CANDIDATES.md` and `P1_INTRADAY_CANDIDATES.md`;
+  cash and buy-and-hold are fixed
   reference baselines, not tested hypotheses. Adjusted
   `p = min(1, m*p_raw)`. Only compute a raw p-value from a predeclared test of
   mean net daily excess return against cash using the same synchronized

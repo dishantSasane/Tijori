@@ -63,8 +63,13 @@ actions endpoint by ISIN. It preserves the provider's event name, date, raw
 ratio text, amount, ordered detail pairs (including duplicate labels), exact
 response bytes, retrieval timestamp, response checksum, parser version, and
 endpoint reference. It deliberately does not infer share factors from the
-ratio text. The adapter's returned events are not yet converted into
-`CorporateActionNotice` or wired to either runner. The shared classifier recognizes
+ratio text. `action_archive.py` saves exact response envelopes and maps notices;
+the primary and reference runners now require explicit coverage attestation
+when action notices are supplied and block unhandled actions before replay. The
+collector requests the five pilot ISINs using a fresh runtime token and archives
+responses without writing the token. A 2026-11-15 probe succeeded after using a
+browser-like User-Agent; the five responses contained dividends only, which is
+not evidence of full historical coverage. The shared classifier recognizes
 split, bonus, demerger, rights, dividend, and unknown purposes;
 unrecognized descriptions are retained as `other` so they cannot silently
 disappear. The legacy `parse_nse_corporate_action_row` is a pure row
@@ -124,10 +129,12 @@ adjustment is attempted.
   tested position/action replay contract and independent reference-runner
   equivalence.
 - The Upstox API is the selected P1 action source. Its documented endpoint is
-  implemented as an authenticated adapter, but a live request on 2026-11-15
-  was denied by Cloudflare with `browser_signature_banned` and an instruction
-  not to retry. No response ledger has been fetched or saved. Do not claim
-  source coverage until live access and completeness are verified. The API docs
+  implemented as an authenticated adapter. Five responses were fetched and
+  archived on 2026-11-15 after setting a browser-like User-Agent; all five
+  contained dividend events only. This proves endpoint access, not that the
+  endpoint supplies complete historical splits, bonuses, demergers or rights
+  events. Do not claim source coverage until completeness is independently
+  verified. The API docs
   do not explicitly list demergers; these require separately reviewed,
   permitted records. The synthetic 1:1 bonus case validates the formula, but
   is not evidence of provider bonus parsing or completeness. Do not claim

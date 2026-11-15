@@ -10,10 +10,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from decimal import Decimal
 
+from trading.backtest.action_preflight import ReviewedActionKey, action_preflight
 from trading.backtest.fills import BacktestProfile
 from trading.backtest.runner import BacktestResult, OpenTrade, Trade
 from trading.core.enums import OrderSide
 from trading.core.models import Candle, Signal
+from trading.storage.action_register import ActionRegister
 
 
 def run_reference(
@@ -23,10 +25,22 @@ def run_reference(
     quantity: Decimal,
     profile: BacktestProfile,
     condition_exit: Callable[[Signal, int, Candle], bool] | None = None,
+    action_register: ActionRegister | None = None,
+    candle_snapshot_sha256: str | None = None,
+    reviewed_action_keys: set[ReviewedActionKey] | frozenset[ReviewedActionKey] = frozenset(),
 ) -> BacktestResult:
     """Replay entries with independent stop, target and next-open condition exits."""
     if quantity <= 0:
         raise ValueError("quantity must be positive")
+    instruments = {(candle.market, candle.symbol, candle.timeframe) for candle in candles}
+    if len(instruments) > 1:
+        raise ValueError("reference runner requires candles from exactly one instrument")
+    action_review_flags = action_preflight(
+        candles,
+        action_register=action_register,
+        candle_snapshot_sha256=candle_snapshot_sha256,
+        reviewed_action_keys=reviewed_action_keys,
+    )
     trades: list[Trade] = []
     unfilled: list[str] = []
     audit_events: list[str] = []
@@ -119,4 +133,5 @@ def run_reference(
         open_positions=open_positions,
         audit_events=audit_events,
         open_trades=open_trades,
+        action_review_flags=action_review_flags,
     )

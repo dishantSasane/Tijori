@@ -63,12 +63,31 @@ intraday_candle_snapshot_sha256: b10ef77572a455c9dcccc45abf5ae421a39a03a8cd2291e
 ```
 
 Both hashes change if any symbol's raw response, request window, or parser
-version changes -- they are each series' tamper-evident identity, to be
-carried into the full evaluation manifest once the action-register and
-calendar components are frozen alongside them (candle identity and action
-coverage identity are deliberately separate hashes -- see
+version changes -- they are each series' tamper-evident identity. The combined
+evaluation manifest now binds these candle identities to the action-register
+and calendar hashes (candle identity and action coverage identity are
+deliberately separate hashes -- see
 `communication/2026-11-15-codex-snapshot-hash-clarification.md` -- avoiding
 a circular dependency between the two).
+
+### Combined evaluation manifest identity
+
+Generated offline with
+`PYTHONPATH=src .venv/bin/python -m trading.storage.freeze_p1a_manifest --reviewed-on 2026-11-16`.
+The canonical action register includes the observed provider action records
+and explicit per-symbol/timeframe coverage rows. Its hash and the complete
+manifest hash are:
+
+```
+action_register_sha256: f0abc42ed748a87d444431193a3a9c9322ca5b263ae082b580ba031a1949256b
+evaluation_manifest_sha256: aa1c0a786f78cf321c2fb4f042413d0c47c276e74063b45dfb8944ce58e60e55
+artifact: docs/specs/P1A_EVALUATION_MANIFEST.json
+```
+
+The artifact explicitly records `action_coverage_status: unverified`. This
+closes the manifest-assembly/hash deliverable; it does not claim complete
+historical corporate-action coverage. The backtest action preflight remains
+fail-closed and real-data replay is not cleared by this manifest alone.
 
 ## 3. Known data-quality defect and its resolution
 
@@ -171,8 +190,8 @@ symbol) does contain one -- this manifest does not relax that gate.
   covers only the five-symbol pilot, by explicit, documented scope decision
   (`communication/2026-11-15-claude-unblock-p1a-proposal.md`,
   `2026-11-15-codex-reply-pilot-scope.md`). Not a silent substitution.
-- **This manifest's hash is the candle-identity component only.** The full
-  evaluation manifest (candle hash + action-register hash + calendar hash +
-  transform/cost versions) is assembled once all components are frozen
-  together; this document is the candle/calendar/adjustment-basis evidence
-  feeding into that larger freeze, not the freeze itself.
+- **Action coverage remains unverified.** The combined manifest binds the
+  current action-register snapshot, but available Upstox evidence does not
+  establish complete historical action coverage for every symbol/window.
+  Keep action preflight fail-closed and do not interpret the hash as coverage
+  certification.

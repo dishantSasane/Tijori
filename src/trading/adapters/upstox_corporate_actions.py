@@ -125,10 +125,12 @@ class UpstoxCorporateActionsClient:
         base_url: str = BASE_URL,
         requester: Callable[[str, dict[str, str]], bytes] = _request,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+        user_agent: str | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._requester = requester
         self._clock = clock
+        self._user_agent = user_agent
 
     def fetch(self, isin: str, *, access_token: str) -> UpstoxCorporateActionsSnapshot:
         normalized_isin = isin.strip().upper()
@@ -141,6 +143,8 @@ class UpstoxCorporateActionsClient:
             "Accept": "application/json",
             "Authorization": f"Bearer {access_token}",
         }
+        if self._user_agent:
+            headers["User-Agent"] = self._user_agent
         try:
             raw_response = self._requester(source_ref, headers)
             retrieved_at = self._clock()

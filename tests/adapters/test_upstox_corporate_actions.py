@@ -154,3 +154,17 @@ def test_authenticated_request_never_follows_redirect_to_another_host() -> None:
         target.shutdown()
         target.server_close()
         target_thread.join()
+
+
+def test_explicit_user_agent_keeps_authentication_header() -> None:
+    calls = []
+
+    def request(url, headers):
+        calls.append(headers)
+        return b'{"status":"success","data":[]}'
+
+    UpstoxCorporateActionsClient(requester=request, user_agent="Mozilla/5.0").fetch(
+        "INE002A01018", access_token="fake"
+    )
+    assert calls[0]["User-Agent"] == "Mozilla/5.0"
+    assert calls[0]["Authorization"] == "Bearer fake"

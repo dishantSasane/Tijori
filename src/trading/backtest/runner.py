@@ -7,8 +7,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 
+from trading.backtest.action_preflight import ReviewedActionKey, action_preflight
 from trading.backtest.fills import BacktestProfile, Position, fill_at_next_open, stop_exit
 from trading.core.models import Candle, Signal
+from trading.storage.action_register import ActionRegister
+from trading.storage.corporate_actions import UnhandledCorporateAction
 
 
 @dataclass(frozen=True)
@@ -42,6 +45,7 @@ class BacktestResult:
     open_positions: int
     audit_events: list[str] = field(default_factory=list)
     open_trades: list[OpenTrade] = field(default_factory=list)
+    action_review_flags: tuple[UnhandledCorporateAction, ...] = ()
 
 
 def run_long_only(
@@ -51,6 +55,9 @@ def run_long_only(
     quantity: Decimal,
     profile: BacktestProfile,
     condition_exit: Callable[[Signal, int, Candle], bool] | None = None,
+    action_register: ActionRegister | None = None,
+    candle_snapshot_sha256: str | None = None,
+    reviewed_action_keys: set[ReviewedActionKey] | frozenset[ReviewedActionKey] = frozenset(),
 ) -> BacktestResult:
     """Replay signals with next-open fills and long stop-first exits.
 
@@ -60,6 +67,9 @@ def run_long_only(
     """
     if quantity <= 0:
         raise ValueError("quantity must be positive")
+    instruments = {(candle.market, candle.symbol, candle.timeframe) for candle in candles}
+    if len(instruments) > 1:
+        raise ValueError("long-only runner requires candles from exactly one instrument")
     last_timestamp: dict[tuple[object, str, object], datetime] = {}
     for candle in candles:
         instrument = (candle.market, candle.symbol, candle.timeframe)
@@ -67,6 +77,12 @@ def run_long_only(
         if previous is not None and candle.ts_open_utc <= previous:
             raise ValueError("candle timestamps must be strictly increasing and unique")
         last_timestamp[instrument] = candle.ts_open_utc
+    action_review_flags = action_preflight(
+        candles,
+        action_register=action_register,
+        candle_snapshot_sha256=candle_snapshot_sha256,
+        reviewed_action_keys=reviewed_action_keys,
+    )
     by_identity = {
         (candle.market, candle.symbol, candle.timeframe, candle.ts_open_utc): index
         for index, candle in enumerate(candles)
@@ -214,4 +230,5 @@ def run_long_only(
         open_positions=open_positions,
         audit_events=audit_events,
         open_trades=open_trades,
+        action_review_flags=action_review_flags,
     )

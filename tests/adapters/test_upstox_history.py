@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, datetime
+from hashlib import sha256
 from pathlib import Path
 
 from trading.adapters.upstox_history import UpstoxHistoryClient
@@ -85,3 +86,27 @@ def test_historical_intraday_request_uses_date_bounded_historical_endpoint() -> 
     assert calls == [
         "https://api.upstox.com/v3/historical-candle/NSE_EQ%7CTEST/minutes/1/2026-10-31/2026-10-01"
     ]
+
+
+def test_history_snapshot_preserves_exact_response_hash_and_request() -> None:
+    payload = (FIXTURES / "nifty_daily.json").read_bytes()
+    retrieved = datetime(2026, 11, 15, 17, 0, tzinfo=UTC)
+    client = UpstoxHistoryClient(
+        requester=lambda _url, _headers: payload,
+        clock=lambda: retrieved,
+    )
+    snapshot = client.fetch_snapshot(
+        "NSE_INDEX|Nifty 50",
+        symbol="NIFTY 50",
+        market=MarketId.IN_EQUITY,
+        timeframe=Timeframe.D1,
+        from_date="2010-01-01",
+        to_date="2015-12-31",
+        ingest_ts=retrieved,
+    )
+    assert snapshot.raw_response == payload
+    assert snapshot.response_sha256 == sha256(payload).hexdigest()
+    assert snapshot.from_date == "2010-01-01"
+    assert snapshot.to_date == "2015-12-31"
+    assert snapshot.retrieved_at_utc == retrieved
+    assert len(snapshot.candles) == 2

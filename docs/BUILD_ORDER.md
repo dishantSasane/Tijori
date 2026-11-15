@@ -53,13 +53,23 @@ independent work is ready.
 
 ### P1a — Data foundation
 
+**First-pass scope decision (2026-11-15): bounded five-symbol pilot.** The
+first P1 pass uses RELIANCE, INFY, TCS, HDFCBANK and ICICIBANK as a fixed
+universe to validate the data and evaluation pipeline quickly. This sample
+has survivorship and concentration bias. Its results are methodology/pipeline
+validation and exploratory evidence for these five instruments only; they do
+not establish an India-wide or survivorship-free strategy edge. The original
+Top-50 point-in-time universe remains a tracked full-universe follow-up, not
+silently considered complete. This scope decision does not waive per-symbol
+candle, action, calendar, split, or evaluation gates.
+
 | Deliverable | A/R | Notes |
 |---|---|---|
-| Tier A daily history in Parquet (candle store + validation) | Sol / Terra | already done for the 6-symbol representative set |
+| Tier A daily history in Parquet (candle store + validation) | Sol / Terra | Existing six-symbol history is exploratory only. Five pilot symbols' raw Upstox daily responses for 2010-01-01 through 2015-12-31 are archived locally (1,482 candles each except RELIANCE at 1,492); their common-session/calendar reconciliation, provider adjustment basis, and research eligibility remain unverified. |
 | Tier A intraday history in Parquet (1m and 5m) | Sol / Terra | Upstox V3 intraday history has a fixed provider floor of January 2022. Do not probe for earlier intraday history; it is unavailable through this provider. One-month maximum request span for 1–15m. Resumable loader and tests are implemented; sustained full-universe collection still pending. |
-| Corporate-action adjustment, source adapter added; data/coverage gates open | Terra / Sol | Upstox documents an authenticated per-ISIN corporate-actions endpoint for dividends, bonuses, splits, and rights. A client and fixture tests now preserve the raw ratio/details without inferring ratio direction. A live probe was blocked by Cloudflare 403 (`browser_signature_banned`; response said do not retry), so no real event ledger was fetched or saved. The docs do not explicitly promise demerger coverage. Do not rebuild candles or treat an empty response as a complete ledger until authenticated responses and coverage are verified. Existing NSE parser is normalization-only; no NSE downloader exists. Position replay and runner screening remain incomplete. |
-| Research universe: pure turnover selector; data source unimplemented | Terra / Sol | ADR-0026 selects top 50 (and separately top 100 for later Tier-B-adjacent research) by rolling 60-session median turnover, recomputed monthly, keyed on ISIN. The selector only accepts normalized inputs and has synthetic tests. Proposed NSE bhavcopy acquisition is prohibited by current source policy; no collector or scraper exists. Do not produce real snapshots or survivorship-free claims until a permitted source, schema, historical eligible-security coverage, and missing/no-trade semantics are verified. |
-| Nifty 50 point-in-time manifest: validator only, benchmark-only | Terra / Sol | Membership models validate a supplied manifest; no NSE Indices press-release downloader or automated reconstruction exists. Do not automate collection from NSE Indices. The manifest remains unpopulated and incomplete; a benchmark constituent list alone does not calculate index returns. |
+| Corporate-action adjustment, source adapter added; data/coverage gates open | Terra / Sol | Authenticated Upstox per-ISIN API access works with the browser-like User-Agent after the earlier 403. Five pilot responses were archived locally; all contained dividends only, so they do not establish historical action completeness. A manual, offline register and fail-closed coverage gate are being added; no NSE/NiftyIndices automation is used. A real Reliance 1:1 bonus sample is price-continuous (Oct 2024), but volume basis and broad provider behavior remain unverified. Do not rebuild candles or claim coverage from an empty/partial response. Position replay remains incomplete. |
+| Research universe: pure turnover selector; broad source unimplemented | Terra / Sol | ADR-0026's Top-50 rolling 60-session median-turnover selector remains implemented with synthetic tests only. It is not used by the five-symbol pilot. No real Top-50 snapshot or survivorship-free claim is allowed until a permitted, complete historical source is established; automated NSE/NiftyIndices collection remains prohibited. |
+| Nifty 50 point-in-time manifest: validator only, benchmark-only | Terra / Sol | Membership models validate supplied manifests; no automated NSE Indices collection exists. This is outside the five-stock pilot's eligibility universe. Benchmark comparisons require an authorized series with documented return type and coverage. Broad point-in-time membership remains a follow-up. |
 | Chronological split boundaries, written and frozen in config before any strategy runs | Sol / Terra | Contract in `specs/RESEARCH_SPLITS.md`; dates remain unset until authorized source/window and fresh unread holdout are available |
 
 P1 candle scope includes **daily swing and intraday from the start**. Upstox
@@ -73,13 +83,14 @@ requests per 30 minutes (and therefore also below 500 per minute and 50 per
 second). Tokens are supplied at runtime and are never persisted. OAuth
 auto-renewal remains out of scope until the live/paper trading phase.
 
-Exit: corporate-action adjustment has real-event and synthetic known-answer tests; the pure rule-based
-universe selector is implemented and tested; authorized, schema-verified
-historical universe inputs and permitted, coverage-verified benchmark data are
-available and ISIN-joined against the Upstox instrument master; split
-boundaries exist in committed config with no strategy code reading the
-holdout range. Source authorization and historical coverage are hard gates,
-not implied by public download availability.
+Pilot exit: reproducible daily and intraday history for the five fixed symbols
+is complete over declared windows; action basis and event coverage are verified
+for those exact symbols/windows or affected windows are excluded; source
+artifacts and adjustment metadata are reproducible; the pilot calendar and
+dataset are frozen; and chronological development/validation/holdout boundaries
+are recorded before holdout access. The full Top-50 universe, historical
+eligibility and broad point-in-time index membership remain a separate
+follow-up. Source authorization and coverage remain hard gates.
 
 Progress note (2026-11-15): the pure daily/intraday split/bonus price-volume transform
 and known-answer tests are in `trading.storage.corporate_actions`
@@ -101,11 +112,11 @@ a); do not apply the 10:1 transform a second time. Later corporate actions
 may affect the absolute historical price scale, so do not infer the raw price
 by dividing by ten. The real-event fixture/test checks continuity. Do not
 generalize this one event to every action type or symbol.
-The Upstox per-ISIN corporate-actions API is now the selected action-data
-source; see `specs/DATA_SOURCES.md`. A request from this environment received
-Cloudflare HTTP 403 `browser_signature_banned` with an instruction not to retry.
-No live event data was acquired. Validate API access and history coverage before
-using it. The API documentation does not explicitly include demergers, so those
+The Upstox per-ISIN corporate-actions API is the selected action-data
+candidate; see `specs/DATA_SOURCES.md`. On 2026-11-15, five responses were
+successfully archived and contained 1-5 dividend records each, all dated in
+2026. This does not cover the 2010-2015 candle window or establish completeness.
+The API documentation does not explicitly include demergers, so those
 and any unknown/missing action classes require manual reviewed records or a
 different authorized source. Validate provider adjustment markers/basis for
 other events, implement and independently verify position/share-count replay
@@ -145,17 +156,18 @@ larger P1 search.
 
 | Deliverable | A/R | Notes |
 |---|---|---|
-| Fixed candidate family spec, declared before any ranking | Sol / Terra | daily families plus a parallel pre-registered intraday family catalog from the start; ORB requires its own exact intraday rules and is not deferred to a later phase |
+| Fixed candidate family spec, declared before any ranking | Sol / Terra | 12 daily and 3 intraday variants are frozen in their catalogs; T3 is deferred because K=20 degenerates on five symbols, and RPF is also deferred before result inspection. |
 | Declared parameter grid per candidate, with a hard cap on variations | Sol / Terra | state the cap explicitly in the spec file; no free-form parameter sweeps |
 | Versioned, deterministic spec per candidate | Sol / Terra | same immutable-version discipline as `STRATEGIES.md` §6 |
 
 Exit: every executable candidate and parameter grid exists in a spec file
 before any backtest runs; the cap on variations is a number written down, not
-an intention. The daily catalog is drafted, but its RPF hypothesis remains
-non-executable until its complete rules are specified. A separate intraday
-catalog with exact ORB rules and parameter variants remains to be written.
-Owner confirmation of the promotion horizon and viability thresholds is still
-required before result generation.
+an intention. Twelve daily variants (T1/T2/T4/T6) and a three-variant 5-minute
+ORB catalog are specified. T3 and RPF are deferred. The multiple-testing
+family is 15 variants across daily and intraday catalogs; no results may be
+generated until P1a gates pass.
+Numeric promotion policy is a P1c deliverable. Backtest results alone do not
+promote a strategy to paper or live use.
 
 ### P1c — Evaluation harness and experiment registry
 
@@ -207,7 +219,14 @@ regime calculation and router skeleton are implemented and synthetically
 tested; promotion thresholds, empirical validation and production scorecard
 integration remain gated on P1a-P1d.
 
-### Candidate original hypothesis (frozen pre-registered, untested)
+### Candidate ideas deferred from the five-symbol P1 pilot
+
+T3 cross-sectional momentum is deferred because its frozen `K=20` selection
+and top-`2K` exit are degenerate on the five-name pilot: all names fit within
+the selection and exit bands. Do not silently change the rule to fit this
+small universe. Revisit only for a wider-universe follow-up.
+
+The RPF idea below is also deferred, before any P1 result inspection.
 
 **Regime-Gated Failed-Breakout Pullback.** Long only when price is above a
 rising SMA(200) and volatility is not extreme. Detect a Donchian breakout that
@@ -216,12 +235,12 @@ fails and closes back inside the channel. Wait for a controlled pullback
 at the next bar's open after recovery confirmation. ATR stop plus a fixed time
 stop. No pyramiding. No trade when trend and volatility signals disagree.
 
-The thesis is selective participation: deliberately refusing most T1/T4
-signals rather than taking more of them. This is a hypothesis, not a
-conclusion — it must be frozen in a P1b spec file before its ranking (P1c/P1d
-result) is seen by anyone, including the model that wrote it.
+This idea is deferred before P1 results and does not count as a P1 candidate.
+It may be specified for a separate future catalog version before that study's
+data is inspected; it cannot be added to this P1 family after results.
 
-Exit (P1 overall): P1a-P1d complete for the pre-registered candidate library;
+Exit (P1 overall): P1a-P1d complete for the 15-variant pre-registered pilot
+candidate library;
 P1e activation layer specced and tested; lesson "What is a backtest and how to
 read one" plus a lesson on why ranking by raw P&L is wrong.
 
@@ -263,21 +282,21 @@ MCX commodities and NSE currencies; ML ranker (walk-forward, champion/challenger
 - If a spec is missing or contradictory, write a handoff note (`needs-human` if it is an owner decision) instead of guessing.
 - Never skip the promotion gates for strategies, even if a result looks great; great-looking results are the most suspicious.
 
-## Open questions (P1 restructure — owner decision, do not guess)
+## Open questions and bounded decisions (P1 restructure)
 
-- **Research-universe data source remains unimplemented.** ADR-0026 selected
+- **Full-universe research data source remains unimplemented.** ADR-0026 selected
   the turnover-ranking rule, but no permitted turnover history has been
   acquired. The selector is pure and tested only with synthetic normalized
   rows. Automated NSE/NSE Indices collection is prohibited by the current
-  project source policy. The Nifty membership package is a validator only; no
-  press-release scraper or populated manifest exists.
+  project source policy. The Nifty membership package is a validator only.
+  First pass uses the fixed five-symbol pilot; broad generalization remains
+  blocked until the historical universe source gap is resolved.
 - ~~Capital and per-trade risk assumptions~~ — **resolved.** 1% per-trade risk
   on a ₹1,00,000 placeholder capital for P1b/P1c comparisons; not real trading
   capital, used only so every candidate is sized identically.
-- **Target holding horizon.** The data collected so far is daily, which
-  implies daily swing trading as the default horizon for the candidate
-  library. Confirm this is intended, or say which other horizon P1 should
-  target instead. — **still open.**
+- **Target holding horizon.** Owner directed daily swing and intraday research
+  together from the start. Both remain in P1; promotion uses the stricter
+  intraday bar described in P1c.
 
 No time estimate is given for the restructured P1 — the owner's original
 Claude-Pro time-box applied to the P0 sprint, not to this multi-sub-phase

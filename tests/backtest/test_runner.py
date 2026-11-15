@@ -9,11 +9,19 @@ from trading.core.enums import MarketId, OrderSide, Timeframe
 from trading.core.models import Candle, Signal
 
 
-def bar(index: int, open_price: str, high: str, low: str, close: str) -> Candle:
+def bar(
+    index: int,
+    open_price: str,
+    high: str,
+    low: str,
+    close: str,
+    *,
+    symbol: str = "TEST",
+) -> Candle:
     timestamp = datetime(2026, 1, 1, tzinfo=UTC) + timedelta(days=index)
     return Candle(
         market=MarketId.IN_EQUITY,
-        symbol="TEST",
+        symbol=symbol,
         timeframe=Timeframe.D1,
         ts_open_utc=timestamp,
         open=Decimal(open_price),
@@ -77,6 +85,18 @@ def test_runner_rejects_nonincreasing_candle_timestamps(duplicate: bool) -> None
         candles.reverse()
 
     with pytest.raises(ValueError, match="strictly increasing and unique"):
+        run_long_only(candles, [], quantity=Decimal("1"), profile=BacktestProfile())
+
+
+def test_runner_rejects_mixed_instruments_before_global_index_can_cross_symbols() -> None:
+    candles = [
+        bar(0, "10", "11", "9", "10", symbol="AAA"),
+        bar(1, "20", "21", "19", "20", symbol="BBB"),
+        bar(2, "11", "12", "10", "11", symbol="AAA"),
+        bar(3, "21", "22", "20", "21", symbol="BBB"),
+    ]
+
+    with pytest.raises(ValueError, match="exactly one instrument"):
         run_long_only(candles, [], quantity=Decimal("1"), profile=BacktestProfile())
 
 

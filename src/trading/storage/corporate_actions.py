@@ -10,6 +10,7 @@ from collections.abc import Iterable
 from datetime import date, datetime
 from decimal import ROUND_HALF_EVEN, Decimal, localcontext
 from enum import StrEnum
+from hashlib import sha256
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -38,6 +39,22 @@ class CorporateActionNotice(Contract):
     purpose: str = Field(min_length=1)
     effective_date: date
     source_ref: str = Field(min_length=1)
+    event_id: str | None = None
+
+    @property
+    def event_key(self) -> str:
+        if self.event_id:
+            return self.event_id
+        identity = "|".join(
+            (
+                self.source_ref,
+                self.symbol,
+                self.effective_date.isoformat(),
+                self.kind.value,
+                self.purpose,
+            )
+        )
+        return sha256(identity.encode()).hexdigest()
 
 
 class UnhandledCorporateAction(Contract):
@@ -48,6 +65,7 @@ class UnhandledCorporateAction(Contract):
     effective_date: date
     purpose: str
     source_ref: str
+    event_key: str
     requires_review: bool = True
     reason: str = "unhandled corporate action; no automatic adjustment is applied"
 
@@ -122,11 +140,11 @@ def inspect_unhandled_actions(
     symbols: set[str] | frozenset[str],
     start: date,
     end: date,
-    handled_action_keys: set[tuple[str, date]] | frozenset[tuple[str, date]] = frozenset(),
+    handled_action_keys: set[str] | frozenset[str] = frozenset(),
 ) -> list[UnhandledCorporateAction]:
     """Flag in-window actions absent from the verified adjusted-action ledger.
 
-    A split/bonus is considered handled only when its `(symbol, ex_date)` is
+    A split/bonus is considered handled only when its unique event key is
     explicitly present in ``handled_action_keys`` because either the input
     price history already includes the adjustment or the approved transform
     was applied. Demergers, rights issues,
@@ -138,14 +156,13 @@ def inspect_unhandled_actions(
     target_symbols = {symbol.strip().upper() for symbol in symbols}
     flags: list[UnhandledCorporateAction] = []
     for notice in notices:
-        key = (notice.symbol, notice.effective_date)
         if notice.symbol not in target_symbols or not start <= notice.effective_date <= end:
             continue
         supported_action = notice.kind in {
             CorporateActionKind.SPLIT,
             CorporateActionKind.BONUS,
         }
-        if supported_action and key in handled_action_keys:
+        if supported_action and notice.event_key in handled_action_keys:
             continue
         flags.append(
             UnhandledCorporateAction(
@@ -154,6 +171,7 @@ def inspect_unhandled_actions(
                 effective_date=notice.effective_date,
                 purpose=notice.purpose,
                 source_ref=notice.source_ref,
+                event_key=notice.event_key,
             )
         )
     return sorted(flags, key=lambda item: (item.symbol, item.effective_date, item.kind.value))
@@ -165,9 +183,8 @@ def screen_backtest_symbols(
     symbols: set[str] | frozenset[str],
     start: date,
     end: date,
-    handled_action_keys: set[tuple[str, date]] | frozenset[tuple[str, date]] = frozenset(),
-    reviewed_action_keys: set[tuple[str, date, CorporateActionKind]]
-    | frozenset[tuple[str, date, CorporateActionKind]] = frozenset(),
+    handled_action_keys: set[str] | frozenset[str] = frozenset(),
+    reviewed_action_keys: set[str] | frozenset[str] = frozenset(),
 ) -> BacktestActionScreening:
     """Exclude symbols with an unadjusted event unless that exact event was reviewed."""
     normalized_symbols = {symbol.strip().upper() for symbol in symbols}
@@ -178,11 +195,7 @@ def screen_backtest_symbols(
         end=end,
         handled_action_keys=handled_action_keys,
     )
-    blocked = {
-        flag.symbol
-        for flag in flags
-        if (flag.symbol, flag.effective_date, flag.kind) not in reviewed_action_keys
-    }
+    blocked = {flag.symbol for flag in flags if flag.event_key not in reviewed_action_keys}
     return BacktestActionScreening(
         eligible_symbols=tuple(sorted(normalized_symbols - blocked)),
         blocked_symbols=tuple(sorted(blocked)),

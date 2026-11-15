@@ -45,6 +45,21 @@ def candle(
     )
 
 
+def test_upstox_reliance_bonus_known_answer_is_price_continuous() -> None:
+    """A single real 1:1 bonus observation must not be adjusted a second time."""
+    evidence = json.loads((FIXTURES / "reliance_2024_bonus.json").read_text())
+    rows = {row[0][:10]: row for row in evidence["data"]["candles"]}
+    prior_close = Decimal(str(rows["2024-10-25"][4]))
+    ex_date_close = Decimal(str(rows["2024-10-28"][4]))
+    assert evidence["event"]["new_shares_per_old_share"] == "2"
+    assert evidence["event"]["ex_date"] == "2024-10-28"
+    assert prior_close == Decimal("1327.85")
+    assert ex_date_close == Decimal("1334.35")
+    assert Decimal("0.99") < ex_date_close / prior_close < Decimal("1.01")
+    assert ex_date_close / prior_close > Decimal("0.5")
+    assert "volume adjustment" in evidence["limitations"]
+
+
 def split(
     *,
     action_id: str = "nse-notice-001",
@@ -643,7 +658,7 @@ def test_unhandled_action_report_flags_demerger_and_rights_in_backtest_window() 
         symbols={"DEMERGERCO", "RIGHTSCO", "SPLITCO", "OTHER"},
         start=date(2025, 5, 1),
         end=date(2025, 5, 31),
-        handled_action_keys={("SPLITCO", date(2025, 5, 16))},
+        handled_action_keys={notices[2].event_key},
     )
     assert [(flag.symbol, flag.kind) for flag in covered_report] == [
         ("DEMERGERCO", CorporateActionKind.DEMERGER),
@@ -656,7 +671,7 @@ def test_unhandled_action_report_flags_demerger_and_rights_in_backtest_window() 
         symbols={"DEMERGERCO", "RIGHTSCO", "SPLITCO", "OTHER"},
         start=date(2025, 5, 1),
         end=date(2025, 5, 31),
-        handled_action_keys={("SPLITCO", date(2025, 5, 16))},
+        handled_action_keys={notices[2].event_key},
     )
     assert screened.eligible_symbols == ("SPLITCO",)
     assert screened.blocked_symbols == ("DEMERGERCO", "OTHER", "RIGHTSCO")
@@ -667,8 +682,8 @@ def test_unhandled_action_report_flags_demerger_and_rights_in_backtest_window() 
         symbols={"DEMERGERCO", "RIGHTSCO", "SPLITCO", "OTHER"},
         start=date(2025, 5, 1),
         end=date(2025, 5, 31),
-        handled_action_keys={("SPLITCO", date(2025, 5, 16))},
-        reviewed_action_keys={("DEMERGERCO", date(2025, 5, 15), CorporateActionKind.DEMERGER)},
+        handled_action_keys={notices[2].event_key},
+        reviewed_action_keys={notices[0].event_key},
     )
     assert reviewed.eligible_symbols == ("DEMERGERCO", "SPLITCO")
     assert reviewed.blocked_symbols == ("OTHER", "RIGHTSCO")

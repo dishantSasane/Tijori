@@ -92,15 +92,14 @@ detected but remain unadjusted. Preserve API ratios as reported until an event
 specific test establishes their direction and meaning. Do not use them to
 adjust prices or quantities by guessing.
 
-An authenticated live probe on 2026-11-15 was denied by Cloudflare with HTTP
-403 `browser_signature_banned`; the response instructed the client not to
-retry. The token was present but was not exposed. No data was acquired or
-saved, and no alternate user-agent or access-control workaround was attempted.
-The adapter is implemented against the published response schema and has
-fixture-based tests. It returns the raw response and parsed snapshot but does
-not yet persist it to disk or connect events to the backtest screen. Bulk
-acquisition, storage permission, data persistence, and event coverage remain
-unverified until an allowed request succeeds.
+An authenticated live probe on 2026-11-15 succeeded after setting a browser-
+like User-Agent. Five pilot ISIN responses were archived with exact response
+bytes, retrieval time, checksum, and parser version. Their reported events
+were dividends only. This confirms endpoint access, not historical action
+completeness; an empty or partial response cannot certify adjusted candles.
+The collector requires a freshly supplied token and does not save it. The
+account's applicable API terms and research/backtesting entitlement still need
+confirmation before treating these data as licensed research inputs.
 
 ### Point-in-time Nifty 50 / Next 50 membership
 
