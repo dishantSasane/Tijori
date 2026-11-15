@@ -57,9 +57,9 @@ independent work is ready.
 |---|---|---|
 | Tier A daily history in Parquet (candle store + validation) | Sol / Terra | already done for the 6-symbol representative set |
 | Tier A intraday history in Parquet (1m and 5m) | Sol / Terra | Upstox V3 intraday history has a fixed provider floor of January 2022. Do not probe for earlier intraday history; it is unavailable through this provider. One-month maximum request span for 1–15m. Resumable loader and tests are implemented; sustained full-universe collection still pending. |
-| Corporate-action adjustment, partial; source gate open | Terra / Sol | Shared guarded append applies supported split/bonus factors before storage for a fixed action basis and records that basis beside Parquet exports. The NESTLEIND 10:1 split (2024-01-05) known-answer shows a continuous Upstox series; do not double-adjust that event. NSE row parsing/screening helpers flag demerger, rights, dividend, and unknown events, but the screen is not yet wired into either backtest runner. No real NSE feed is ingested; a permitted and coverage-verified ledger, real bonus case, daily data rebuild, and position replay remain required. |
-| Research universe: rule-based, proposed NSE bhavcopy source | Terra / Sol | Owner-approved selection rule under ADR-0026: top 50 (and separately top 100 for later Tier-B-adjacent research) by rolling 60-session median turnover, recomputed monthly, keyed on ISIN. **Source use is not cleared:** official terms and archived-file schema have not established permission for systematic collection, storage, or backtest/simulation use, nor stable identifier and historical coverage completeness. Implement and validate only the pure selector with synthetic normalized inputs until an authorized source and schema are confirmed. Do not call results survivorship-free unless dated coverage includes eligible securities later delisted and resolves missing/no-trade rows. |
-| Nifty 50 point-in-time manifest: reconstructed, benchmark-only | Terra / Sol | Benchmark only; not the research universe. Dated NSE Indices replacement notices are a candidate reconstruction source, but terms prohibit systematic/automated collection absent written consent and archive completeness/corrections are unverified. Do not automate collection or label a manifest complete until permitted use and coverage are established. A list of 50 names does not prove complete membership history or calculate index returns. If authorized, retain source URLs and publication/effective dates per change; flag gaps and disagreements with independent dated snapshots for human resolution. |
+| Corporate-action adjustment, source adapter added; data/coverage gates open | Terra / Sol | Upstox documents an authenticated per-ISIN corporate-actions endpoint for dividends, bonuses, splits, and rights. A client and fixture tests now preserve the raw ratio/details without inferring ratio direction. A live probe was blocked by Cloudflare 403 (`browser_signature_banned`; response said do not retry), so no real event ledger was fetched or saved. The docs do not explicitly promise demerger coverage. Do not rebuild candles or treat an empty response as a complete ledger until authenticated responses and coverage are verified. Existing NSE parser is normalization-only; no NSE downloader exists. Position replay and runner screening remain incomplete. |
+| Research universe: pure turnover selector; data source unimplemented | Terra / Sol | ADR-0026 selects top 50 (and separately top 100 for later Tier-B-adjacent research) by rolling 60-session median turnover, recomputed monthly, keyed on ISIN. The selector only accepts normalized inputs and has synthetic tests. Proposed NSE bhavcopy acquisition is prohibited by current source policy; no collector or scraper exists. Do not produce real snapshots or survivorship-free claims until a permitted source, schema, historical eligible-security coverage, and missing/no-trade semantics are verified. |
+| Nifty 50 point-in-time manifest: validator only, benchmark-only | Terra / Sol | Membership models validate a supplied manifest; no NSE Indices press-release downloader or automated reconstruction exists. Do not automate collection from NSE Indices. The manifest remains unpopulated and incomplete; a benchmark constituent list alone does not calculate index returns. |
 | Chronological split boundaries, written and frozen in config before any strategy runs | Sol / Terra | Contract in `specs/RESEARCH_SPLITS.md`; dates remain unset until authorized source/window and fresh unread holdout are available |
 
 P1 candle scope includes **daily swing and intraday from the start**. Upstox
@@ -101,9 +101,16 @@ a); do not apply the 10:1 transform a second time. Later corporate actions
 may affect the absolute historical price scale, so do not infer the raw price
 by dividing by ten. The real-event fixture/test checks continuity. Do not
 generalize this one event to every action type or symbol.
-Validate provider adjustment markers/basis for other events, implement and
-independently verify position/share-count replay across actions in both
-backtesters, and obtain an authorized complete event ledger before P1a exit.
+The Upstox per-ISIN corporate-actions API is now the selected action-data
+source; see `specs/DATA_SOURCES.md`. A request from this environment received
+Cloudflare HTTP 403 `browser_signature_banned` with an instruction not to retry.
+No live event data was acquired. Validate API access and history coverage before
+using it. The API documentation does not explicitly include demergers, so those
+and any unknown/missing action classes require manual reviewed records or a
+different authorized source. Validate provider adjustment markers/basis for
+other events, implement and independently verify position/share-count replay
+across actions in both backtesters, and obtain a complete event ledger before
+P1a exit.
 The untouched holdout boundaries and holding-horizon confirmation also remain
 open (see Open Questions).
 
@@ -258,10 +265,12 @@ MCX commodities and NSE currencies; ML ranker (walk-forward, champion/challenger
 
 ## Open questions (P1 restructure — owner decision, do not guess)
 
-- ~~Point-in-time universe source~~ — **resolved, see ADR-0026.** Rule-based
-  turnover universe (primary, survivorship-free by construction) plus a
-  reconstructed Nifty 50 manifest from public NSE Indices press releases
-  (benchmark-only). No paid licence, no vendor email.
+- **Research-universe data source remains unimplemented.** ADR-0026 selected
+  the turnover-ranking rule, but no permitted turnover history has been
+  acquired. The selector is pure and tested only with synthetic normalized
+  rows. Automated NSE/NSE Indices collection is prohibited by the current
+  project source policy. The Nifty membership package is a validator only; no
+  press-release scraper or populated manifest exists.
 - ~~Capital and per-trade risk assumptions~~ — **resolved.** 1% per-trade risk
   on a ₹1,00,000 placeholder capital for P1b/P1c comparisons; not real trading
   capital, used only so every candidate is sized identically.

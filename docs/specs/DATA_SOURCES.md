@@ -70,6 +70,33 @@ anti-bot challenges.
 
 ## Corporate actions and historical membership
 
+### Upstox corporate-actions endpoint (selected P1 source)
+
+Upstox documents the authenticated
+[`GET /v2/fundamentals/{isin}/corporate-actions` endpoint](https://upstox.com/developer/api-documentation/get-corporate-actions/).
+It returns event names, effective/ex-dates, amounts, ratios, and details for
+dividends, bonuses, splits, and rights issues. Use this documented API for P1
+action records; do not automate requests to NSE/NSE Indices websites. Fetch by
+ISIN from the pinned Tier A instrument list, retain the unmodified response,
+request date, ISIN, response checksum, and parser version. Refresh periodically
+and retain revisions rather than replacing old evidence.
+
+The API documentation does not state that its event list is exhaustive over a
+given history range, and does not explicitly list demergers. A successful empty
+response is therefore not proof of no actions. Demergers and unknown action
+types need human-reviewed records from a permitted source; rights issues are
+detected but remain unadjusted. Preserve API ratios as reported until an event
+specific test establishes their direction and meaning. Do not use them to
+adjust prices or quantities by guessing.
+
+An authenticated live probe on 2026-11-15 was denied by Cloudflare with HTTP
+403 `browser_signature_banned`; the response instructed the client not to
+retry. The token was present but was not exposed. No data was acquired or
+saved, and no alternate user-agent or access-control workaround was attempted.
+The adapter is implemented against the published response schema and has
+fixture-based tests. Bulk acquisition, data persistence, and event coverage
+remain unverified until a permitted request succeeds.
+
 ### Point-in-time Nifty 50 / Next 50 membership
 
 The official [NSE Indices data-subscription page](https://www.niftyindices.com/offerings/data-subscription)

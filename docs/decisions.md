@@ -201,6 +201,33 @@ corporate-action position replay remain to be verified.
 
 ---
 
+**ADR-0028 · 2026-11-15 · accepted · P1 corporate-action source and NSE collection boundary**
+Context: NSE/NSE Indices website terms prohibit systematic or automated
+collection for the intended P1 workflow, and the project must not build an NSE
+site scraper. P1 also needs corporate-action events so split/bonus price
+history and open positions are handled without silently ignoring demergers or
+rights issues.
+Decision: use Upstox's documented authenticated per-ISIN Corporate Actions API
+as the P1 action-source candidate. Preserve the response and raw ratio/details;
+do not infer factor direction from text. Do not automate downloads from
+NSE/NSE Indices. The research-universe selector and index-membership validator
+remain source-independent contracts only; no NSE bhavcopy collector, Nifty
+press-release scraper, or populated historical membership manifest exists.
+The Upstox API docs list dividends, bonuses, splits, and rights but do not
+explicitly promise demerger coverage or exhaustive historical completeness;
+demergers and unknown/missing events require a manually reviewed permitted
+supplement or another authorized source. A live request on 2026-11-15 received
+Cloudflare HTTP 403 `browser_signature_banned` and said not to retry, so no
+response ledger was acquired. Keep P1a data rebuild, backtest runner screening,
+position replay, and split freeze blocked until API access and coverage are
+verified and event records are persisted.
+Consequences: an Upstox API client may be tested from documented fixtures, but
+must not treat an empty result as proof of no actions. Data-source rights and
+technical access are separate gates; this decision selects the intended
+provider but does not claim successful acquisition or full event coverage.
+
+---
+
 **ADR-0027 · 2026-11-15 · accepted · P2/P3 wiring specs: Telegram state machine, risk test vectors, candle builder/scheduler**
 Context: `PAPER_BROKER_SPEC.md` (P2) and `RISK_SPEC.md` §2A defined the fill
 model and routing rules but not the Telegram approve/paper-test/reject
