@@ -1,13 +1,18 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-15 by Claude (sleeve allocation tests + non-India data ecosystem — see note 0032)
+Last updated: 2026-11-16 by Claude (P1a pilot data foundation closed — see note 0034)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer, strategy discovery, regime-gated activation | Codex | **ACTIVE; P1a data/source gates open** — pure split/bonus transform and membership contracts exist. Upstox corporate-actions API endpoint is documented and a fixture-tested client is local; live probe got Cloudflare 403 instructing not to retry, so no action feed was saved. No NSE/Nifty website collector exists. Universe data, action coverage, position replay, and split freeze remain incomplete. See notes 0027-0033. | |
+| P1a Data foundation (5-symbol pilot) | Claude (owner-redirected) | **pilot-complete, pending one cross-model item** — full daily (2010-2026) + intraday M1/M5 (Jan 2022-2026) collection for the 5 pilot symbols, candle-snapshot hashes computed, session-coverage audit fully resolved (no unexplained dates), price adjustment basis empirically confirmed provider-adjusted. Only item 6 (combined manifest needing Codex's action-register hash) remains open. See `docs/specs/P1A_EVIDENCE_CHECKLIST.md` and note 0034. |
+| P1b Executable candidate library | Codex | **implementation-complete, Claude-reviewed, approved** — T1/T2/T4/T6/T5 ORB match frozen specs exactly, no look-ahead found, tests are real not circular. PR #53. See note 0034 and `communication/2026-11-16-claude-p1b-review-result.md`. |
+| P1c Evaluation/reporting | Claude built, Codex integrating | **ranking report/metrics/registry/bootstrap complete against synthetic data**, 15-variant family (12 daily + 3 intraday, T3 deferred for pilot) reconciled. Pending Codex's integration onto `codex/p1-build`. |
+| P1d Holdout policy | both | **source-independent safeguards (one-shot guard, rejection rule) can proceed; holdout consumption remains gated** until P1a/P1b/P1c are jointly sealed. 2016-2026 window stays burned. |
+| P1e Activation | Codex | waiting on P1b/P1c closure per sequencing. |
+| P1 (legacy row, superseded by P1a-e above) | Codex | superseded — see notes 0027-0034. |
 | P2 Paper broker + risk engine + minimal alerts | Claude (owner override) | **implemented, under review** — PR #50 (RiskEngine/PaperBroker), #52 (candle builder/scheduler); sleeve allocation cap test coverage added on `claude/sleeve-allocation-and-adapters`. See note 0032. | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
