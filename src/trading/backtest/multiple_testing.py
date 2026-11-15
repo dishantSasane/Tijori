@@ -6,7 +6,20 @@ import random
 from decimal import ROUND_HALF_EVEN, Decimal, localcontext
 from pathlib import Path
 
-P1_FAMILY_SIZE = 15
+P1_DAILY_FAMILY_SIZE = 15
+"""T1/T2/T3/T4/T6, 3 variants each (P1_CANDIDATES.md)."""
+P1_INTRADAY_FAMILY_SIZE = 3
+"""T5 ORB, 3 target-multiple variants (P1_INTRADAY_CANDIDATES.md)."""
+P1_FAMILY_SIZE = P1_DAILY_FAMILY_SIZE + P1_INTRADAY_FAMILY_SIZE
+"""The single predeclared family (18) every Bonferroni correction uses.
+
+Reporting daily and intraday results in separate tables is a presentation
+choice -- group candidates by timeframe for display, but call
+`bonferroni_adjust`/`p1_adjusted_p_value` with this combined size for every
+candidate regardless of which table it's shown in. Two timeframe tables
+sharing one family-wise correction is not the same claim as two independent
+corrections (which would be looser, and not what P1_EVALUATION.md specifies).
+"""
 
 
 def validate_p1_family(catalog_path: Path) -> int:

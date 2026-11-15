@@ -86,8 +86,9 @@ and conflicts are handled.
   arithmetic mean. The interval is the nearest-rank 2.5th and 97.5th
   percentiles of the 10,000 replicate means. Record seed, block size,
   replicate count, sample count, and quantile convention.
-- Primary family-wise correction: Bonferroni across the 15 predeclared
-  strategy variants in `P1_CANDIDATES.md`; cash and buy-and-hold are fixed
+- Primary family-wise correction: Bonferroni across the 18 predeclared
+  strategy variants in `P1_CANDIDATES.md` and `P1_INTRADAY_CANDIDATES.md`;
+  cash and buy-and-hold are fixed
   reference baselines, not tested hypotheses. Adjusted
   `p = min(1, m*p_raw)`. Only compute a raw p-value from a predeclared test of
   mean net daily excess return against cash using the same synchronized
@@ -104,7 +105,7 @@ and conflicts are handled.
   bootstrap of the mean daily excess return against cash, with plus-one
   correction `(exceedances + 1) / (replicates + 1)`. It uses the same fixed
   20-session blocks, 10,000 replicates, and recorded seed. The frozen
-  family-wise correction is Bonferroni across 15 strategy variants; the two
+  family-wise correction is Bonferroni across 18 strategy variants; the two
   fixed baselines are comparators, not hypotheses.
 
 ## Ranking and rejection

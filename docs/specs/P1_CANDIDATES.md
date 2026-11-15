@@ -36,16 +36,16 @@ results.
 | `t2-trend-adx-v1` | MA + ADX trend | `F=20,S=50,A=25,k=2`; `F=10,S=50,A=25,k=2`; `F=20,S=100,A=25,k=2` | Existing T2 exact rule; EMA cross-up and ADX(14) threshold, ATR(14) stop. |
 | `t3-momentum-v1` | Cross-sectional momentum | `(L=126,S=21,K=20,R=21)`; `(L=63,S=21,K=20,R=21)`; `(L=252,S=21,K=20,R=21)` | Existing T3 rule; price above SMA(200), equal weight, exit below top `2K`, same universe and monthly/daily rebalance semantics frozen by its implementation contract. No inverse-volatility variant. |
 | `t4-rsi-pullback-v1` | T4 mean reversion | `r=10,k=2.5`; `r=5,k=2.5`; `r=15,k=2.5` | Existing T4 entry/exit and 5-bar time stop; ATR(14) stop; no added confirmation filter. |
-| `t5-orb-v1` | Opening-range breakout | intraday catalog required | P1 includes intraday research from the start. Freeze exact ORB variants, closed-bar event order, session handling, 1m/5m source selection and costs in an intraday catalog before any ranking. The daily-only catalog below excludes ORB because it is a different timeframe family, not because intraday is deferred. |
+| `t5-orb-v1` | Opening-range breakout | `m=1.0`; `m=1.5`; `m=2.0` | Exact 5-minute session/event ordering and costs are in `P1_INTRADAY_CANDIDATES.md`; only the target multiple changes. |
 | `t6-bollinger-v1` | Mean reversion | `N=20,k=2`; `N=20,k=1.5`; `N=20,k=2.5` | Existing T6 entry/exit with ADX(14)<20, ATR(14) stop multiple 1.5 and 10-bar time stop. Here `k` is Bollinger width only. |
 | `rpf-pullback-v1` | Regime-gated failed-breakout pullback | one fixed hypothesis | The exact hypothesis in `BUILD_ORDER.md`; its complete event order, filters and stop must be expanded into a versioned executable spec before any run. Until then it is **not executable and not in the ranking set**. |
 
-The daily ranking catalog contains 7 executable entries (cash, buy-and-hold, T1,
-T2, T3, T4, T6) with 17 executable variants: 2 fixed baselines and 15
-strategy variants. The two baselines are reference comparators, not tested
-hypotheses.
-The intraday catalog is a required parallel P1 deliverable; it must be frozen
-before intraday results are generated. T5 is excluded from the daily sample.
+The daily ranking catalog contains cash, buy-and-hold, T1, T2, T3, T4, and T6.
+The separate intraday catalog contains three frozen T5 variants. Across both
+timeframes there are 20 executable variants: 2 fixed baselines and 18 strategy
+variants. The baselines are comparators, not tested hypotheses. T5 is excluded
+from daily results. Each timeframe still requires its own coverage and
+promotion analysis.
 The original self-designed RPF idea remains a separate
 pre-registered hypothesis that must be made fully mechanical before it can
 enter the family count; it cannot be silently added after observing rankings.
@@ -74,11 +74,11 @@ strategy_families:
   t4-rsi-pullback-v1: 3
   t6-bollinger-v1: 3
   rpf-pullback-v1: 0
-  t5-orb-v1: 0
-hypothesis_count: 15
+  t5-orb-v1: 3
+hypothesis_count: 18
 ```
 
 RPF is not yet executable (zero included variants). The statistical family is
-15. The two fixed
-baselines are excluded. Any future RPF variants require a new catalog version
-and updated family count before data is viewed.
+18: 15 daily plus 3 intraday variants. The two fixed baselines are excluded.
+Any future RPF variants require a new catalog version and updated family count
+before data is viewed.

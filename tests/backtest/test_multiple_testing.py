@@ -4,7 +4,9 @@ from pathlib import Path
 import pytest
 
 from trading.backtest.multiple_testing import (
+    P1_DAILY_FAMILY_SIZE,
     P1_FAMILY_SIZE,
+    P1_INTRADAY_FAMILY_SIZE,
     bonferroni_adjust,
     mean,
     moving_block_excess_p_value,
@@ -63,8 +65,10 @@ def test_mean_rejects_empty_or_non_finite_values() -> None:
 
 
 def test_frozen_family_size_and_adjusted_p_value() -> None:
-    assert P1_FAMILY_SIZE == 15
-    assert p1_adjusted_p_value(Decimal("0.01")) == Decimal("0.15")
+    # 15 daily (P1_CANDIDATES.md) + 3 intraday ORB (P1_INTRADAY_CANDIDATES.md).
+    assert P1_FAMILY_SIZE == 18
+    assert P1_DAILY_FAMILY_SIZE + P1_INTRADAY_FAMILY_SIZE == P1_FAMILY_SIZE
+    assert p1_adjusted_p_value(Decimal("0.01")) == Decimal("0.18")
 
 
 def test_p1_family_size_matches_the_frozen_catalog_on_disk() -> None:
