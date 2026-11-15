@@ -143,7 +143,7 @@ explicitly waived by the owner; the untouched holdout from the current
 2016-2026 sample is no longer valid once inspected, so a new, genuinely
 unread holdout range must be committed in P1a config before P1b/P1c runs.
 
-**ADR-0025 · 2026-11-15 · proposed · P1 data and evaluation assumptions requiring owner decision**
+**ADR-0025 · 2026-11-15 · superseded by ADR-0026 (membership branch) · P1 data and evaluation assumptions requiring owner decision**
 Context: P1a-P1c cannot be made reproducible by implementation choices alone.
 Historical index membership has a possible official source, but its coverage,
 licence, and price are unpublished; using today's membership creates
@@ -161,6 +161,38 @@ rank a strategy library as if the results represented the intended system.
 Consequences: P1 can continue on source research, data-contract design, and
 synthetic/known-answer validation that does not consume the holdout. Real-data
 discovery and P1a completion remain blocked on the relevant decisions.
+
+**ADR-0026 · 2026-11-15 · accepted · Point-in-time universe resolved without a paid NSE Indices licence; research sizing set**
+Context: ADR-0025 gated P1a on either a purchased NSE Indices licence for
+point-in-time Nifty 50/Next 50 membership, or an explicit survivorship-bias
+waiver. NSE Indices licensing is priced for institutional buyers (asset
+managers/ETF issuers), not a free or low-cost option, and an agent emailing a
+vendor on the owner's behalf is a bad pattern regardless of price. The data
+actually needed is already public.
+Decision: (1) the **research universe** is rule-based and computed from free
+NSE bhavcopy data (`sec_bhavdata_full`), not from any index membership
+source: top 50 (and, for later Tier B-adjacent work, top 100) by rolling
+60-day median turnover, recomputed monthly, keyed on ISIN rather than symbol.
+This is survivorship-free by construction — no manifest, no vendor, no
+licence. (2) A **Nifty 50 point-in-time manifest is still built, but only as
+a benchmark/scorecard tool**, not the research universe: reconstructed by
+anchoring on today's known membership and walking NSE Indices' own public,
+dated replacement press releases (`niftyindices.com/Press_Release/`)
+backward, with the source press-release URL cited per row. Wikipedia's
+replacements-since-2005 table is a cross-check only, never the source of
+record; disagreements between the two are flagged, not silently resolved.
+(3) No NSE Indices quote/licence inquiry will be sent. (4) Research-comparison
+sizing is set at 1% per-trade risk on a ₹1,00,000 placeholder capital — not
+the owner's real trading capital, used only so every P1b/P1c candidate is
+sized identically and results are comparable.
+Consequences: `trading.storage.membership`'s manifest contract/validator
+(built against the "authorized vendor" design) is repointed at the
+reconstructed press-release manifest for benchmarking, not at a purchased
+feed. P1a's membership blocker from ADR-0025 is closed; its sizing blocker is
+closed. Still open: the holding-horizon confirmation, Upstox's raw/adjusted
+price basis (verify empirically, e.g. against Infosys's 2018 bonus issue,
+before trusting any "adjusted" Upstox candle), and the untouched holdout
+range (the 2016-2026 sample remains burned per ADR-0024).
 
 ---
 <!-- Add new ADRs below. Template:
