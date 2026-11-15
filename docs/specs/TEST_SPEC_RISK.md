@@ -162,7 +162,60 @@ every check before it (this is the point of "exact order" — a test for check
   comment pointing at that open design question, not silently pass on a
   single-threaded fake that can't actually race).
 
-## 8. What this spec does NOT cover (explicitly out of scope here)
+## 8. Paper-broker kill-switch drill suite (`PAPER_BROKER_SPEC.md` §6)
+
+These are the automated-test form of the 6-step drill. Build fixtures from
+`FakeDataFeed`/`FixedClock` plus the real paper broker (not `FakePaperBroker`
+— that fake fills instantly at zero cost and cannot exercise the pending-fill
+or kill-switch-persistence paths; `ADAPTERS.md` §2 already flags it as not
+this spec's subject). Each case names the drill step(s) it proves.
+
+- `test_kill_engage_blocks_new_entries_immediately` (step 3, I6): with one
+  open position and one `PENDING` signal already accepted, engage the kill
+  switch, then submit a second, otherwise-approvable signal → `Route.NONE`,
+  `reason_codes=(KILL_SWITCH_ENGAGED,)`, zero new rows in `pending_fills`.
+- `test_kill_engage_cancels_open_entry_orders_not_stops` (step 3): same setup
+  — assert the pending entry order's status transitions to `CANCELLED`
+  (via `transition()`, `ADAPTERS.md` §2) but the open position's protective
+  stop order is untouched and still live, i.e. a stop placed before the
+  engagement still fires on the next candle that trades through it
+  (`RISK_SPEC.md` §4's "protective exits remain allowed" carve-out).
+- `test_kill_engagement_persists_before_block_takes_effect` (step 4): assert
+  `kill_switch_state.engaged=True` and a matching `audit_log` row exist
+  **before** `test_kill_engage_blocks_new_entries_immediately`'s assertion is
+  allowed to pass — sequence the test so the persistence write is checked
+  first, then the rejection, not just both-eventually-true.
+- `test_kill_release_resumes_entries_and_is_audited` (step 5, I10): release
+  via the explicit human-action path (not by mutating `kill_switch_state`
+  directly in the test) → the next otherwise-approvable signal is accepted
+  again, and exactly one `AuditEvent(event_type="kill_switch_released")`
+  exists with a non-null `actor`.
+- `test_kill_release_requires_explicit_action_never_implicit` (I10): advance
+  the `FixedClock` across a session boundary, a restart (see below), and a
+  mode change with the kill switch still engaged and no release call →
+  entries remain blocked; nothing implicit (time passing, a restart, a mode
+  change) ever flips `engaged` back to `False`.
+- `test_kill_drill_survives_restart_between_engage_and_check` (step 6, I12):
+  run steps 1-2 of the drill, tear down the in-memory paper broker, construct
+  a fresh instance against the same SQLite file (the restart procedure in
+  `PAPER_BROKER_SPEC.md` §4), then run step 3's assertions against the fresh
+  instance — the engagement must still block new entries without re-engaging
+  it in the test.
+- `test_kill_drill_restart_reconciles_pending_fill_not_silently` (I12, ties
+  §4's dual-read): engage the kill switch while a signal is still sitting in
+  `pending_fills` (accepted by risk, not yet filled), restart, then feed the
+  fill candle — assert the order still resolves to exactly one terminal fill
+  or expiry outcome, never zero and never two, proving restart reconstruction
+  didn't drop or duplicate the pending row.
+- `test_kill_automatic_trigger_matches_manual_path` (step 2's "automatic"
+  branch): drive `max_daily_loss_pct` past its threshold via a fixture
+  (not a manual `engage()` call) → assert the resulting `kill_switch_state`
+  row and `AuditEvent` are indistinguishable in shape from the manual path
+  except `reason` and `actor` (`actor="system"` vs. a human identifier) —
+  the rest of the drill's guarantees must not depend on which path engaged
+  it.
+
+## 9. What this spec does NOT cover (explicitly out of scope here)
 
 - Backtester fill simulation, look-ahead tests, candle-builder equivalence —
   `TEST_SPEC_BACKTEST.md` / `TEST_SPEC_CANDLES.md` (not yet written; P0 gap,

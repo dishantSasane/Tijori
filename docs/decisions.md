@@ -195,6 +195,40 @@ before trusting any "adjusted" Upstox candle), and the untouched holdout
 range (the 2016-2026 sample remains burned per ADR-0024).
 
 ---
+
+**ADR-0027 · 2026-11-15 · accepted · P2/P3 wiring specs: Telegram state machine, risk test vectors, candle builder/scheduler**
+Context: `PAPER_BROKER_SPEC.md` (P2) and `RISK_SPEC.md` §2A defined the fill
+model and routing rules but not the Telegram approve/paper-test/reject
+state machine or concurrency behaviour; `TEST_SPEC_RISK.md` had no test
+vectors for the paper broker's 6-step kill-switch drill; and P3's live
+candle builder / market-session scheduler was referenced in `ADAPTERS.md`
+and `ARCHITECTURE.md` but never pinned down as one algorithm shared by the
+live and backtest/bhavcopy paths.
+Decision: (1) wrote `docs/specs/TELEGRAM_ALERT_SPEC.md` — a 5-state machine
+(PENDING/APPROVED/PAPER_TESTED/REJECTED/EXPIRED) backed by a
+`telegram_decisions` SQLite table, pre-market batch mechanics, and an
+optimistic-write rule so Telegram and the dashboard can race on the same
+signal without double-deciding it. (2) extended `TEST_SPEC_RISK.md` §8 with
+the drill's automated-test form, explicitly using the real paper broker
+(not `FakePaperBroker`, which can't exercise persistence). (3) wrote
+`docs/specs/CANDLE_BUILDER_AND_SCHEDULER_SPEC.md`, pinning the previously-
+open "which tick's price is `open` under reordering" question
+(`TEST_SPEC_CANDLES.md` §1.3) to "chronologically-earliest tick by its own
+timestamp," and defining a `CLOSED -> PRE_OPEN -> OPEN -> POST_CLOSE ->
+CLOSED` per-market session state machine. (4) cherry-picked
+`PAPER_BROKER_SPEC.md` from the still-open `claude/p2-paper-broker-spec`
+branch (PR #48) into this branch, since the three new specs reference it
+and it wasn't yet present here — the file's content is unchanged from that
+PR; `docs/specs/README.md` was updated to list all P2/P3 spec files in one
+place instead of drifting further out of sync with `ls docs/specs/`.
+Consequences: Codex can implement P2's Telegram wiring and P3's candle
+builder/scheduler against a fixed contract. Two things left genuinely open,
+flagged `needs-human` rather than guessed: MCX's exact session calendar
+(`CANDLE_BUILDER_AND_SCHEDULER_SPEC.md` §3.1 — no confirmed free
+machine-readable source yet) and the daily report's content/format (§3.4,
+deferred to a future spec if P3 proves one is needed).
+
+---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
 Context: ...
