@@ -30,6 +30,7 @@ def test_row_reports_raw_and_adjusted_p_value_side_by_side() -> None:
     row = build_ranking_report_row(
         candidate_id="t1-donchian-v1",
         timeframe="daily",
+        dataset_manifest_hash="synthetic-manifest-sha256",
         trades=trades,
         starting_equity=Decimal(100_000),
         daily_excess_returns=daily_returns(),
@@ -50,6 +51,7 @@ def test_row_uses_the_caller_supplied_family_size_not_a_hardcoded_one() -> None:
     row = build_ranking_report_row(
         candidate_id="t5-orb-m1-v1",
         timeframe="intraday",
+        dataset_manifest_hash="synthetic-manifest-sha256",
         trades=[trade("a", "10")],
         starting_equity=Decimal(100_000),
         daily_excess_returns=daily_returns(),
@@ -67,6 +69,7 @@ def test_optional_fields_are_none_when_not_supplied() -> None:
     row = build_ranking_report_row(
         candidate_id="cash-v1",
         timeframe="daily",
+        dataset_manifest_hash="synthetic-manifest-sha256",
         trades=[trade("a", "5")],
         starting_equity=Decimal(100_000),
         daily_excess_returns=daily_returns(),
@@ -84,6 +87,7 @@ def test_optional_fields_populate_when_supplied() -> None:
     row = build_ranking_report_row(
         candidate_id="t1-donchian-v1",
         timeframe="daily",
+        dataset_manifest_hash="synthetic-manifest-sha256",
         trades=trades,
         starting_equity=Decimal(100_000),
         daily_excess_returns=daily_returns(),
@@ -104,8 +108,24 @@ def test_rejects_nonpositive_starting_equity() -> None:
         build_ranking_report_row(
             candidate_id="a",
             timeframe="daily",
+            dataset_manifest_hash="synthetic-manifest-sha256",
             trades=[trade("a", "1")],
             starting_equity=Decimal(0),
+            daily_excess_returns=daily_returns(),
+            periods_per_year=252,
+            years=Decimal(1),
+            bootstrap_seed=1,
+        )
+
+
+def test_rejects_empty_dataset_manifest_hash() -> None:
+    with pytest.raises(ValueError, match="dataset_manifest_hash"):
+        build_ranking_report_row(
+            candidate_id="a",
+            timeframe="daily",
+            dataset_manifest_hash="",
+            trades=[trade("a", "1")],
+            starting_equity=Decimal(1_000),
             daily_excess_returns=daily_returns(),
             periods_per_year=252,
             years=Decimal(1),
@@ -118,6 +138,7 @@ def test_max_drawdown_pct_is_expressed_against_starting_equity() -> None:
     row = build_ranking_report_row(
         candidate_id="a",
         timeframe="daily",
+        dataset_manifest_hash="synthetic-manifest-sha256",
         trades=trades,
         starting_equity=Decimal(10_000),
         daily_excess_returns=daily_returns(),
