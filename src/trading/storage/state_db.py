@@ -91,6 +91,13 @@ CREATE TABLE IF NOT EXISTS decisions (
     created_ts TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS strategy_promotions (
+    strategy_id TEXT PRIMARY KEY,
+    promoted INTEGER NOT NULL,
+    promoted_by TEXT NOT NULL,
+    promoted_ts TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS exit_requests (
     exit_id TEXT PRIMARY KEY,
     position_id TEXT NOT NULL,
