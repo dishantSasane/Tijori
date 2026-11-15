@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-14 by Codex (PR #44 closed; PR #43 retriggered — see note 0019)
+Last updated: 2026-11-15 by Codex (P1 restructure and membership research — see note 0027)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer + backtester | Codex | **PAUSED on new features pending bug fixes** — PR #39 merged at `003a604`, PR #32 and accidental PR #44 closed; PR #36/#42 green, PR #43 retriggered at `861e44b` with CI pending. | |
+| P1 Data layer, strategy discovery, regime-gated activation | Codex | **ACTIVE; P1a gated on owner decisions** — existing backtester/indicators and six-symbol Upstox Parquet sample exist; P1 is now split into P1a-e by ADR-0024. See note 0027. | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -17,12 +17,14 @@ Last updated: 2026-11-14 by Codex (PR #44 closed; PR #43 retriggered — see not
 | P8 Expansion | both | waiting | gated |
 
 ## Next 3 actions
-1. Codex/Claude: review corrected follow-ups #42/#43 and resolve any remaining required changes.
-2. Owner: review/merge only after cross-model approval and green CI; PR #36 has no reported checks at the latest poll.
-3. Owner: nothing blocking. MASTER_PLAN.md §13's open questions remain yours whenever convenient.
+1. Owner: decide whether to obtain NSE Indices' point-in-time constituent data after coverage/licence/quote details, or accept only a clearly scoped provisional sample with survivorship caveat.
+2. Owner: set research comparison capital/per-trade risk assumption and confirm daily swing horizon.
+3. Codex: after decisions, finish P1a with corporate-action known answers and frozen chronological splits; do not read the holdout before P1d.
 
 ## Blockers / needs-human
-- Open questions listed in `docs/MASTER_PLAN.md` §13 (capital, brokers, exchange, VM, repo name, allocations).
+- P1 historical membership source/terms or explicit scoped survivorship-bias caveat.
+- P1 comparison sizing (capital and per-trade risk) and holding horizon.
+- New untouched holdout boundaries: the previously reviewed 2016-2026 sample cannot be reused as an unseen holdout under ADR-0024.
 
 ## Environment facts (update when they change)
 - Owner plans: Claude Pro (ends ~2026-11-16), ChatGPT Plus (ongoing).
