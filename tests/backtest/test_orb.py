@@ -56,7 +56,7 @@ def session() -> NseRegularSession:
 def test_orb_uses_closed_bar_breakout_and_next_open_fill() -> None:
     bars = full_session()
     bars[3] = bars[3].model_copy(update={"close": Decimal("102.06"), "high": Decimal("103")})
-    bars[4] = bars[4].model_copy(update={"open": Decimal("103")})
+    bars[4] = bars[4].model_copy(update={"open": Decimal("103"), "high": Decimal("104")})
     # A later bar reaches the target based on the actual, next-open fill.
     bars[5] = bars[5].model_copy(update={"high": Decimal("107.1")})
 
@@ -79,7 +79,7 @@ def test_orb_uses_closed_bar_breakout_and_next_open_fill() -> None:
 def test_t5_candidate_id_binds_the_frozen_target_multiple() -> None:
     bars = full_session()
     bars[3] = bars[3].model_copy(update={"close": Decimal("103"), "high": Decimal("104")})
-    bars[4] = bars[4].model_copy(update={"open": Decimal("103")})
+    bars[4] = bars[4].model_copy(update={"open": Decimal("103"), "high": Decimal("104")})
     bars[5] = bars[5].model_copy(update={"high": Decimal("108")})
     result = run_p1_t5_candidate(
         "t5-orb-m15-v1",
@@ -95,7 +95,7 @@ def test_t5_candidate_id_binds_the_frozen_target_multiple() -> None:
 def test_orb_applies_adverse_slippage_and_fees_to_entry_and_target() -> None:
     bars = full_session()
     bars[3] = bars[3].model_copy(update={"close": Decimal("103"), "high": Decimal("104")})
-    bars[4] = bars[4].model_copy(update={"open": Decimal("103")})
+    bars[4] = bars[4].model_copy(update={"open": Decimal("103"), "high": Decimal("104")})
     bars[5] = bars[5].model_copy(update={"high": Decimal("108")})
     result = run_t5_orb(
         bars,
@@ -159,7 +159,7 @@ def test_orb_accepts_signal_closing_at_1130_but_ignores_later_signals() -> None:
 def test_orb_uses_stop_first_if_stop_and_target_touch_same_bar() -> None:
     bars = full_session()
     bars[3] = bars[3].model_copy(update={"close": Decimal("103"), "high": Decimal("104")})
-    bars[4] = bars[4].model_copy(update={"open": Decimal("103")})
+    bars[4] = bars[4].model_copy(update={"open": Decimal("103"), "high": Decimal("104")})
     bars[5] = bars[5].model_copy(update={"high": Decimal("110"), "low": Decimal("97")})
     result = run_t5_orb(
         bars,
@@ -173,10 +173,44 @@ def test_orb_uses_stop_first_if_stop_and_target_touch_same_bar() -> None:
     assert result.trade.exit_price == Decimal("98")
 
 
+def test_orb_protects_position_on_the_entry_fill_bar() -> None:
+    bars = full_session()
+    bars[3] = bars[3].model_copy(update={"close": Decimal("103"), "high": Decimal("104")})
+    bars[4] = bars[4].model_copy(
+        update={"open": Decimal("103"), "high": Decimal("104"), "low": Decimal("97")}
+    )
+    bars[5] = bars[5].model_copy(update={"high": Decimal("108")})
+    result = run_t5_orb(
+        bars,
+        session=session(),
+        target_multiple=Decimal("1"),
+        quantity=Decimal("1"),
+        profile=BacktestProfile(),
+    )
+    assert result.trade is not None
+    assert result.trade.entry_bar == 4
+    assert result.trade.exit_bar == 4
+    assert result.trade.exit_reason == "stop"
+    assert result.trade.exit_price == Decimal("98")
+
+
+def test_orb_rejects_zero_or_negative_ohlc_prices_in_any_bar() -> None:
+    bars = full_session()
+    bars[20] = bars[20].model_copy(update={"low": Decimal("-1")})
+    with pytest.raises(ValueError, match="OHLC prices must be positive"):
+        run_t5_orb(
+            bars,
+            session=session(),
+            target_multiple=Decimal("1"),
+            quantity=Decimal("1"),
+            profile=BacktestProfile(),
+        )
+
+
 def test_orb_squares_off_at_1515_using_1510_bar_close() -> None:
     bars = full_session()
     bars[3] = bars[3].model_copy(update={"close": Decimal("103"), "high": Decimal("104")})
-    bars[4] = bars[4].model_copy(update={"open": Decimal("103")})
+    bars[4] = bars[4].model_copy(update={"open": Decimal("103"), "high": Decimal("104")})
     bars[71] = bars[71].model_copy(update={"close": Decimal("104")})
     result = run_t5_orb(
         bars,
@@ -194,7 +228,7 @@ def test_orb_squares_off_at_1515_using_1510_bar_close() -> None:
 def test_orb_marks_truncated_session_incomplete_and_excludes_trade() -> None:
     bars = full_session()
     bars[3] = bars[3].model_copy(update={"close": Decimal("103"), "high": Decimal("104")})
-    bars[4] = bars[4].model_copy(update={"open": Decimal("103")})
+    bars[4] = bars[4].model_copy(update={"open": Decimal("103"), "high": Decimal("104")})
     with pytest.raises(ValueError, match="begin with the 09:15"):
         run_t5_orb(
             bars[1:],

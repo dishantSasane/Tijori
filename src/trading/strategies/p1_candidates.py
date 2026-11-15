@@ -31,14 +31,7 @@ def generate_p1_daily_signals(
         raise ValueError("daily signal generation requires a daily P1 candidate")
     if not candles:
         return []
-    first = candles[0]
-    if any(
-        candle.market != first.market
-        or candle.symbol != first.symbol
-        or candle.timeframe is not Timeframe.D1
-        for candle in candles
-    ):
-        raise ValueError("daily candidate input must be one symbol's daily candles")
+    validate_p1_daily_candles(candles)
 
     closes = [float(candle.close) for candle in candles]
     highs = [float(candle.high) for candle in candles]
@@ -97,3 +90,27 @@ def generate_p1_daily_signals(
             created_ts=created_ts,
         )
     raise ValueError(f"candidate {candidate_id} is not a daily entry strategy")
+
+
+def validate_p1_daily_candles(candles: Sequence[Candle]) -> None:
+    """Reject mixed, duplicate, or out-of-order daily candle sequences.
+
+    Missing exchange sessions must be detected against the separately verified
+    calendar; ordinary date gaps are allowed here because weekends and
+    holidays are not candle omissions.
+    """
+    if not candles:
+        raise ValueError("daily candidate input cannot be empty")
+    first = candles[0]
+    if any(
+        candle.market != first.market
+        or candle.symbol != first.symbol
+        or candle.timeframe is not Timeframe.D1
+        for candle in candles
+    ):
+        raise ValueError("daily candidate input must be one symbol's daily candles")
+    if any(
+        current.ts_open_utc <= previous.ts_open_utc
+        for previous, current in zip(candles, candles[1:], strict=False)
+    ):
+        raise ValueError("daily candle timestamps must be strictly increasing and unique")

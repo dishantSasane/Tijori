@@ -12,7 +12,7 @@ from trading.core.models import Candle
 from trading.indicators.moving_averages import ema, sma
 from trading.indicators.technical import bollinger, rsi
 from trading.strategies.daily_candidates import make_daily_exit_condition
-from trading.strategies.p1_candidates import generate_p1_daily_signals
+from trading.strategies.p1_candidates import generate_p1_daily_signals, validate_p1_daily_candles
 from trading.strategies.p1_catalog import get_p1_candidate
 
 
@@ -33,6 +33,7 @@ def run_p1_daily_candidate(
     candidate = get_p1_candidate(candidate_id)
     if not candles:
         raise ValueError("daily candidate replay requires candles")
+    validate_p1_daily_candles(candles)
     parameters = dict(candidate.parameters)
     closes = [float(candle.close) for candle in candles]
     exit_inputs: dict[str, Sequence[float | None]] = {}

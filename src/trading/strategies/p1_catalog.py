@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 
+P1_CATALOG_VERSION = "p1-catalog-v3"
+
 
 @dataclass(frozen=True)
 class P1Candidate:

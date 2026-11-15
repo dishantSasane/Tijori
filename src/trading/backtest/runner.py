@@ -148,8 +148,12 @@ def run_long_only(
                     condition_stop = stop_exit(
                         position,
                         open_price=condition_fill.open,
-                        high=condition_fill.high,
-                        low=condition_fill.low,
+                        # The condition order executes at the next open. Only
+                        # a gap through the protective stop at that open can
+                        # affect this fill; later high/low data is future
+                        # information once the exit has filled.
+                        high=condition_fill.open,
+                        low=condition_fill.open,
                         profile=profile,
                     )
                     if condition_stop is not None:
@@ -162,7 +166,7 @@ def run_long_only(
                     exit_price = candles[index + 1].open * (
                         Decimal("1") - profile.slippage_bps / Decimal("10000")
                     )
-                    exit_fees = profile.brokerage
+                    exit_fees = profile.exit_fee
                     exit_reason = "condition"
                     break
         if exit_index is None or exit_price is None:

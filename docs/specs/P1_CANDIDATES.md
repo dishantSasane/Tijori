@@ -26,7 +26,7 @@ results.
 - Variations: at most **3 frozen variants per family**, including the baseline.
   No Cartesian product across parameter axes. Every attempted run, including
   failed runs, counts toward the pre-registered family and experiment totals.
-- Version: `p1-daily-v2`. Any rule, parameter, sizing, universe, cost or data
+- Version: `p1-catalog-v3`. Any rule, parameter, sizing, universe, cost or data
   change requires a new catalog version and is counted as a new research
   decision.
 
@@ -75,7 +75,7 @@ versioned as a new catalog before that later study's data is inspected.
 ## Machine-readable hypothesis family
 
 ```yaml
-catalog_version: p1-daily-v2
+catalog_version: p1-catalog-v3
 baseline_ids: [cash-v1, buy-hold-v1]
 strategy_families:
   t1-donchian-v1: 3

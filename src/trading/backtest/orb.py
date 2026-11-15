@@ -89,6 +89,8 @@ def _validate_session(candles: list[Candle], session: NseRegularSession) -> None
             raise ValueError("candle timestamps must be UTC")
         if candle.ts_open_utc.astimezone(_IST).date() != session.session_date:
             raise ValueError("candle lies outside the supplied calendar session")
+        if any(price <= 0 for price in (candle.open, candle.high, candle.low, candle.close)):
+            raise ValueError("OHLC prices must be positive")
         if previous is not None and candle.ts_open_utc != previous + _BAR_DURATION:
             raise ValueError("T5 session bars must be unique, ordered, and gap-free")
         previous = candle.ts_open_utc
@@ -170,7 +172,7 @@ def run_t5_orb(
     position = Position(quantity=quantity, entry_price=entry.price, stop=stop)
 
     last_exit_index = min(square_off_index, len(candles) - 1)
-    for index in range(entry_index + 1, last_exit_index + 1):
+    for index in range(entry_index, last_exit_index + 1):
         bar = candles[index]
         stop_touched = bar.low <= stop
         target_touched = bar.high >= target

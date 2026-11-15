@@ -7,7 +7,7 @@ import pytest
 from trading.core.enums import MarketId, Timeframe
 from trading.core.models import Candle
 from trading.strategies.p1_candidates import generate_p1_daily_signals
-from trading.strategies.p1_catalog import P1_CANDIDATES, get_p1_candidate
+from trading.strategies.p1_catalog import P1_CANDIDATES, P1_CATALOG_VERSION, get_p1_candidate
 
 
 def make_candles(closes: list[int]) -> list[Candle]:
@@ -31,6 +31,7 @@ def make_candles(closes: list[int]) -> list[Candle]:
 
 
 def test_p1_catalog_is_the_frozen_15_candidate_family() -> None:
+    assert P1_CATALOG_VERSION == "p1-catalog-v3"
     assert len(P1_CANDIDATES) == 15
     assert sum(candidate.timeframe == "1d" for candidate in P1_CANDIDATES.values()) == 12
     assert sum(candidate.timeframe == "5m" for candidate in P1_CANDIDATES.values()) == 3
@@ -118,3 +119,18 @@ def test_daily_candidate_dispatch_known_answers_for_t2_t4_and_t6() -> None:
     t6 = generate_p1_daily_signals("t6-bollinger20-2-v1", t6_bars, created_ts=start)
     assert t6
     assert t6[-1].bar_ts_utc == t6_bars[-1].ts_open_utc
+
+
+@pytest.mark.parametrize("duplicate", [False, True])
+def test_daily_dispatch_rejects_nonincreasing_or_duplicate_timestamps(duplicate: bool) -> None:
+    bars = make_candles([100, 101, 102])
+    if duplicate:
+        bars[1] = bars[1].model_copy(update={"ts_open_utc": bars[0].ts_open_utc})
+    else:
+        bars[1], bars[2] = bars[2], bars[1]
+    with pytest.raises(ValueError, match="strictly increasing and unique"):
+        generate_p1_daily_signals(
+            "t6-bollinger20-2-v1",
+            bars,
+            created_ts=bars[0].ingest_ts,
+        )

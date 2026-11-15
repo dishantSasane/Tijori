@@ -6,7 +6,10 @@ are hypotheses, not recommendations or evidence of profitability.
 
 ## Scope and shared assumptions
 
-- Catalog version: `p1-intraday-v1`; market: NSE cash equities, long-only.
+- Catalog version: `p1-intraday-v2`; market: NSE cash equities, long-only.
+  This version supersedes v1 before any results were generated: protective
+  exits are now checked on the entry-fill bar, matching `STRATEGY_SPEC.md`
+  §1.5 and resolving the prior same-bar-rule conflict conservatively.
 - First-pass symbols are the five fixed pilot names in `P1_CANDIDATES.md`.
   This sample has survivorship and concentration bias, so results validate the
   pipeline and these instruments only; they cannot support broad-market claims.
@@ -22,7 +25,8 @@ are hypotheses, not recommendations or evidence of profitability.
   from the verified calendar; absent calendar coverage blocks the run.
 - Signals use closed bars; fills occur at the next 5-minute bar open with the
   shared cost/slippage model. If the next bar is absent or begins at/after
-  square-off, the signal expires unfilled. No same-bar entry/exit.
+  square-off, the signal expires unfilled. Stop and target checks include the
+  fill bar after its close; if both are touched, stop is assumed first.
 - One position maximum per symbol per session and one entry attempt per
   symbol-day, including after a stop-out. No overnight carry, pyramiding, or
   shorting. The comparison sizing assumption is 1% of the ₹1,00,000 research
@@ -42,9 +46,10 @@ are hypotheses, not recommendations or evidence of profitability.
    the opening range and actual fill price: stop is the range low; target is
    `fill_price + m * (range_high - range_low)`. If the fill is at/below the
    stop, reject the trade as invalid rather than moving the stop.
-4. Once filled, inspect each subsequent closed bar's high/low. If both stop and
-   target are touched within one bar, assume stop first. Otherwise execute a
-   touched stop/target at its level with the shared adverse slippage rule.
+4. On the fill bar and each later closed bar, inspect high/low for stop and
+   target. If both are touched within one bar, assume stop first. Otherwise
+   execute a touched stop/target at its level with adverse slippage. The fill
+   bar is included because its post-open range occurs after the entry fill.
    If neither is touched, close at the 15:15 square-off using the last
    available bar close and corresponding costs. There is no re-entry that day.
 5. If data ends before a valid exit, mark the position open and the session
