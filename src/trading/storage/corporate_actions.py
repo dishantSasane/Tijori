@@ -322,4 +322,7 @@ def prepare_candles_for_storage(
         for action in actions
         if (action.symbol.upper(), action.effective_date) not in skipped
     ]
-    return adjust_for_share_actions(candles, applicable, as_of=as_of)
+    candle_list = list(candles)
+    if any(candle.ts_open_utc.astimezone(INDIA_TIMEZONE).date() > as_of for candle in candle_list):
+        raise ValueError("adjustment_as_of must cover the latest candle session")
+    return adjust_for_share_actions(candle_list, applicable, as_of=as_of)

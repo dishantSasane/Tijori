@@ -27,6 +27,12 @@ def append_adjusted_candles(
         raise ValueError("a complete, authorized corporate-action ledger is required")
     candle_list = list(candles)
     action_list = tuple(actions)
+    prepared = prepare_candles_for_storage(
+        candle_list,
+        action_list,
+        as_of=as_of,
+        provider_adjusted_action_keys=provider_adjusted_action_keys,
+    )
     skipped_keys = sorted(
         (symbol.strip().upper(), effective_date.isoformat())
         for symbol, effective_date in provider_adjusted_action_keys
@@ -52,21 +58,8 @@ def append_adjusted_candles(
             separators=(",", ":"),
         ).encode()
     ).hexdigest()
-    for market, symbol, timeframe in {
-        (candle.market, candle.symbol, candle.timeframe) for candle in candle_list
-    }:
-        store.bind_adjustment_basis(
-            market,
-            symbol,
-            timeframe,
-            as_of_date=as_of,
-            ledger_hash=ledger_hash,
-            basis_hash=basis_hash,
-        )
-    prepared = prepare_candles_for_storage(
-        candle_list,
-        action_list,
-        as_of=as_of,
-        provider_adjusted_action_keys=provider_adjusted_action_keys,
-    )
-    return store.append(prepared)
+    bases = {
+        (candle.market, candle.symbol, candle.timeframe): (as_of, ledger_hash, basis_hash)
+        for candle in prepared
+    }
+    return store.append_with_adjustment_bases(prepared, bases)

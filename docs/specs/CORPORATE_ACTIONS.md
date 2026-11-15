@@ -98,11 +98,11 @@ attempted.
   version/hash alongside every adjusted research export; `adj_factor` alone
   does not identify the source event. Corrected notices must be retained as
   separately versioned source records rather than silently replacing earlier
-  evidence. The implemented sidecar currently stores the as-of date and
-  per-series ledger/basis hashes, not the full event ledger or source evidence;
-  packaging those records and preserving a parallel raw archive remain P1a
-  gates. The transform selects one revision per event as of the replay date and
-  rejects duplicate or incorrectly ordered revisions.
+  evidence. The implemented sidecar currently stores the Parquet content hash,
+  as-of date, and per-series ledger/basis hashes, not the full event ledger or
+  source evidence; packaging those records and preserving a parallel raw archive
+  remain P1a gates. The transform selects one revision per event as of the replay
+  date and rejects duplicate or incorrectly ordered revisions.
 - The current backtest runner does not model share-count changes on an open
   position. Therefore split/bonus-adjusted candles are not yet valid promotion
   evidence for trades spanning an effective date. That requires a separately

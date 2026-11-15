@@ -8,7 +8,7 @@ import pytest
 from trading.core.enums import MarketId, Timeframe
 from trading.core.models import Candle
 from trading.storage.adjusted_ingestion import append_adjusted_candles
-from trading.storage.candles import CandleStore
+from trading.storage.candles import CandleStore, DuplicateCandleError
 from trading.storage.corporate_actions import (
     CorporateActionKind,
     ShareAdjustment,
@@ -256,6 +256,66 @@ def test_storage_rejects_existing_series_without_basis_metadata(tmp_path: Path) 
                 as_of=date(2024, 1, 3),
                 action_ledger_complete=True,
             )
+
+
+def test_direct_append_cannot_bypass_a_bound_adjustment_basis(tmp_path: Path) -> None:
+    with CandleStore(tmp_path / "bound-store") as store:
+        append_adjusted_candles(
+            store,
+            [candle()],
+            [],
+            as_of=date(2024, 1, 3),
+            action_ledger_complete=True,
+        )
+        later_bar = candle(ts_open_utc=datetime(2024, 1, 2, 3, 45, tzinfo=UTC))
+        with pytest.raises(ValueError, match="bound adjustment basis"):
+            store.append([later_bar])
+
+
+def test_failed_candle_append_does_not_leave_adjustment_basis(tmp_path: Path) -> None:
+    with CandleStore(tmp_path / "atomic-store") as store:
+        first = candle()
+        conflicting = candle().model_copy(update={"close": Decimal("106")})
+        with pytest.raises(DuplicateCandleError):
+            append_adjusted_candles(
+                store,
+                [first, conflicting],
+                [],
+                as_of=date(2024, 1, 3),
+                action_ledger_complete=True,
+            )
+
+        action = split()
+        assert (
+            append_adjusted_candles(
+                store,
+                [first],
+                [action],
+                as_of=date(2024, 1, 3),
+                action_ledger_complete=True,
+            )
+            == 1
+        )
+
+
+def test_parquet_requires_matching_manifest_for_import(tmp_path: Path) -> None:
+    with CandleStore(tmp_path / "source") as source:
+        append_adjusted_candles(
+            source,
+            [candle()],
+            [],
+            as_of=date(2024, 1, 3),
+            action_ledger_complete=True,
+        )
+        parquet = source.export_parquet(tmp_path / "source.parquet")
+
+    manifest_path = parquet.with_suffix(".parquet.manifest.json")
+    manifest = json.loads(manifest_path.read_text())
+    manifest["parquet_sha256"] = "0" * 64
+    manifest_path.write_text(json.dumps(manifest))
+    with CandleStore(tmp_path / "target") as target:
+        with pytest.raises(ValueError, match="belongs to another file"):
+            target.load_parquet(parquet)
 
 
 def test_actions_after_as_of_date_do_not_change_history() -> None:

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import date
 from hashlib import sha256
 from pathlib import Path
@@ -170,7 +172,7 @@ class HoldoutEvaluator:
         )
 
     def _consume(self, plan: HoldoutPlan) -> None:
-        with self._lock:
+        with self._lock, self._reservation_file_lock():
             transaction_started = False
             try:
                 self._connection.execute("BEGIN TRANSACTION")
@@ -221,6 +223,17 @@ class HoldoutEvaluator:
                 if transaction_started:
                     self._connection.execute("ROLLBACK")
                 raise
+
+    @contextmanager
+    def _reservation_file_lock(self) -> Iterator[None]:
+        """Serialize overlapping-window checks across connections and processes."""
+        lock_path = self.path.with_suffix(self.path.suffix + ".reservation.lock")
+        with lock_path.open("a+b") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
     def is_consumed(
         self,

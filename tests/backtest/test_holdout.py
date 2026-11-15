@@ -173,3 +173,36 @@ def test_concurrent_attempts_for_same_window_allow_only_one_evaluator(tmp_path: 
             results = list(executor.map(evaluate, ("plan-a", "plan-b")))
         assert sum(result.startswith("evaluated:") for result in results) == 1
         assert results.count("rejected") == 1
+
+
+def test_concurrent_connections_cannot_reserve_overlapping_windows(tmp_path: Path) -> None:
+    database = tmp_path / "multi-connection.duckdb"
+    with HoldoutEvaluator(database) as first_guard, HoldoutEvaluator(database) as second_guard:
+        barrier = Barrier(2)
+
+        def reserve(guard: HoldoutEvaluator, candidate: HoldoutPlan) -> str:
+            barrier.wait()
+            try:
+                guard.reserve_once(candidate)
+                return "accepted"
+            except HoldoutAlreadyConsumedError:
+                return "rejected"
+
+        plans = [
+            plan(plan_id="window-a"),
+            plan(
+                plan_id="window-b",
+                holdout_start=date(2023, 6, 1),
+                holdout_end=date(2024, 6, 1),
+            ),
+        ]
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(
+                executor.map(
+                    lambda pair: reserve(*pair),
+                    [(first_guard, plans[0]), (second_guard, plans[1])],
+                )
+            )
+
+    assert results.count("accepted") == 1
+    assert results.count("rejected") == 1

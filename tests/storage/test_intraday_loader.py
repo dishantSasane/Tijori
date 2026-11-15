@@ -196,3 +196,24 @@ def test_loader_requires_as_of_date_for_complete_action_ledger(tmp_path: Path) -
                 end=date(2024, 1, 1),
                 action_ledger_complete=True,
             )
+
+
+def test_loader_rejects_adjustment_basis_older_than_requested_data(tmp_path: Path) -> None:
+    client = UpstoxHistoryClient(requester=lambda _url, _headers: b'{"data":{"candles":[]}}')
+    with CandleStore(tmp_path / "store") as store:
+        loader = UpstoxIntradayLoader(
+            client=client,
+            store=store,
+            access_token="test-only-token",
+            clock=lambda: datetime(2024, 1, 3, tzinfo=UTC),
+            minimum_request_interval_seconds=0,
+        )
+        with pytest.raises(ValueError, match="cover the requested end date"):
+            loader.ingest(
+                [Instrument("NSE_EQ|TEST", "TEST")],
+                timeframe=Timeframe.M1,
+                start=date(2024, 1, 1),
+                end=date(2024, 1, 3),
+                action_ledger_complete=True,
+                adjustment_as_of=date(2024, 1, 2),
+            )

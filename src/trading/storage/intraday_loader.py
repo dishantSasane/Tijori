@@ -107,6 +107,8 @@ class UpstoxIntradayLoader:
         if not action_ledger_complete:
             raise ValueError("a complete, authorized corporate-action ledger is required")
         action_ledger = tuple(adjustments)
+        if adjustment_as_of is not None and adjustment_as_of < end:
+            raise ValueError("adjustment_as_of must cover the requested end date")
         if adjustment_as_of is None:
             raise ValueError("adjustment_as_of is required for storage ingestion")
         chunks = tuple(iter_month_chunks(start, end))
