@@ -28,3 +28,6 @@ dist/
 .vscode/
 .idea/
 .DS_Store
+
+# agent-to-agent scratch (local only, never committed -- see handoffs branch for the real record)
+communication/
