@@ -281,3 +281,45 @@ paper/live account (IEX feed):
   manifest shape, and loader are implemented with known-answer/fake-requester
   tests (no test touches Alpaca's real API). "US equities" data-ecosystem
   checklist item: done.
+
+## NSE currencies coverage (verified, not assumed)
+
+Checked empirically against Upstox's public API docs and NSE's currency
+derivatives contract specifications before building anything, per the owner's
+instruction not to assume "simpler than equities."
+
+- **Adapter:** genuinely no new HTTP client needed. `UpstoxHistoryClient`
+  (`src/trading/adapters/upstox_history.py`) is instrument-key-agnostic — it
+  URL-encodes whatever key it's given and hits the same `/v3/historical-candle`
+  path regardless of segment. Currency derivatives live in Upstox's `CDS`
+  exchange / `CD` segment (instrument keys shaped `CDS_FO|<token>`), distinct
+  from equities' `NSE_EQ`, but that's just a different string, not a different
+  client. Proven by `tests/storage/test_nse_currency_universe.py::
+  test_existing_upstox_client_accepts_a_currency_instrument_key`, which feeds
+  a `CDS_FO|USDINR...` key through the unmodified client. Did **not** edit
+  `upstox_history.py` itself (shared with Codex's India equity work) — no
+  edit was needed.
+- **Corporate actions / integrity:** no equivalent problem. FX futures have
+  no splits or dividends, so no adjustment layer is needed (unlike India
+  equities' `corporate_actions.py`).
+- **Contract roll / expiry:** also simpler than first feared. Currency
+  futures expire monthly like MCX, but this phase makes **no attempt to
+  stitch a continuous series** — each expiry is queried as its own distinct
+  `instrument_key`. Because nothing is being glued together, there is no
+  "fake price jump at rollover" bug to guard against here. If a continuous
+  series is ever wanted (e.g. for a strategy that needs one unbroken price
+  line), build that roll-adjustment logic once for MCX (phase 4) and reuse
+  it here rather than duplicating it — flagged for whoever builds phase 4.
+- **Universe:** fixed, tiny, hand-enumerated set — USDINR, EURINR, GBPINR,
+  JPYINR (`src/trading/storage/nse_currency_universe.py`). No liquidity-rule
+  universe built; AGENTS.md §10 keeps this sleeve deliberately small.
+- **Session hours:** confirmed NSE currency derivatives trade 09:00-17:00
+  IST, Monday-Friday — different from NSE equity's 09:15-15:30. This
+  resolves the "verify per contract" note docs/MARKETS.md previously carried
+  as unverified.
+- **Net verdict:** NSE currencies *is* simpler than equities overall (no
+  adjustment layer, tiny fixed universe, reused adapter) but for a different
+  reason than assumed — the simplification comes from skipping continuous-
+  series stitching entirely, not from the segment being easy. If a continuous
+  series is ever required, that assumption needs revisiting.
+- Status: "NSE currencies" data-ecosystem checklist item: done.

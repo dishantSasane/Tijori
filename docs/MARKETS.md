@@ -49,7 +49,18 @@ Per-market profiles. Facts marked **(verified 2026-11-14)** came from web resear
 
 ## 5. MCX commodities and NSE currencies
 
-Few instruments, all Tier A. Same broker adapter as India equities. MCX hours are per-instrument (approx 09:00 to 23:30, or 23:55 in some seasons; verify). NSE currency derivatives hours differ from equities; verify per contract. Contracts expire: the data layer must handle rolls/continuous series explicitly (spec needed before P8).
+Few instruments, all Tier A. Same broker adapter as India equities (Upstox's
+historical-candle client is instrument-key-agnostic; currency derivatives use
+Upstox's `CDS` segment / `CDS_FO|<token>` keys, equities use `NSE_EQ` — same
+client, different key string; verified in `docs/BUILD_ORDER.md`, "NSE
+currencies coverage"). MCX hours are per-instrument (approx 09:00 to 23:30,
+or 23:55 in some seasons; verify). NSE currency derivatives hours: confirmed
+09:00-17:00 IST Monday-Friday, different from equities' 09:15-15:30
+(verified; no longer open). Contracts expire monthly: for NSE currencies,
+each expiry is queried as a separate instrument, no continuous-series
+stitching is attempted (no roll-adjustment layer needed). MCX still needs its
+own roll/continuous-series spec (P8) and NSE currencies should reuse it if a
+continuous series is ever wanted here.
 
 ## 6. Options (Nifty/BankNifty)
 

@@ -44,5 +44,5 @@ and documented coverage limits in `docs/BUILD_ORDER.md`.
 
 - [x] Crypto
 - [x] US equities
-- [ ] NSE currencies
+- [x] NSE currencies (verified simpler than equities; see docs/BUILD_ORDER.md)
 - [ ] MCX commodities
