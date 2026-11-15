@@ -6,13 +6,11 @@ from collections.abc import Sequence
 from datetime import datetime
 from decimal import Decimal
 
-from trading.backtest.action_preflight import ReviewedActionKey
 from trading.backtest.fills import BacktestProfile
 from trading.backtest.runner import BacktestResult, run_long_only
 from trading.core.models import Candle
 from trading.indicators.moving_averages import ema, sma
 from trading.indicators.technical import bollinger, rsi
-from trading.storage.action_register import ActionRegister
 from trading.strategies.daily_candidates import make_daily_exit_condition
 from trading.strategies.p1_candidates import generate_p1_daily_signals
 from trading.strategies.p1_catalog import get_p1_candidate
@@ -25,9 +23,6 @@ def run_p1_daily_candidate(
     created_ts: datetime,
     quantity: Decimal,
     profile: BacktestProfile,
-    action_register: ActionRegister | None = None,
-    candle_snapshot_sha256: str | None = None,
-    reviewed_action_keys: set[ReviewedActionKey] | frozenset[ReviewedActionKey] = frozenset(),
 ) -> BacktestResult:
     """Run entries, candidate-specific exits, fills, and stops for one candidate.
 
@@ -65,7 +60,4 @@ def run_p1_daily_candidate(
         quantity=quantity,
         profile=profile,
         condition_exit=exit_condition,
-        action_register=action_register,
-        candle_snapshot_sha256=candle_snapshot_sha256,
-        reviewed_action_keys=reviewed_action_keys,
     )
