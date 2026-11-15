@@ -171,6 +171,18 @@ and without it. The append-only registry, deterministic moving-block bootstrap
 and Bonferroni helpers now exist, but no ranking report can be produced until
 P1a's source/split gates and the portfolio aggregation contract are settled.
 
+Progress note (2026-11-15, Claude, `claude/p1d-holdout-and-p1c-eval-harness`):
+the ranking-metric set itself is now also complete
+(`src/trading/backtest/metrics.py`) -- Sharpe/Sortino/Calmar, turnover and
+cost sensitivity, % profitable instruments/time-windows, vs. buy-and-hold,
+and a bootstrap-CI wrapper reusing the existing `bootstrap.py` helper rather
+than a second implementation. `Trade` (runner.py) carries neither symbol nor
+a timestamp, so the %profitable-* metrics take that grouping as
+caller-supplied `signal_id -> label` maps instead of extending `Trade` (left
+untouched; it's active work elsewhere). Tested against synthetic trades;
+still blocked on the same P1a gates as the registry/bootstrap for a real
+ranking report.
+
 ### P1d — Holdout evaluation
 
 | Deliverable | A/R | Notes |
