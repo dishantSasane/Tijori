@@ -91,6 +91,14 @@ CREATE TABLE IF NOT EXISTS decisions (
     created_ts TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS exit_requests (
+    exit_id TEXT PRIMARY KEY,
+    position_id TEXT NOT NULL,
+    reason_code TEXT NOT NULL,
+    quantity TEXT NOT NULL,
+    applied_ts TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS telegram_decisions (
     signal_id TEXT PRIMARY KEY,
     state TEXT NOT NULL,

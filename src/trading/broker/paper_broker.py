@@ -21,8 +21,8 @@ from typing import Any
 
 from trading.backtest.fills import BacktestProfile, fill_at_next_open, stop_exit
 from trading.backtest.fills import Position as FillPosition
-from trading.core.enums import LedgerSource, OrderSide, OutcomeResult
-from trading.core.models import Signal
+from trading.core.enums import ExitReason, LedgerSource, MarketId, OrderSide, OutcomeResult
+from trading.core.models import ExitRequest, Position, Signal
 from trading.risk.audit import AuditLog
 
 
@@ -55,6 +55,15 @@ class OpenPosition:
     entry_ref: Decimal
     approved_risk: Decimal
     ledger_source: LedgerSource
+
+    @property
+    def position_id(self) -> str:
+        """Stable, broker-truth-derived identity for `ExitRequest.position_id`
+        -- never a fresh UUID per call, so the same open position always
+        resolves to the same id across restarts (matches how it's keyed in
+        the `positions` table).
+        """
+        return f"{self.market}:{self.symbol}:{self.sleeve}"
 
 
 class PaperBroker:
@@ -155,7 +164,7 @@ class PaperBroker:
         now: datetime,
     ) -> None:
         self._try_fill_entries(market, symbol, ts_open_utc, open_, now)
-        self._try_exit_open_position(market, symbol, open_, high, low, now)
+        self._try_exit_open_position(market, symbol, ts_open_utc, open_, high, low, now)
 
     def _try_fill_entries(
         self, market: str, symbol: str, ts_open_utc: datetime, open_: Decimal, now: datetime
@@ -214,7 +223,14 @@ class PaperBroker:
             )
 
     def _try_exit_open_position(
-        self, market: str, symbol: str, open_: Decimal, high: Decimal, low: Decimal, now: datetime
+        self,
+        market: str,
+        symbol: str,
+        ts_open_utc: datetime,
+        open_: Decimal,
+        high: Decimal,
+        low: Decimal,
+        now: datetime,
     ) -> None:
         for pos in self.open_positions():
             if pos.market != market or pos.symbol != symbol:
@@ -223,7 +239,13 @@ class PaperBroker:
             exit_fill = stop_exit(fp, open_price=open_, high=high, low=low, profile=self._profile)
             if exit_fill is not None:
                 self._close_position(
-                    pos, exit_fill.price, exit_fill.fees, OutcomeResult.STOP_HIT, now
+                    pos,
+                    exit_fill.price,
+                    exit_fill.fees,
+                    OutcomeResult.STOP_HIT,
+                    ExitReason.STOP,
+                    ts_open_utc,
+                    now,
                 )
                 if exit_fill.gap_through_stop:
                     realized_risk = pos.qty * abs(exit_fill.price - pos.entry_ref)
@@ -241,12 +263,93 @@ class PaperBroker:
             # fill model yet) -- add intrabar fill if P3 strategies need it.
             if pos.target_price is not None and open_ >= pos.target_price:
                 self._close_position(
-                    pos, pos.target_price, self._profile.exit_fee, OutcomeResult.TARGET_HIT, now
+                    pos,
+                    pos.target_price,
+                    self._profile.exit_fee,
+                    OutcomeResult.TARGET_HIT,
+                    ExitReason.TARGET,
+                    ts_open_utc,
+                    now,
                 )
 
+    def build_exit_request(
+        self, pos: OpenPosition, reason: ExitReason, bar_ts_utc: datetime, now: datetime
+    ) -> ExitRequest:
+        """The canonical, I14-enforced exit path (docs/specs/RISK_ENGINE_SPEC.md
+        §11 I14; `CONTRACTS.md`'s `ExitRequest`) -- the same path live/
+        approval-mode exits use, not a paper-only shortcut. `exit_id` is
+        derived (never caller-supplied), so a duplicate exit for the same
+        position/reason/bar is always idempotent (I7) before it ever reaches
+        SQL.
+        """
+        return ExitRequest(
+            position_id=pos.position_id,
+            quantity=pos.qty,
+            reason_code=reason,
+            bar_ts_utc=bar_ts_utc,
+            created_ts=now,
+        )
+
     def _close_position(
-        self, pos: OpenPosition, price: Decimal, fees: Decimal, result: OutcomeResult, now: datetime
+        self,
+        pos: OpenPosition,
+        price: Decimal,
+        fees: Decimal,
+        result: OutcomeResult,
+        reason: ExitReason,
+        bar_ts_utc: datetime,
+        now: datetime,
     ) -> None:
+        exit_request = self.build_exit_request(pos, reason, bar_ts_utc, now)
+
+        # Idempotency (I7): a duplicate exit_id for the same position/reason/
+        # bar is a no-op, never a second fill -- checked via the same
+        # atomic INSERT-if-absent pattern as DecisionStore (risk/decision_store.py).
+        cur = self._conn.execute(
+            "INSERT INTO exit_requests (exit_id, position_id, reason_code, quantity, applied_ts) "
+            "SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS "
+            "(SELECT 1 FROM exit_requests WHERE exit_id = ?)",
+            (
+                exit_request.exit_id,
+                exit_request.position_id,
+                reason.value,
+                str(exit_request.quantity),
+                now.isoformat(),
+                exit_request.exit_id,
+            ),
+        )
+        if cur.rowcount == 0:
+            self._conn.commit()
+            self._audit.write(
+                ts_utc=now,
+                event_type="exit_already_applied",
+                actor="system",
+                payload={"exit_id": exit_request.exit_id, "position_id": pos.position_id},
+            )
+            return
+
+        # I14 enforcement: apply_to_position raises if the request would
+        # increase the position or exceed its open quantity -- this is the
+        # same validation `ExitRequest.apply_to_position` runs for a live or
+        # approval-mode exit, not a paper-only shortcut. A full close drives
+        # the remaining quantity to exactly zero, never negative.
+        broker_truth_position = Position(
+            market=MarketId(pos.market),
+            symbol=pos.symbol,
+            sleeve=pos.sleeve,
+            qty=pos.qty,
+            avg_price=pos.avg_price,
+            opened_ts=pos.opened_ts,
+            stop_price=pos.stop_price,
+        )
+        remaining = exit_request.apply_to_position(broker_truth_position)
+        if remaining.qty != 0:
+            raise ValueError(
+                "PaperBroker only supports full-position closes; a partial "
+                f"ExitRequest left qty={remaining.qty} (invariant I14 held, "
+                "but this broker's position model doesn't support partials yet)"
+            )
+
         self._conn.execute(
             "DELETE FROM positions WHERE market = ? AND symbol = ? AND sleeve = ?",
             (pos.market, pos.symbol, pos.sleeve),
@@ -255,7 +358,7 @@ class PaperBroker:
             "INSERT INTO fills (id, order_id, qty, price, fees, ledger_source, ts_utc) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
-                f"{pos.signal_id}:exit",
+                exit_request.exit_id,
                 pos.signal_id,
                 str(pos.qty),
                 str(price),
@@ -271,7 +374,12 @@ class PaperBroker:
             ts_utc=now,
             event_type="position_closed",
             actor="system",
-            payload={"signal_id": pos.signal_id, "result": result.value, "price": str(price)},
+            payload={
+                "signal_id": pos.signal_id,
+                "exit_id": exit_request.exit_id,
+                "result": result.value,
+                "price": str(price),
+            },
         )
 
     # -- timeout / expiry (§2.1) ----------------------------------------------

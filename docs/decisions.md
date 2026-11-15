@@ -269,6 +269,26 @@ going forward: real `exchange_calendars` session wiring (today a
 `SessionCalendar` Protocol + fake), real `DataFeed` freshness wiring (same
 pattern), and the real Telegram bot once a token exists.
 
+**ADR-0028 follow-up (2026-11-15, same day): PaperBroker routes exits through
+the canonical `ExitRequest` path.** The owner flagged, during review of
+PR #50, that `PaperBroker._close_position` closed positions with a direct
+SQL delete instead of through `ExitRequest`/`apply_exit_quantity` (the I14/I7
+path PR #40 hardened) — a legitimate gap, not a false alarm. Fixed: every
+stop/target close now builds a real `ExitRequest` (`PaperBroker.
+build_exit_request`), validates it through `apply_exit_quantity` (raises if
+it would leave a nonzero remainder — this broker only supports full closes
+today), and dedupes on `exit_id` via the same atomic
+`INSERT ... WHERE NOT EXISTS` pattern as `DecisionStore`, before touching the
+`positions`/`fills` tables. `OpenPosition.position_id` is a stable,
+broker-truth-derived string (`"{market}:{symbol}:{sleeve}"`), not a fresh
+UUID per call, so the same open position always resolves to the same
+`exit_id` across restarts. Two new tests prove this is not a bypass:
+`test_exit_goes_through_canonical_exit_request_not_a_bypass` (the fill
+actually recorded carries the independently-derived `exit_id`) and
+`test_duplicate_exit_for_same_position_reason_bar_is_idempotent` (re-applying
+the identical exit produces zero new fills, one `exit_already_applied` audit
+row). Full suite, `ruff`, `mypy --strict` re-verified clean after the change.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**

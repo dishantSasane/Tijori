@@ -3,9 +3,19 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+import pytest
+
 from trading.backtest.fills import BacktestProfile
 from trading.broker.paper_broker import PaperBroker
-from trading.core.enums import LedgerSource, MarketId, OrderSide, OutcomeResult, Timeframe
+from trading.core.enums import (
+    ExitReason,
+    LedgerSource,
+    MarketId,
+    OrderSide,
+    OutcomeResult,
+    Timeframe,
+)
+from trading.core.exits import apply_exit_quantity
 from trading.core.models import Signal
 from trading.risk.audit import AuditLog
 from trading.storage.state_db import connect
@@ -195,6 +205,115 @@ def test_shadow_signal_scored_cost_honestly_without_real_fill() -> None:
     )
     positions = broker.open_positions()
     assert positions[0].ledger_source == LedgerSource.SHADOW
+
+
+def test_exit_goes_through_canonical_exit_request_not_a_bypass() -> None:
+    """Proves the stop-exit path builds a real `ExitRequest` that is validated
+    through `trading.core.exits.apply_exit_quantity` (I14) with a deterministic,
+    position/reason/bar-derived `exit_id` (I7) -- the same construction live/
+    approval-mode exits will use -- rather than PaperBroker closing the
+    position with an ad hoc SQL delete.
+    """
+    broker = _broker()
+    signal = _signal()
+    broker.accept(
+        signal,
+        qty=Decimal(100),
+        sleeve="india_equity",
+        ledger_source=LedgerSource.USER_PAPER,
+        now=T0,
+    )
+    t1 = T0 + timedelta(days=1)
+    broker.on_candle(
+        market=MKT,
+        symbol="HDFCBANK",
+        ts_open_utc=t1,
+        open_=Decimal(2500),
+        high=Decimal(2505),
+        low=Decimal(2495),
+        now=t1,
+    )
+    pos = broker.open_positions()[0]
+
+    # Build the exact ExitRequest the broker will construct for this position
+    # and independently verify it against the canonical I14 primitive -- if
+    # PaperBroker were bypassing ExitRequest, this construction (position_id,
+    # exit_id derivation, apply_exit_quantity) wouldn't be exercised by the
+    # broker's own close path at all.
+    t2 = t1 + timedelta(days=1)
+    exit_request = broker.build_exit_request(pos, ExitReason.STOP, t2, t2)
+    assert exit_request.position_id == f"{MKT}:HDFCBANK:india_equity"
+    remaining = apply_exit_quantity(pos.qty, exit_request.quantity)
+    assert remaining == Decimal(0)  # full close, never negative, never partial-left-open
+
+    # A requested quantity above open quantity must be rejected by the same
+    # primitive the broker relies on -- this is I14's actual teeth.
+    with pytest.raises(ValueError):
+        apply_exit_quantity(pos.qty, pos.qty + Decimal(1))
+
+    broker.on_candle(
+        market=MKT,
+        symbol="HDFCBANK",
+        ts_open_utc=t2,
+        open_=Decimal(2400),
+        high=Decimal(2410),
+        low=Decimal(2390),
+        now=t2,
+    )
+    assert broker.open_positions() == []
+    # The fill the broker actually recorded carries the same exit_id this test
+    # derived independently -- proof the broker used the canonical path, not
+    # a different ad hoc identifier.
+    fill_ids = [
+        row[0]
+        for row in broker._conn.execute(
+            "SELECT id FROM fills WHERE order_id = ?", (signal.id,)
+        ).fetchall()
+    ]
+    assert exit_request.exit_id in fill_ids
+
+
+def test_duplicate_exit_for_same_position_reason_bar_is_idempotent() -> None:
+    """I7 on the exit path: calling the close logic twice for the same
+    position/reason/bar must not double-fill or double-record an outcome.
+    """
+    broker = _broker()
+    signal = _signal()
+    broker.accept(
+        signal,
+        qty=Decimal(10),
+        sleeve="india_equity",
+        ledger_source=LedgerSource.USER_PAPER,
+        now=T0,
+    )
+    t1 = T0 + timedelta(days=1)
+    broker.on_candle(
+        market=MKT,
+        symbol="HDFCBANK",
+        ts_open_utc=t1,
+        open_=Decimal(2500),
+        high=Decimal(2505),
+        low=Decimal(2495),
+        now=t1,
+    )
+    pos = broker.open_positions()[0]
+    t2 = t1 + timedelta(days=1)
+
+    broker._close_position(
+        pos, Decimal(2400), Decimal(0), OutcomeResult.STOP_HIT, ExitReason.STOP, t2, t2
+    )
+    assert broker.open_positions() == []
+    fills_after_first = broker._conn.execute("SELECT COUNT(*) FROM fills").fetchone()[0]
+
+    # Re-apply the identical exit (e.g. a re-driven candle poll) -- must be a
+    # no-op, not a second DELETE-on-nothing or a second fill row.
+    broker._close_position(
+        pos, Decimal(2400), Decimal(0), OutcomeResult.STOP_HIT, ExitReason.STOP, t2, t2
+    )
+    fills_after_second = broker._conn.execute("SELECT COUNT(*) FROM fills").fetchone()[0]
+    assert fills_after_second == fills_after_first
+    already_applied = broker.audit.events(event_type="exit_already_applied")
+    assert len(already_applied) == 1
 
 
 def test_restart_reconstructs_pending_and_positions_from_sqlite(tmp_path) -> None:
