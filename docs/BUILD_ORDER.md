@@ -242,3 +242,42 @@ docs on 2026-11-15:
 No time estimate is given for the restructured P1 — the owner's original
 Claude-Pro time-box applied to the P0 sprint, not to this multi-sub-phase
 research program, and guessing a duration here would just be noise.
+
+## US equities coverage (data ecosystem, phase 2 — verified 2026-11-15)
+
+Live-verified against docs.alpaca.markets (not just the dated note in
+`docs/MARKETS.md`), via the free "Basic" data plan bundled with any Alpaca
+paper/live account (IEX feed):
+
+- **Key required even though free.** Unlike Binance's anonymous REST, Alpaca's
+  bars endpoint rejects every request without an `APCA-API-KEY-ID` /
+  `APCA-API-SECRET-KEY` pair. Getting the pair costs nothing (sign up for a
+  paper account) but it is not keyless the way Binance is.
+- **Raw vs. adjusted — corrects the earlier dated note.** The bars endpoint's
+  own default is `adjustment=raw` (unadjusted). Split/dividend-adjusted bars
+  only come back if the caller explicitly passes `adjustment=all` (or
+  `split`/`dividend`). `src/trading/adapters/alpaca_history.py` defaults to
+  `"raw"` to match Alpaca's own default and keep the basis explicit at the
+  call site.
+- **Corporate actions are free.** Alpaca's `/v1/corporate-actions` endpoint
+  (splits, dividends, mergers, spin-offs, etc.) is included on the free plan
+  with no paid-tier gate, per its own docs. `src/trading/storage/
+  us_equity_corporate_actions.py` is an independent splits+dividends
+  adjustment layer built from that feed, for cross-checking Alpaca's own
+  `adjustment=all` or adjusting bars fetched raw. No other free, complete US
+  corporate-action source was found during this check — if Alpaca's feed is
+  ever unavailable there is currently no verified free fallback; flag to the
+  owner before relying on anything else.
+- **History depth:** 7+ years of IEX-feed history (free plan pricing table).
+- **Rate limit:** 200 API requests/minute (free "Basic" plan). The loader
+  (`src/trading/storage/us_equity_loader.py`) self-throttles to 150/min.
+- **Universe:** rule-based top-N-by-dollar-volume trading universe
+  (`src/trading/storage/us_equity_universe.py`, survivorship-safe by
+  construction, same shape as the crypto sleeve) plus a separate S&P 500
+  membership manifest sourced from Wikipedia's "List of S&P 500 companies"
+  changes table (free, community-maintained — not an official S&P feed) for
+  benchmarking only, never for universe selection.
+- Status: adapter, independent adjustment layer, universe rule, benchmark
+  manifest shape, and loader are implemented with known-answer/fake-requester
+  tests (no test touches Alpaca's real API). "US equities" data-ecosystem
+  checklist item: done.
