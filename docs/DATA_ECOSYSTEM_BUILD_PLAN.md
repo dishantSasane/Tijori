@@ -45,4 +45,4 @@ and documented coverage limits in `docs/BUILD_ORDER.md`.
 - [x] Crypto
 - [x] US equities
 - [x] NSE currencies (verified simpler than equities; see docs/BUILD_ORDER.md)
-- [ ] MCX commodities
+- [x] MCX commodities (free via Upstox, same adapter as equities/currencies; roll-adjustment built, see docs/BUILD_ORDER.md "MCX commodities coverage")

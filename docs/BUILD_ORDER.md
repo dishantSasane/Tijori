@@ -323,3 +323,59 @@ instruction not to assume "simpler than equities."
   series stitching entirely, not from the segment being easy. If a continuous
   series is ever required, that assumption needs revisiting.
 - Status: "NSE currencies" data-ecosystem checklist item: done.
+
+## MCX commodities coverage (verified, not assumed)
+
+Checked empirically against Upstox's public API docs (instrument master and
+V3 historical-candle docs) and MCX's own public bhavcopy page, per AGENTS.md
+rule 9 ("do not build on an unverified source") and the explicit flag that
+this phase was most likely to hit a paywall.
+
+- **Free source found:** Upstox. Its daily-refreshed instrument master
+  (`https://assets.upstox.com/market-quote/instruments/exchange/MCX.json.gz`)
+  lists `MCX_FO` as a segment alongside `NSE_EQ`/`NSE_FO`/`BSE_FO`/`CDS_FO`,
+  with `lot_size` and `expiry` per contract — a free, structured
+  contract-master feed, no separate vendor needed. `UpstoxHistoryClient`
+  (`src/trading/adapters/upstox_history.py`) is instrument-key-agnostic (it
+  URL-encodes whatever key it's given and hits the same
+  `/v3/historical-candle` path regardless of segment) — proven by
+  `tests/storage/test_mcx_universe.py::
+  test_existing_upstox_client_accepts_an_mcx_instrument_key`, which feeds an
+  `MCX_FO|GOLD...` key through the unmodified client, same pattern as the
+  NSE-currencies phase. Did **not** edit `upstox_history.py`.
+- **MCX's own site:** mcxindia.com publishes free daily bhavcopy (CSV/PDF,
+  no login) as a secondary/cross-check source, but only recent history for
+  free (roughly the last ~3 months outside the most recent 12, per MCX's own
+  terms) — Upstox is the primary source for depth.
+- **Contract roll / continuous series — unlike NSE currencies, built this
+  time.** MCX futures have real term-structure (contango/backwardation from
+  cost-of-carry), so a continuous series is more likely to be wanted than
+  for FX. `src/trading/adapters/mcx_roll.py` implements ratio
+  back-adjustment (ponytail: chose ratio over additive specifically because
+  commodities can swing enough in relative price that an additive offset
+  risks pushing an old leg through zero/negative — a ratio cannot). Proven
+  with a known-answer test
+  (`tests/adapters/test_mcx_roll.py::test_continuous_series_has_no_fake_jump_at_the_roll`)
+  using illustrative-but-realistic gold-futures contango prices: raw
+  concatenation shows a fake ~300 jump at the roll date; the back-adjusted
+  series shows none. This is a **display/backtest series only** — live
+  signal code must still read the single current-expiry instrument_key
+  directly (AGENTS.md §4.5, no look-ahead); the adjustment runs after a
+  leg's full history is already known, exactly like
+  `trading/storage/corporate_actions.py`'s multiplicative `adj_factor`
+  convention (reused here, not reinvented).
+- **Reusable for NSE currencies:** `build_continuous_series` takes a plain
+  list of `ContractLeg(instrument_key, candles)` — nothing MCX-specific in
+  its signature. If a continuous FX series is ever wanted (phase 3 flagged
+  this), it can call this function directly with CDS_FO legs.
+- **Universe:** fixed, tiny, hand-enumerated set — GOLD, SILVER, CRUDEOIL,
+  NATURALGAS, COPPER (`src/trading/storage/mcx_universe.py`), MCX's own most
+  liquid contracts. No liquidity-rule universe (AGENTS.md §10).
+- **Session hours:** docs/MARKETS.md's "approx 09:00–23:30, or 23:55 in some
+  seasons" note was not re-verified against a primary source in this pass
+  (out of scope for the data-adapter work) — still flagged for a human/future
+  session to confirm against MCX's circular before any live/paper trading
+  uses the session boundary.
+- **Net verdict:** a free source exists and is the one already in use for
+  every other NSE-routed sleeve; MCX did *not* hit the paywall this project
+  feared. Status: "MCX commodities" data-ecosystem checklist item: done.

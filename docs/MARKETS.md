@@ -53,14 +53,19 @@ Few instruments, all Tier A. Same broker adapter as India equities (Upstox's
 historical-candle client is instrument-key-agnostic; currency derivatives use
 Upstox's `CDS` segment / `CDS_FO|<token>` keys, equities use `NSE_EQ` — same
 client, different key string; verified in `docs/BUILD_ORDER.md`, "NSE
-currencies coverage"). MCX hours are per-instrument (approx 09:00 to 23:30,
-or 23:55 in some seasons; verify). NSE currency derivatives hours: confirmed
-09:00-17:00 IST Monday-Friday, different from equities' 09:15-15:30
+currencies coverage"; also true for MCX's `MCX_FO` segment, verified in
+"MCX commodities coverage"). MCX hours are per-instrument (approx 09:00 to
+23:30, or 23:55 in some seasons; still unverified against a primary source
+— out of scope for the phase-4 data-adapter work, confirm before any
+live/paper trading uses this boundary). NSE currency derivatives hours:
+confirmed 09:00-17:00 IST Monday-Friday, different from equities' 09:15-15:30
 (verified; no longer open). Contracts expire monthly: for NSE currencies,
 each expiry is queried as a separate instrument, no continuous-series
-stitching is attempted (no roll-adjustment layer needed). MCX still needs its
-own roll/continuous-series spec (P8) and NSE currencies should reuse it if a
-continuous series is ever wanted here.
+stitching is attempted (no roll-adjustment layer needed). MCX genuinely
+needs continuous-series handling (real term-structure/carry effects) and now
+has it: `src/trading/adapters/mcx_roll.py`, a generic ratio back-adjustment
+function NSE currencies can also call if a continuous FX series is ever
+wanted.
 
 ## 6. Options (Nifty/BankNifty)
 
