@@ -1,6 +1,6 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-16 by Claude (P1a pilot data foundation closed — see note 0034; P2 re-assignment collided with already-merged PR #50, duplicate PR #55 closed without merge — see note 0035, needs-human on whether PR #50 has had its required cross-model review; P3 daily report + dashboard shipped PR #56, live adapter/ORB-wiring blocked on owner decision — see note 0036)
+Last updated: 2026-11-16 by Claude (P1a pilot data foundation closed — see note 0034; P2 re-assignment collided with already-merged PR #50, duplicate PR #55 closed without merge — see note 0035, needs-human on whether PR #50 has had its required cross-model review; P3 daily report + dashboard shipped PR #56, live adapter/ORB-wiring blocked on owner decision — see note 0036; P4 scanner + Stocks page shipped PR #57, placeholder ranking pending PR #53, dashboard/_data.py duplicate pending PR #56 — see note 0037)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
@@ -15,7 +15,7 @@ Last updated: 2026-11-16 by Claude (P1a pilot data foundation closed — see not
 | P1 (legacy row, superseded by P1a-e above) | Codex | superseded — see notes 0027-0034. |
 | P2 Paper broker + risk engine + minimal alerts | Claude (owner override) | **implemented, under review** — PR #50 (RiskEngine/PaperBroker), #52 (candle builder/scheduler); sleeve allocation cap test coverage added on `claude/sleeve-allocation-and-adapters`. See note 0032. | |
 | P3 India Tier A paper end-to-end + dashboard | Claude (picked up; author=Claude) | **partial** — daily report + read-only Streamlit dashboard (Home/India/Paper ledger/Strategies) shipped, PR #56; cross-model review still needed per AGENTS.md §5. Auto-paper-shadow confirmed already done (PR #50's `Mode.PAPER`/`ModeGate`). Live NSE data adapter and ORB/breakout live-paper wiring **blocked on owner decisions** (no live data source selected yet; PR #53 strategies not merged) — see note 0036. | |
-| P4 Tier B scanner + Stocks page | Codex | waiting | |
+| P4 Tier B scanner + Stocks page | Claude (picked up; author=Claude) | **implemented, under review** — daily scanner, shortlist persistence (new `scanner_shortlist` table), no-look-ahead scanner backtest, and a read-only Stocks page shipped, PR #57; cross-model review welcome (not AGENTS.md §5 mandatory — no risk/execution/broker code touched). Ranking is a placeholder momentum score pending PR #53's real strategy library; `dashboard/_data.py` duplicates the same file on unmerged PR #56. See note 0037. | |
 | P5 Crypto + US sleeves (paper) | Claude (data layer only) | **data adapters/integrity/universe/loaders built, data-only, no execution** — crypto (Binance, free), US equities (Alpaca, free, raw-by-default corrected), on `claude/sleeve-allocation-and-adapters`, not yet merged. Strategy/execution work for this phase remains open. See note 0032. | |
 | P6 Brain + News | Codex | waiting | |
 | P7 Go-live readiness | both + owner | waiting | needs Claude audit before first live money |
