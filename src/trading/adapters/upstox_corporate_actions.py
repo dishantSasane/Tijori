@@ -62,6 +62,7 @@ class UpstoxCorporateActionsSnapshot(Contract):
     """Parsed events and immutable provider response evidence for one ISIN."""
 
     isin: str = Field(min_length=12, max_length=12)
+    source_ref: str = Field(min_length=1)
     retrieved_at_utc: datetime
     response_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     parser_version: str = Field(min_length=1)
@@ -158,6 +159,7 @@ class UpstoxCorporateActionsClient:
         )
         return UpstoxCorporateActionsSnapshot(
             isin=normalized_isin,
+            source_ref=source_ref,
             retrieved_at_utc=retrieved_at,
             response_sha256=sha256(raw_response).hexdigest(),
             parser_version=PARSER_VERSION,

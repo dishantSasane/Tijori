@@ -88,10 +88,11 @@ orchestrator must run this screen before invoking
 either primary or reference replay, and record the flags and chosen exclusions
 or reviews in its experiment record.
 
-In particular, NSE demerger and rights issues alter company/shareholder value
-through mechanics that differ from splits and bonus issues. They are detected
-and blocked for review; no price, volume, quantity, or return adjustment is
-attempted.
+In particular, demerger and rights events alter company/shareholder value
+through mechanics that differ from splits and bonus issues. Once source events
+are connected to the shared notices and both backtest runners, these events
+must block affected symbols for review; no price, volume, quantity, or return
+adjustment is attempted.
 
 ## Safety and provenance boundary
 

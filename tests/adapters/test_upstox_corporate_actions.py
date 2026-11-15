@@ -47,6 +47,7 @@ def test_fetches_upstox_corporate_actions_and_preserves_uninterpreted_ratio() ->
     assert snapshot.raw_response == raw_response
     assert snapshot.response_sha256 == sha256(raw_response).hexdigest()
     assert snapshot.parser_version == "1"
+    assert snapshot.source_ref == calls[0][0]
     assert snapshot.retrieved_at_utc == datetime(2026, 11, 15, tzinfo=UTC)
     assert calls == [
         (
@@ -98,6 +99,16 @@ def test_empty_token_fails_before_making_request() -> None:
     else:
         raise AssertionError("empty token must be rejected")
     assert not called
+
+
+def test_empty_response_keeps_endpoint_provenance() -> None:
+    snapshot = UpstoxCorporateActionsClient(
+        requester=lambda _url, _headers: b'{"status":"success","data":[]}',
+        clock=lambda: datetime(2026, 11, 15, tzinfo=UTC),
+    ).fetch("INE239A01016", access_token="test-token")
+
+    assert snapshot.events == ()
+    assert snapshot.source_ref.endswith("/INE239A01016/corporate-actions")
 
 
 def test_authenticated_request_never_follows_redirect_to_another_host() -> None:
