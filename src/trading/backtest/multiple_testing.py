@@ -6,7 +6,9 @@ import random
 from decimal import ROUND_HALF_EVEN, Decimal, localcontext
 from pathlib import Path
 
-P1_FAMILY_SIZE = 15
+P1_DAILY_FAMILY_SIZE = 12
+P1_INTRADAY_FAMILY_SIZE = 3
+P1_FAMILY_SIZE = P1_DAILY_FAMILY_SIZE + P1_INTRADAY_FAMILY_SIZE
 
 
 def validate_p1_family(catalog_path: Path) -> int:
@@ -133,7 +135,7 @@ def moving_block_excess_p_value(
 
 
 def p1_adjusted_p_value(raw_p_value: Decimal) -> Decimal:
-    """Apply the frozen 15-strategy hypothesis-family correction."""
+    """Apply the frozen combined daily and intraday family correction."""
     return bonferroni_adjust(raw_p_value, P1_FAMILY_SIZE)
 
 

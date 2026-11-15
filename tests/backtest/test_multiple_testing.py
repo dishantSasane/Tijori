@@ -1,4 +1,5 @@
 from decimal import ROUND_DOWN, Decimal, localcontext
+from pathlib import Path
 
 import pytest
 
@@ -8,6 +9,7 @@ from trading.backtest.multiple_testing import (
     mean,
     moving_block_excess_p_value,
     p1_adjusted_p_value,
+    validate_p1_family,
 )
 
 
@@ -61,6 +63,10 @@ def test_mean_rejects_empty_or_non_finite_values() -> None:
 def test_frozen_family_size_and_adjusted_p_value() -> None:
     assert P1_FAMILY_SIZE == 15
     assert p1_adjusted_p_value(Decimal("0.01")) == Decimal("0.15")
+
+
+def test_frozen_family_size_matches_real_candidate_catalog() -> None:
+    assert validate_p1_family(Path("docs/specs/P1_CANDIDATES.md")) == P1_FAMILY_SIZE
 
 
 def test_moving_block_excess_test_is_deterministic_and_plus_one_corrected() -> None:
