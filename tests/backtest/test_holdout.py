@@ -34,6 +34,18 @@ def plan(**overrides: object) -> HoldoutPlan:
         "family_hash": "sha-family",
     }
     values.update(overrides)
+    identity_fields = {
+        key: values[key]
+        for key in (
+            "holdout_start",
+            "holdout_end",
+            "source_snapshot_id",
+            "universe_version",
+            "calendar_version",
+            "corporate_action_version",
+        )
+    }
+    values["data_window_id"] = holdout_window_id(**identity_fields)  # type: ignore[arg-type]
     return HoldoutPlan.model_validate(values)
 
 
@@ -130,6 +142,20 @@ def test_overlapping_holdout_range_cannot_be_reintroduced_by_new_split_id(tmp_pa
         )
         with pytest.raises(HoldoutAlreadyConsumedError):
             guard.reserve_once(overlapping)
+
+
+def test_holdout_cannot_be_replayed_after_data_version_labels_change(tmp_path: Path) -> None:
+    with HoldoutEvaluator(tmp_path / "holdout.duckdb") as guard:
+        guard.reserve_once(plan())
+        relabeled = plan(
+            plan_id="new-plan",
+            source_snapshot_id="new-source",
+            universe_version="new-universe",
+            calendar_version="new-calendar",
+            corporate_action_version="new-actions",
+        )
+        with pytest.raises(HoldoutAlreadyConsumedError):
+            guard.reserve_once(relabeled)
 
 
 def test_concurrent_attempts_for_same_window_allow_only_one_evaluator(tmp_path: Path) -> None:

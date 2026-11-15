@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import cast
@@ -48,6 +49,61 @@ class CandleStore:
             )
             """
         )
+        self._connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS adjustment_bases (
+                market VARCHAR NOT NULL,
+                symbol VARCHAR NOT NULL,
+                timeframe VARCHAR NOT NULL,
+                as_of_date DATE NOT NULL,
+                ledger_hash VARCHAR NOT NULL,
+                basis_hash VARCHAR NOT NULL,
+                PRIMARY KEY (market, symbol, timeframe)
+            )
+            """
+        )
+
+    def bind_adjustment_basis(
+        self,
+        market: MarketId,
+        symbol: str,
+        timeframe: Timeframe,
+        *,
+        as_of_date: date,
+        ledger_hash: str,
+        basis_hash: str,
+    ) -> None:
+        """Bind one candle series to a single immutable action-adjustment basis."""
+        row = self._connection.execute(
+            """SELECT as_of_date, ledger_hash, basis_hash FROM adjustment_bases
+               WHERE market = ? AND symbol = ? AND timeframe = ?""",
+            [market.value, symbol, timeframe.value],
+        ).fetchone()
+        expected = (as_of_date, ledger_hash, basis_hash)
+        if row is not None:
+            if row != expected:
+                raise ValueError(
+                    f"adjustment basis differs for {market.value}/{symbol}/{timeframe.value}; "
+                    "rebuild into a clean versioned store"
+                )
+            return
+        count_row = self._connection.execute(
+            """SELECT count(*) FROM candles
+               WHERE market = ? AND symbol = ? AND timeframe = ?""",
+            [market.value, symbol, timeframe.value],
+        ).fetchone()
+        if count_row is None:
+            raise RuntimeError("failed to check existing candle series")
+        existing_count = count_row[0]
+        if existing_count:
+            raise ValueError(
+                f"existing series lacks an adjustment basis: "
+                f"{market.value}/{symbol}/{timeframe.value}; rebuild into a clean store"
+            )
+        self._connection.execute(
+            """INSERT INTO adjustment_bases VALUES (?, ?, ?, ?, ?, ?)""",
+            [market.value, symbol, timeframe.value, as_of_date, ledger_hash, basis_hash],
+        )
 
     def append(self, candles: Iterable[Candle]) -> int:
         """Insert validated candles, skipping exact duplicate deliveries."""
@@ -57,7 +113,7 @@ class CandleStore:
             for candle in candles:
                 existing = self._connection.execute(
                     """
-                    SELECT open, high, low, close, volume, source, ingest_ts, adj_factor
+                    SELECT open, high, low, close, volume, source, adj_factor
                     FROM candles
                     WHERE market = ? AND symbol = ? AND timeframe = ? AND ts_open_utc = ?
                     """,
@@ -130,7 +186,32 @@ class CandleStore:
         """Export all stored candles to a Parquet file and return its path."""
         path.parent.mkdir(parents=True, exist_ok=True)
         self._connection.execute("COPY candles TO ? (FORMAT PARQUET)", [str(path)])
+        self.write_adjustment_manifest(path)
         return path
+
+    def write_adjustment_manifest(self, parquet_path: Path) -> Path:
+        """Write the action basis for every series beside its Parquet snapshot."""
+        rows = self._connection.execute(
+            """SELECT market, symbol, timeframe, as_of_date, ledger_hash, basis_hash
+               FROM adjustment_bases ORDER BY market, symbol, timeframe"""
+        ).fetchall()
+        manifest = {
+            "schema_version": 1,
+            "adjustment_bases": [
+                {
+                    "market": row[0],
+                    "symbol": row[1],
+                    "timeframe": row[2],
+                    "as_of_date": row[3].isoformat(),
+                    "ledger_hash": row[4],
+                    "basis_hash": row[5],
+                }
+                for row in rows
+            ],
+        }
+        manifest_path = parquet_path.with_suffix(parquet_path.suffix + ".manifest.json")
+        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        return manifest_path
 
     def load_parquet(self, path: Path) -> int:
         """Load a Parquet snapshot through the normal candle validations."""
@@ -143,7 +224,58 @@ class CandleStore:
             """,
             [str(path)],
         ).fetchall()
-        return self.append(self._from_row(row) for row in rows)
+        candles = [self._from_row(row) for row in rows]
+        manifest_path = path.with_suffix(path.suffix + ".manifest.json")
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text())
+            except json.JSONDecodeError as error:
+                raise ValueError("invalid Parquet adjustment manifest JSON") from error
+            if (
+                not isinstance(manifest, dict)
+                or manifest.get("schema_version") != 1
+                or not isinstance(manifest.get("adjustment_bases"), list)
+            ):
+                raise ValueError("unsupported Parquet adjustment manifest")
+            manifest_scopes: set[tuple[MarketId, str, Timeframe]] = set()
+            for item in manifest["adjustment_bases"]:
+                if not isinstance(item, dict):
+                    raise ValueError("invalid adjustment basis record")
+                try:
+                    market = MarketId(item["market"])
+                    symbol = item["symbol"]
+                    timeframe = Timeframe(item["timeframe"])
+                    as_of_date = date.fromisoformat(item["as_of_date"])
+                    ledger_hash = item["ledger_hash"]
+                    basis_hash = item["basis_hash"]
+                except (KeyError, TypeError, ValueError) as error:
+                    raise ValueError("invalid adjustment basis fields") from error
+                if (
+                    not isinstance(symbol, str)
+                    or not isinstance(ledger_hash, str)
+                    or not isinstance(basis_hash, str)
+                    or len(ledger_hash) != 64
+                    or len(basis_hash) != 64
+                    or any(character not in "0123456789abcdef" for character in ledger_hash)
+                    or any(character not in "0123456789abcdef" for character in basis_hash)
+                ):
+                    raise ValueError("adjustment basis fields must contain valid SHA-256 hashes")
+                self.bind_adjustment_basis(
+                    market,
+                    symbol,
+                    timeframe,
+                    as_of_date=as_of_date,
+                    ledger_hash=ledger_hash,
+                    basis_hash=basis_hash,
+                )
+                manifest_scopes.add((market, symbol, timeframe))
+            for candle in candles:
+                scope = (candle.market, candle.symbol, candle.timeframe)
+                if candle.adj_factor is not None and scope not in manifest_scopes:
+                    raise ValueError("adjusted Parquet candle has no adjustment basis record")
+        elif any(candle.adj_factor is not None for candle in candles):
+            raise ValueError("adjusted Parquet candles require an adjustment manifest")
+        return self.append(candles)
 
     def close(self) -> None:
         self._connection.close()
@@ -163,7 +295,6 @@ class CandleStore:
             candle.close,
             candle.volume,
             candle.source,
-            CandleStore._to_db_timestamp(candle.ingest_ts),
             candle.adj_factor,
         )
         return values == row

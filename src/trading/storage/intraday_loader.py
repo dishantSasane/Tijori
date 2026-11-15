@@ -17,7 +17,9 @@ from trading.storage.candles import CandleStore
 from trading.storage.corporate_actions import ShareAdjustment
 
 MAX_INTRADAY_RANGE = timedelta(days=31)
-REQUESTS_PER_SECOND = 50
+# Upstox documents a 2,000-request / 30-minute cap for this API. A 0.91s
+# interval stays below that longer-window limit with a small safety margin.
+DEFAULT_MINIMUM_REQUEST_INTERVAL_SECONDS = 0.91
 
 
 @dataclass(frozen=True)
@@ -72,7 +74,7 @@ class UpstoxIntradayLoader:
         store: CandleStore,
         access_token: str,
         clock: Callable[[], datetime],
-        minimum_request_interval_seconds: float = 1 / REQUESTS_PER_SECOND,
+        minimum_request_interval_seconds: float = DEFAULT_MINIMUM_REQUEST_INTERVAL_SECONDS,
         sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
         if not access_token.strip():
@@ -157,4 +159,6 @@ def export_intraday_parquet(store_root: Path, output: Path) -> Path:
         )
     finally:
         connection.close()
+    with CandleStore(store_root) as store:
+        store.write_adjustment_manifest(output)
     return output

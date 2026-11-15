@@ -57,7 +57,7 @@ independent work is ready.
 |---|---|---|
 | Tier A daily history in Parquet (candle store + validation) | Sol / Terra | already done for the 6-symbol representative set |
 | Tier A intraday history in Parquet (1m and 5m) | Sol / Terra | Upstox V3 intraday history has a fixed provider floor of January 2022. Do not probe for earlier intraday history; it is unavailable through this provider. One-month maximum request span for 1–15m. Resumable loader and tests are implemented; sustained full-universe collection still pending. |
-| Corporate-action adjustment, verified | Terra / Sol | Upstox daily history is already split-adjusted for NESTLEIND’s official 10:1 split (ex-date 2024-01-05): ₹1,355.80 on the prior session and ₹1,333.20 ex-date; fixture/test added to prevent double adjustment. NSE row parser flags demerger, rights, dividend, and unknown actions in a backtest window; symbols are excluded unless the exact event is explicitly reviewed. No automatic factor is applied to these event types. Verify other actions/symbols and obtain a permitted/complete event ledger. |
+| Corporate-action adjustment, partial; source gate open | Terra / Sol | Shared guarded append applies supported split/bonus factors before storage for a fixed action basis and records that basis beside Parquet exports. The NESTLEIND 10:1 split (2024-01-05) known-answer shows a continuous Upstox series; do not double-adjust that event. NSE row parsing/screening helpers flag demerger, rights, dividend, and unknown events, but the screen is not yet wired into either backtest runner. No real NSE feed is ingested; a permitted and coverage-verified ledger, real bonus case, daily data rebuild, and position replay remain required. |
 | Research universe: rule-based, proposed NSE bhavcopy source | Terra / Sol | Owner-approved selection rule under ADR-0026: top 50 (and separately top 100 for later Tier-B-adjacent research) by rolling 60-session median turnover, recomputed monthly, keyed on ISIN. **Source use is not cleared:** official terms and archived-file schema have not established permission for systematic collection, storage, or backtest/simulation use, nor stable identifier and historical coverage completeness. Implement and validate only the pure selector with synthetic normalized inputs until an authorized source and schema are confirmed. Do not call results survivorship-free unless dated coverage includes eligible securities later delisted and resolves missing/no-trade rows. |
 | Nifty 50 point-in-time manifest: reconstructed, benchmark-only | Terra / Sol | Benchmark only; not the research universe. Dated NSE Indices replacement notices are a candidate reconstruction source, but terms prohibit systematic/automated collection absent written consent and archive completeness/corrections are unverified. Do not automate collection or label a manifest complete until permitted use and coverage are established. A list of 50 names does not prove complete membership history or calculate index returns. If authorized, retain source URLs and publication/effective dates per change; flag gaps and disagreements with independent dated snapshots for human resolution. |
 | Chronological split boundaries, written and frozen in config before any strategy runs | Sol / Terra | Contract in `specs/RESEARCH_SPLITS.md`; dates remain unset until authorized source/window and fresh unread holdout are available |
@@ -67,9 +67,11 @@ historical 1m and 5m data has a fixed floor of January 2022; earlier intraday
 history is unavailable through this provider and must not be probed again.
 Intervals 1–15m have a one-month maximum range per request. The 2026-11-15
 probe found no different retention window for 1m versus 5m in the sampled
-symbols. The current intraday loader uses month-bounded requests; tokens are
-supplied at runtime and are never persisted. OAuth auto-renewal remains out of
-scope until the live/paper trading phase.
+symbols. The current intraday loader uses month-bounded requests and a
+conservative 0.91-second minimum interval, staying below the documented 2,000
+requests per 30 minutes (and therefore also below 500 per minute and 50 per
+second). Tokens are supplied at runtime and are never persisted. OAuth
+auto-renewal remains out of scope until the live/paper trading phase.
 
 Exit: corporate-action adjustment has real-event and synthetic known-answer tests; the pure rule-based
 universe selector is implemented and tested; authorized, schema-verified
@@ -93,10 +95,12 @@ sizing is 1% per-trade risk on a ₹1,00,000 placeholder capital (not real
 trading capital, used only so candidates are sized identically). Still open:
 Upstox's corporate-action basis has now been empirically checked for one
 specific event: NESTLEIND 10:1 split on 2024-01-05. Upstox returned ₹1,355.80
-on the prior session and ₹1,333.20 ex-date. The prior candle is already on the
-post-split price scale, so this event is pre-adjusted by Upstox (case a); do
-not apply the 10:1 transform a second time. The real-event fixture/test checks
-this. Do not generalize the single event to every action type or symbol.
+on the prior session and ₹1,333.20 ex-date, a continuous series across the
+split. Treat this split as already reflected by Upstox for these candles (case
+a); do not apply the 10:1 transform a second time. Later corporate actions
+may affect the absolute historical price scale, so do not infer the raw price
+by dividing by ten. The real-event fixture/test checks continuity. Do not
+generalize this one event to every action type or symbol.
 Validate provider adjustment markers/basis for other events, implement and
 independently verify position/share-count replay across actions in both
 backtesters, and obtain an authorized complete event ledger before P1a exit.

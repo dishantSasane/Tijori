@@ -5,8 +5,11 @@ pure split/bonus transformation and synthetic known-answer tests exist. A real
 Upstox V3 daily response for
 NESTLEIND around its NSE 10:1 split (ex-date 2024-01-05) shows already adjusted
 prices: ₹1,355.80 on 2024-01-04 and ₹1,333.20 on 2024-01-05. The prior close is
-already on the post-split price scale; applying the 10:1 transform again would
-double-adjust it. See `tests/fixtures/upstox/upstox_nestle_2024_split.json`
+already continuous with the ex-date close, indicating that this series has
+removed the split discontinuity; applying the 10:1 transform again would
+double-adjust it. The absolute historical scale may reflect later actions too,
+so do not derive an unadjusted close by dividing these values by ten. See
+`tests/fixtures/upstox/upstox_nestle_2024_split.json`
 and the known-answer test. This one event does not establish behavior for all
 symbols/actions or validate the completeness, rights, or point-in-time
 correctness of an NSE action ledger.
@@ -95,8 +98,11 @@ attempted.
   version/hash alongside every adjusted research export; `adj_factor` alone
   does not identify the source event. Corrected notices must be retained as
   separately versioned source records rather than silently replacing earlier
-  evidence. The transform selects one revision per event as of the replay date
-  and rejects duplicate or incorrectly ordered revisions.
+  evidence. The implemented sidecar currently stores the as-of date and
+  per-series ledger/basis hashes, not the full event ledger or source evidence;
+  packaging those records and preserving a parallel raw archive remain P1a
+  gates. The transform selects one revision per event as of the replay date and
+  rejects duplicate or incorrectly ordered revisions.
 - The current backtest runner does not model share-count changes on an open
   position. Therefore split/bonus-adjusted candles are not yet valid promotion
   evidence for trades spanning an effective date. That requires a separately

@@ -190,6 +190,8 @@ class ExperimentRegistry:
         holdout_guard: HoldoutEvaluator,
     ) -> list[ExperimentRecord]:
         """Retrieve holdout rows after a consumed plan has been confirmed."""
+        if holdout_guard.path != self.path:
+            raise PermissionError("holdout authorization must use the same authoritative database")
         if not holdout_guard.validate_authorization(authorization):
             raise PermissionError("invalid holdout authorization seal")
         if not holdout_guard.is_consumed(

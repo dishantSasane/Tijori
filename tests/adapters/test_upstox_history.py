@@ -63,3 +63,25 @@ def test_request_without_token_omits_authorization_header() -> None:
     )
     assert calls[0][0].endswith("/intraday/NSE_INDEX%7CNifty%2050/minutes/1")
     assert "Authorization" not in calls[0][1]
+
+
+def test_historical_intraday_request_uses_date_bounded_historical_endpoint() -> None:
+    calls: list[str] = []
+
+    def fake_request(url: str, headers: dict[str, str]) -> bytes:
+        calls.append(url)
+        return b'{"status":"success","data":{"candles":[]}}'
+
+    UpstoxHistoryClient(requester=fake_request).fetch(
+        "NSE_EQ|TEST",
+        symbol="TEST",
+        market=MarketId.IN_EQUITY,
+        timeframe=Timeframe.M1,
+        from_date="2026-10-01",
+        to_date="2026-10-31",
+        ingest_ts=datetime(2026, 11, 1, tzinfo=UTC),
+    )
+
+    assert calls == [
+        "https://api.upstox.com/v3/historical-candle/NSE_EQ%7CTEST/minutes/1/2026-10-31/2026-10-01"
+    ]

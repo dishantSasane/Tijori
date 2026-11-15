@@ -178,19 +178,10 @@ class HoldoutEvaluator:
                 overlap = self._connection.execute(
                     """
                     SELECT 1 FROM consumed_holdouts
-                    WHERE source_snapshot_id = ? AND universe_version = ?
-                      AND calendar_version = ? AND corporate_action_version = ?
-                      AND holdout_start < ? AND ? < holdout_end
+                    WHERE holdout_start < ? AND ? < holdout_end
                     LIMIT 1
                     """,
-                    [
-                        plan.source_snapshot_id,
-                        plan.universe_version,
-                        plan.calendar_version,
-                        plan.corporate_action_version,
-                        plan.holdout_end,
-                        plan.holdout_start,
-                    ],
+                    [plan.holdout_end, plan.holdout_start],
                 ).fetchone()
                 if overlap is not None:
                     self._connection.execute("ROLLBACK")

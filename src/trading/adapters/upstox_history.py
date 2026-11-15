@@ -67,7 +67,7 @@ class UpstoxHistoryClient:
     ) -> list[Candle]:
         unit, interval, is_intraday = self._path_parts(timeframe)
         encoded_key = quote(instrument_key, safe="")
-        if is_intraday:
+        if is_intraday and from_date is None:
             path = f"{self._base_url}/intraday/{encoded_key}/{unit}/{interval}"
         else:
             path = f"{self._base_url}/{encoded_key}/{unit}/{interval}/{to_date}"

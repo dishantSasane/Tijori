@@ -122,6 +122,29 @@ def test_holdout_access_requires_sealed_authorization_and_consumed_plan(tmp_path
         ]
 
 
+def test_holdout_authorization_must_come_from_registry_database(tmp_path: Path) -> None:
+    plan = holdout_plan()
+    with (
+        ExperimentRegistry(tmp_path / "runs.duckdb") as registry,
+        HoldoutEvaluator(tmp_path / "runs.duckdb") as authoritative_guard,
+        HoldoutEvaluator(tmp_path / "attacker.duckdb") as unrelated_guard,
+    ):
+        registry.append(
+            record(
+                partition="holdout",
+                split_plan_id=plan.plan_id,
+                data_window_id=plan.data_window_id,
+            )
+        )
+        forged_authorization = unrelated_guard.reserve_once(plan)
+        with pytest.raises(PermissionError, match="same authoritative database"):
+            registry.holdout_records(
+                authorization=forged_authorization,
+                holdout_guard=unrelated_guard,
+            )
+        assert authoritative_guard.is_consumed(plan.plan_id) is False
+
+
 def test_registry_rejects_duplicate_run_id_instead_of_overwriting(tmp_path: Path) -> None:
     with ExperimentRegistry(tmp_path / "runs.duckdb") as registry:
         first = record()

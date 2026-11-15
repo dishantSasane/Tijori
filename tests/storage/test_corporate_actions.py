@@ -103,14 +103,13 @@ def test_upstox_nestle_2024_split_known_answer_is_pre_adjusted() -> None:
     ex_date_close = Decimal(str(rows["2024-01-05"][4]))
 
     # NSE circular 03/2024 sets the 10:1 split effective 2024-01-05.
-    # The prior close is already on the post-split price scale. An unadjusted
-    # pre-split value would be roughly ten times the ex-date close.
+    # A smooth close across the 10:1 ex-date indicates that this provider
+    # series has already removed the split discontinuity. Other later actions
+    # may also have changed the absolute historical scale, so do not infer a
+    # raw pre-split price by dividing this value by ten.
     assert pre_split_close == Decimal("1355.8")
     assert ex_date_close == Decimal("1333.2")
     assert Decimal("0.98") < ex_date_close / pre_split_close < Decimal("1.02")
-    raw_scale_pre_close = pre_split_close / Decimal("10")
-    assert raw_scale_pre_close == Decimal("135.58")
-    assert ex_date_close / raw_scale_pre_close > Decimal("9.8")
 
 
 def test_provider_adjusted_nestle_event_is_skipped_by_pre_storage_adjuster() -> None:
@@ -224,6 +223,39 @@ def test_daily_ingestion_adjusts_before_appending(tmp_path: Path) -> None:
     assert stored.close == Decimal("52.5")
     assert stored.volume == Decimal("2000")
     assert stored.adj_factor == Decimal("0.5")
+
+
+def test_storage_rejects_mixing_corporate_action_bases(tmp_path: Path) -> None:
+    with CandleStore(tmp_path / "versioned-store") as store:
+        append_adjusted_candles(
+            store,
+            [candle()],
+            [],
+            as_of=date(2024, 1, 3),
+            action_ledger_complete=True,
+        )
+        later_bar = candle(ts_open_utc=datetime(2024, 1, 2, 3, 45, tzinfo=UTC))
+        with pytest.raises(ValueError, match="adjustment basis differs"):
+            append_adjusted_candles(
+                store,
+                [later_bar],
+                [split()],
+                as_of=date(2024, 1, 3),
+                action_ledger_complete=True,
+            )
+
+
+def test_storage_rejects_existing_series_without_basis_metadata(tmp_path: Path) -> None:
+    with CandleStore(tmp_path / "unversioned-store") as store:
+        store.append([candle()])
+        with pytest.raises(ValueError, match="lacks an adjustment basis"):
+            append_adjusted_candles(
+                store,
+                [candle(ts_open_utc=datetime(2024, 1, 2, 3, 45, tzinfo=UTC))],
+                [],
+                as_of=date(2024, 1, 3),
+                action_ledger_complete=True,
+            )
 
 
 def test_actions_after_as_of_date_do_not_change_history() -> None:

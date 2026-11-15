@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -9,12 +9,21 @@ from trading.core.enums import MarketId, Timeframe
 from trading.storage.candles import CandleStore
 from trading.storage.corporate_actions import ShareAdjustment
 from trading.storage.intraday_loader import (
+    DEFAULT_MINIMUM_REQUEST_INTERVAL_SECONDS,
     Instrument,
     UpstoxIntradayLoader,
     export_intraday_parquet,
     iter_month_chunks,
     runtime_access_token,
 )
+
+
+def test_default_pacing_stays_under_all_published_rate_limits() -> None:
+    interval = DEFAULT_MINIMUM_REQUEST_INTERVAL_SECONDS
+
+    assert 1 / interval <= 50
+    assert 60 / interval <= 500
+    assert 1800 / interval <= 2000
 
 
 def test_runtime_token_requires_fresh_environment_value_and_never_reads_dotenv(
@@ -46,13 +55,13 @@ def test_loader_resumes_idempotently_and_exports_intraday_parquet(tmp_path: Path
 
     client = UpstoxHistoryClient(requester=fake_request)
     instrument = Instrument("NSE_EQ|TEST", "TEST")
-    now = datetime(2026, 11, 14, tzinfo=UTC)
+    now = [datetime(2026, 11, 14, tzinfo=UTC)]
     with CandleStore(tmp_path / "store") as store:
         loader = UpstoxIntradayLoader(
             client=client,
             store=store,
             access_token="one-time-test-token",
-            clock=lambda: now,
+            clock=lambda: now[0],
             minimum_request_interval_seconds=0,
         )
         first = loader.ingest(
@@ -63,6 +72,7 @@ def test_loader_resumes_idempotently_and_exports_intraday_parquet(tmp_path: Path
             action_ledger_complete=True,
             adjustment_as_of=date(2026, 11, 13),
         )
+        now[0] += timedelta(days=1)
         second = loader.ingest(
             [instrument],
             timeframe=Timeframe.M1,
@@ -74,13 +84,22 @@ def test_loader_resumes_idempotently_and_exports_intraday_parquet(tmp_path: Path
         assert first.fetched == 1 and first.inserted == 1
         assert second.fetched == 1 and second.inserted == 0
         assert calls[0][1]["Authorization"] == "Bearer one-time-test-token"
+        assert calls[0][0].endswith("/minutes/1/2026-11-13/2026-11-13")
         assert len(store.query(MarketId.IN_EQUITY, "TEST", Timeframe.M1)) == 1
+        assert store.query(MarketId.IN_EQUITY, "TEST", Timeframe.M1)[0].ingest_ts == datetime(
+            2026, 11, 14, tzinfo=UTC
+        )
 
     parquet = export_intraday_parquet(tmp_path / "store", tmp_path / "out" / "intraday.parquet")
     assert parquet.exists()
+    manifest = parquet.with_suffix(".parquet.manifest.json")
+    assert manifest.exists()
+    assert '"basis_hash"' in manifest.read_text()
     with CandleStore(tmp_path / "loaded") as restored:
         assert restored.load_parquet(parquet) == 1
         assert restored.query(MarketId.IN_EQUITY, "TEST", Timeframe.M1)[0].close == 100.5
+        restored.export_parquet(tmp_path / "out" / "roundtrip.parquet")
+    assert '"basis_hash"' in (tmp_path / "out" / "roundtrip.parquet.manifest.json").read_text()
 
 
 def test_loader_applies_action_adjustment_before_storage(tmp_path: Path) -> None:
