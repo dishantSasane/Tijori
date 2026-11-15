@@ -1,4 +1,5 @@
 from decimal import ROUND_DOWN, Decimal, localcontext
+from pathlib import Path
 
 import pytest
 
@@ -8,7 +9,10 @@ from trading.backtest.multiple_testing import (
     mean,
     moving_block_excess_p_value,
     p1_adjusted_p_value,
+    validate_p1_family,
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.mark.parametrize(
@@ -61,6 +65,19 @@ def test_mean_rejects_empty_or_non_finite_values() -> None:
 def test_frozen_family_size_and_adjusted_p_value() -> None:
     assert P1_FAMILY_SIZE == 15
     assert p1_adjusted_p_value(Decimal("0.01")) == Decimal("0.15")
+
+
+def test_p1_family_size_matches_the_frozen_catalog_on_disk() -> None:
+    """`validate_p1_family` existed but was never actually wired to check the
+    real catalog -- its own unit tests only ever fed it a synthetic fixture
+    matching whatever `P1_FAMILY_SIZE` already was, so a spec update (e.g. a
+    new intraday family) and this constant could silently drift apart with
+    nothing to catch it. This closes that gap: if `docs/specs/P1_CANDIDATES.md`
+    ever declares a different hypothesis count than `P1_FAMILY_SIZE`, this
+    test -- not a real backtest run -- is what fails first.
+    """
+    catalog_path = REPO_ROOT / "docs" / "specs" / "P1_CANDIDATES.md"
+    assert validate_p1_family(catalog_path) == P1_FAMILY_SIZE
 
 
 def test_moving_block_excess_test_is_deterministic_and_plus_one_corrected() -> None:
