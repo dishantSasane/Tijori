@@ -289,6 +289,54 @@ actually recorded carries the independently-derived `exit_id`) and
 the identical exit produces zero new fills, one `exit_already_applied` audit
 row). Full suite, `ruff`, `mypy --strict` re-verified clean after the change.
 
+**ADR-0029 (2026-11-16): P4 scanner ranking is a placeholder momentum score, not a strategy.**
+Context: P4 asks for a daily scanner and shortlist. The real strategy
+candidate library (T1/T2/T4/T6/ORB) is still on unmerged PR #53 — wiring the
+scanner to it now would repeat the stale-ref mistake note 0035 already
+flagged once this build.
+Decision: `scanner.py` ranks candidates by "closes above its own 20-day
+average" (a momentum score), with a flat +8%/-5% target/reconsider band.
+This is labeled with `ponytail:` comments as a placeholder in the module
+constants. It is never used to size or place an order — only to order a
+read-only shortlist.
+Consequences: once PR #53 merges, swap `scan_symbol`'s ranking/target/stop
+for the real strategy's entry/stop/target. The filter / shortlist /
+backtest machinery around it does not need to change.
+
+**ADR-0030 (2026-11-16): shortlist persistence reuses `state_db.py`; it is list membership, not strategy promotion.**
+Context: `docs/STRATEGIES.md` §6/§8 already uses "promotion" for moving a
+*strategy version* to live. P4 needed a different kind of promotion: which
+*symbols* the scanner currently likes.
+Decision: added one table, `scanner_shortlist`, to the existing shared
+schema in `src/trading/storage/state_db.py` rather than a new DB file.
+`shortlist_store.apply_scan()` is the only writer: one call per day's scan,
+upserts today's ideas as `active`, demotes anything previously `active` but
+absent from today's run to `removed` (never deleted, so history survives).
+Consequences: shortlist history is queryable for as long as the state DB
+lives. If multiple scans ever run per day, "per day" degrades to "per
+call" — fine for P4's cadence, would need a `run_date` column if that
+changes.
+
+**ADR-0031 (2026-11-16): scanner backtest is forward-outcome replay, not a fill simulator.**
+Context: `src/trading/backtest/` already simulates fills/fees/P&L for a
+*strategy*. P4's "scanner backtest" is a different question — "what
+happened after the scanner would have shortlisted this symbol" — and
+reusing the strategy backtester for it would conflate the two.
+Decision: `scanner/backtest.py`'s `replay()` reruns `run_scan` per
+historical session date (decisions see only candles strictly before that
+date, enforced by `filters.py`'s window) and measures the close
+`horizon_days` later. No fills, fees, or positions are modeled.
+Consequences: results are a sanity check on the scanner's filter/ranking
+logic, not a P&L claim — the lesson for this phase says so explicitly so
+the owner doesn't read "hit rate" as "trading edge."
+
+**Note (2026-11-16): `dashboard/_data.py` is duplicated, not shared, with PR #56.**
+PR #56 (`claude/p3-live-paper-dashboard`, open against `main`) has its own
+copy of `dashboard/_data.py`. It was not on `main` when P4 started, so the
+new Stocks page in this PR ships a byte-identical copy rather than
+importing a module that does not exist yet on `main`. Whoever merges
+second should delete the duplicate, not keep both.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
