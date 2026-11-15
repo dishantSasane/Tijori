@@ -65,10 +65,11 @@ def test_mean_rejects_empty_or_non_finite_values() -> None:
 
 
 def test_frozen_family_size_and_adjusted_p_value() -> None:
-    # 15 daily (P1_CANDIDATES.md) + 3 intraday ORB (P1_INTRADAY_CANDIDATES.md).
-    assert P1_FAMILY_SIZE == 18
+    # 12 daily (T1/T2/T4/T6, T3 deferred for the 5-symbol pilot) + 3 intraday
+    # ORB -- catalog_version p1-daily-v2 in P1_CANDIDATES.md.
+    assert P1_FAMILY_SIZE == 15
     assert P1_DAILY_FAMILY_SIZE + P1_INTRADAY_FAMILY_SIZE == P1_FAMILY_SIZE
-    assert p1_adjusted_p_value(Decimal("0.01")) == Decimal("0.18")
+    assert p1_adjusted_p_value(Decimal("0.01")) == Decimal("0.15")
 
 
 def test_p1_family_size_matches_the_frozen_catalog_on_disk() -> None:

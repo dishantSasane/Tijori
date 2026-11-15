@@ -6,12 +6,18 @@ import random
 from decimal import ROUND_HALF_EVEN, Decimal, localcontext
 from pathlib import Path
 
-P1_DAILY_FAMILY_SIZE = 15
-"""T1/T2/T3/T4/T6, 3 variants each (P1_CANDIDATES.md)."""
+P1_DAILY_FAMILY_SIZE = 12
+"""T1/T2/T4/T6, 3 variants each (P1_CANDIDATES.md, catalog_version p1-daily-v2).
+
+T3 is deferred from this five-symbol pilot: its frozen K=20/top-2K rule
+degenerates when the whole universe is 5 names (nothing can rank outside the
+top 40), so it has no selection effect here. RPF remains deferred separately.
+Revisit both only in the wider-universe follow-up with a newly frozen catalog.
+"""
 P1_INTRADAY_FAMILY_SIZE = 3
 """T5 ORB, 3 target-multiple variants (P1_INTRADAY_CANDIDATES.md)."""
 P1_FAMILY_SIZE = P1_DAILY_FAMILY_SIZE + P1_INTRADAY_FAMILY_SIZE
-"""The single predeclared family (18) every Bonferroni correction uses.
+"""The single predeclared family (15) every Bonferroni correction uses.
 
 Reporting daily and intraday results in separate tables is a presentation
 choice -- group candidates by timeframe for display, but call

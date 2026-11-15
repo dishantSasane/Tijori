@@ -7,6 +7,9 @@ are hypotheses, not recommendations or evidence of profitability.
 ## Scope and shared assumptions
 
 - Catalog version: `p1-intraday-v1`; market: NSE cash equities, long-only.
+- First-pass symbols are the five fixed pilot names in `P1_CANDIDATES.md`.
+  This sample has survivorship and concentration bias, so results validate the
+  pipeline and these instruments only; they cannot support broad-market claims.
 - Bars: Upstox 5-minute candles only. The 1-minute series is retained for
   coverage and future research but is not a second ORB trial family in this
   catalog. Provider history begins January 2022; no earlier data is assumed.
@@ -74,9 +77,9 @@ results are accessed.
   windows, sizing and costs. Report the P1c metrics and coverage denominator;
   do not rank by win rate or raw rupee P&L.
 - All three variants count toward P1's predeclared multiple-testing family.
-  The P1 evaluation spec currently specifies Bonferroni over 15 daily variants;
-  it must be revised to include these three intraday variants (18 total) before
-  any real ranking.
+  The combined family is 15 variants: 12 daily and these three intraday
+  variants. Every candidate uses Bonferroni with the same combined family size.
 - Intraday promotion requires a longer forward paper period and more
   conservative sizing than daily. Numeric promotion thresholds remain an
   owner decision; this catalog does not invent them.
+

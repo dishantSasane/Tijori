@@ -34,7 +34,7 @@ def record(**overrides: object) -> ExperimentRecord:
         "sample_end": "2021-01-01",
         "instrument_count": 50,
         "time_block_count": 12,
-        "test_family_size": 18,
+        "test_family_size": 15,
         "metrics_json": '{"total_return":0.0,"max_drawdown":null}',
     }
     values.update(overrides)
