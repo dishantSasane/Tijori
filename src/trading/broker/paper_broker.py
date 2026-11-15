@@ -219,7 +219,14 @@ class PaperBroker:
                 ts_utc=now,
                 event_type="entry_filled",
                 actor="system",
-                payload={"signal_id": pending.signal_id, "price": str(fill.price)},
+                payload={
+                    "signal_id": pending.signal_id,
+                    "market": market,
+                    "symbol": symbol,
+                    "sleeve": pending.sleeve,
+                    "qty": str(fill.quantity),
+                    "price": str(fill.price),
+                },
             )
 
     def _try_exit_open_position(
@@ -377,6 +384,9 @@ class PaperBroker:
             payload={
                 "signal_id": pos.signal_id,
                 "exit_id": exit_request.exit_id,
+                "market": pos.market,
+                "symbol": pos.symbol,
+                "sleeve": pos.sleeve,
                 "result": result.value,
                 "price": str(price),
             },
