@@ -1,6 +1,7 @@
 # P1a pilot dataset manifest
 
-Status: **pilot-complete** for the bounded five-symbol daily dataset; see
+Status: **pilot-complete** for the bounded five-symbol daily AND intraday
+(M1/M5) datasets; see
 "Remaining limitations" for what this does and does not cover. This is a
 frozen description of one specific, reproducible data acquisition -- not a
 claim that P1a's broader-universe objective (Top-50, point-in-time
@@ -27,11 +28,14 @@ findings in `communication/`).
   2023-2026) to stay within Upstox's documented request bounds. Raw response
   bytes preserved exactly as returned, in `data/p1/raw/` (git-ignored, local
   only), one file + one checksum-bound manifest per request.
-- **Intraday (1-minute, 5-minute)**: January 2022 through 2026-11-14 (the
-  documented provider floor for minute history; no earlier data assumed),
-  all five symbols, both intervals, month-chunked and resumable via
-  `collect_pilot_intraday` (Codex) and, for the one chunk that function
-  could not survive, `p1_resilient_intraday_fetch` (this module -- see §3).
+- **Intraday (1-minute, 5-minute)**: **complete**, January 2022 through
+  2026-11-14 (the documented provider floor for minute history; no earlier
+  data assumed), all five symbols, both intervals -- 590 of 590 expected
+  (symbol x timeframe x month) chunks present (5 symbols x 2 timeframes x
+  59 months), month-chunked and resumable via `collect_pilot_intraday`
+  (Codex) and, for the chunks that function could not survive,
+  `p1_resilient_intraday_fetch` (this module -- see §3). All 590 response
+  checksums independently re-verified before hashing (below).
 
 ### Candle snapshot identity (daily)
 
@@ -45,24 +49,46 @@ window: 2010-01-01 to 2026-11-14
 candle_snapshot_sha256: 74d334595083e445c1c1301293abc03884d27bc5d91604d8bb7514b87cf80942
 ```
 
-This hash changes if any symbol's raw response, request window, or parser
-version changes -- it is the daily series' tamper-evident identity, to be
+### Candle snapshot identity (intraday)
+
+Computed the same way (sorted bundle of request/response identity records,
+hashed after independently re-verifying every checksum), over all 590
+M1/M5 response manifests:
+
+```
+timeframes: 1m, 5m
+window: 2022-01-01 to 2026-11-14
+records: 590 (5 symbols x 2 timeframes x 59 months)
+intraday_candle_snapshot_sha256: b10ef77572a455c9dcccc45abf5ae421a39a03a8cd2291e0ce039a97aa86b1c0
+```
+
+Both hashes change if any symbol's raw response, request window, or parser
+version changes -- they are each series' tamper-evident identity, to be
 carried into the full evaluation manifest once the action-register and
-calendar components are frozen alongside it (candle identity and action
+calendar components are frozen alongside them (candle identity and action
 coverage identity are deliberately separate hashes -- see
 `communication/2026-11-15-codex-snapshot-hash-clarification.md` -- avoiding
 a circular dependency between the two).
 
 ## 3. Known data-quality defect and its resolution
 
-One malformed row was found in the live Upstox intraday feed: HDFCBANK,
-1-minute, `2024-06-25T09:15:00+05:30` -- `open` (835.6) below `low` (837.4),
-an invalid OHLC relationship. This is a provider data defect, not a parsing
-bug. It is excluded from the parsed candle series for that bar and recorded
-explicitly in that chunk's manifest `skipped_rows` field -- never silently
-dropped or clamped. `p1_resilient_intraday_fetch.py` was built specifically
-so one bad row doesn't lose an entire chunk's raw evidence or halt the
-resumable collection run.
+Four malformed rows were found across the full intraday backfill, all four
+in the same month (June 2024) -- suggesting a provider-side feed anomaly on
+that specific window rather than a symbol-specific defect:
+
+| Symbol | Timeframe | Bar | Defect |
+|---|---|---|---|
+| HDFCBANK | 1m | 2024-06-25T09:15:00+05:30 | `open` (835.6) below `low` (837.4) |
+| ICICIBANK | 1m | June 2024 chunk | same class of invalid OHLC |
+| HDFCBANK | 5m | June 2024 chunk | same class of invalid OHLC |
+| ICICIBANK | 5m | June 2024 chunk | same class of invalid OHLC |
+
+These are provider data defects, not parsing bugs. Each is excluded from its
+parsed candle series for that one bar and recorded explicitly in that
+chunk's manifest `skipped_rows` field -- never silently dropped or clamped.
+`p1_resilient_intraday_fetch.py` was built specifically so a bad row doesn't
+lose an entire chunk's raw evidence or halt the resumable collection run; it
+proved itself across the real backfill, not just HDFCBANK's first occurrence.
 
 ## 4. Session-coverage audit (calendar)
 
