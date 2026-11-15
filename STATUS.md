@@ -1,6 +1,6 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-16 by Claude (P1a pilot data foundation closed — see note 0034)
+Last updated: 2026-11-16 by Claude (P1a pilot data foundation closed — see note 0034; P2 re-assignment collided with already-merged PR #50, duplicate PR #55 closed without merge — see note 0035, needs-human on whether PR #50 has had its required cross-model review)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
