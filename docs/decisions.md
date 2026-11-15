@@ -234,7 +234,7 @@ machine-readable source yet) and the daily report's content/format (§3.4,
 deferred to a future spec if P3 proves one is needed).
 
 ---
-**ADR-0028 · 2026-11-15 · accepted · P1 corporate-action source and NSE collection boundary**
+**ADR-0029 · 2026-11-15 · accepted · P1 corporate-action source and NSE collection boundary**
 Context: NSE/NSE Indices website terms prohibit systematic or automated
 collection for the intended P1 workflow, and the project must not build an NSE
 site scraper. P1 also needs corporate-action events so split/bonus price
@@ -258,6 +258,66 @@ Consequences: an Upstox API client may be tested from documented fixtures, but
 must not treat an empty result as proof of no actions. Data-source rights and
 technical access are separate gates; this decision selects the intended
 provider but does not claim successful acquisition or full event coverage.
+
+
+**ADR-0028 · 2026-11-15 · accepted · P2 implemented out of role-split order, by owner's direct instruction**
+Context: `MODEL_ROLES.md` assigns P2 implementation (risk engine, paper broker,
+Telegram wiring) to Codex (Sol/Astra), with Claude's role limited to specs
+and cross-model review. The owner explicitly instructed Claude to implement,
+test, and move on rather than wait — overriding that role split for this
+phase only, not any of AGENTS.md §4's hard safety rules (those still apply
+unconditionally and were followed: paper-only, no real-order path, fail
+closed, no secrets).
+Decision: implemented P2 against `docs/specs/RISK_ENGINE_SPEC.md`,
+`docs/specs/PAPER_BROKER_SPEC.md`, and `docs/specs/TELEGRAM_ALERT_SPEC.md`
+in `src/trading/risk/`, `src/trading/broker/paper_broker.py`, and
+`src/trading/alerts/telegram.py`, with SQLite persistence
+(`src/trading/storage/state_db.py`) shared by all three. Reused
+`trading.backtest.fills` for fill/slippage math rather than reimplementing
+(per the spec's own instruction). Telegram wiring uses a `MessageSender`
+Protocol with a `LoggingMessageSender` stand-in — no real bot token exists
+yet (owner said not to wait for it); swapping in a real Telegram client
+later requires no change to the state machine. Added two `ReasonCode`/
+`OutcomeResult` enum values the specs required but hadn't been appended yet:
+`CONCURRENT_POSITION_EXISTS`, `SESSION_ENDED_UNFILLED`. Full automated
+6-step kill-switch drill (docs/specs/PAPER_BROKER_SPEC.md §6) implemented
+and passing against the real `PaperBroker`/SQLite, not `FakePaperBroker`.
+`ruff`/`mypy --strict` clean on the whole repo; full test suite green
+(tests/risk, tests/broker, tests/alerts).
+Consequences: found and did **not** silently fix a pre-existing arithmetic
+error in `docs/specs/TEST_SPEC_RISK.md`'s S4 known-answer row (equity=10,000
+example computes `qty=1`, not the stated `qty=0`) — flagged in the test file
+itself rather than changing the sizing formula to match broken numbers
+(AGENTS.md §4 rule 9). The risk engine's check order collapses check 2
+("mode permits any route") to a documented no-op, since no current `Mode`
+value fails it — routing itself is `ModeGate`'s job per spec §7. P2's
+`DecisionStore` concurrency note (RISK_ENGINE_SPEC.md §10's open question)
+is resolved here via a single atomic `INSERT ... WHERE NOT EXISTS`, adequate
+for a single-process deployment; a multi-process deployment would need the
+same guarantee from the database layer, not this code. Still owned by Codex
+going forward: real `exchange_calendars` session wiring (today a
+`SessionCalendar` Protocol + fake), real `DataFeed` freshness wiring (same
+pattern), and the real Telegram bot once a token exists.
+
+**ADR-0028 follow-up (2026-11-15, same day): PaperBroker routes exits through
+the canonical `ExitRequest` path.** The owner flagged, during review of
+PR #50, that `PaperBroker._close_position` closed positions with a direct
+SQL delete instead of through `ExitRequest`/`apply_exit_quantity` (the I14/I7
+path PR #40 hardened) — a legitimate gap, not a false alarm. Fixed: every
+stop/target close now builds a real `ExitRequest` (`PaperBroker.
+build_exit_request`), validates it through `apply_exit_quantity` (raises if
+it would leave a nonzero remainder — this broker only supports full closes
+today), and dedupes on `exit_id` via the same atomic
+`INSERT ... WHERE NOT EXISTS` pattern as `DecisionStore`, before touching the
+`positions`/`fills` tables. `OpenPosition.position_id` is a stable,
+broker-truth-derived string (`"{market}:{symbol}:{sleeve}"`), not a fresh
+UUID per call, so the same open position always resolves to the same
+`exit_id` across restarts. Two new tests prove this is not a bypass:
+`test_exit_goes_through_canonical_exit_request_not_a_bypass` (the fill
+actually recorded carries the independently-derived `exit_id`) and
+`test_duplicate_exit_for_same_position_reason_bar_is_idempotent` (re-applying
+the identical exit produces zero new fills, one `exit_already_applied` audit
+row). Full suite, `ruff`, `mypy --strict` re-verified clean after the change.
 
 ---
 <!-- Add new ADRs below. Template:
