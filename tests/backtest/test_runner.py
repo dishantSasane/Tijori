@@ -68,6 +68,18 @@ def test_final_bar_signal_is_logged_but_not_counted() -> None:
     assert result.unfilled_signals == [pending.id]
 
 
+@pytest.mark.parametrize("duplicate", [False, True])
+def test_runner_rejects_nonincreasing_candle_timestamps(duplicate: bool) -> None:
+    candles = [bar(0, "10", "11", "9", "10"), bar(1, "10", "11", "9", "10")]
+    if duplicate:
+        candles[1] = candles[1].model_copy(update={"ts_open_utc": candles[0].ts_open_utc})
+    else:
+        candles.reverse()
+
+    with pytest.raises(ValueError, match="strictly increasing and unique"):
+        run_long_only(candles, [], quantity=Decimal("1"), profile=BacktestProfile())
+
+
 def test_long_only_runner_rejects_sell_signals() -> None:
     pending = signal(0).model_copy(update={"side": OrderSide.SELL})
     with pytest.raises(ValueError, match="SELL"):

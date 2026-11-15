@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime
 from decimal import Decimal
 
 from trading.backtest.fills import BacktestProfile, Position, fill_at_next_open, stop_exit
@@ -59,6 +60,13 @@ def run_long_only(
     """
     if quantity <= 0:
         raise ValueError("quantity must be positive")
+    last_timestamp: dict[tuple[object, str, object], datetime] = {}
+    for candle in candles:
+        instrument = (candle.market, candle.symbol, candle.timeframe)
+        previous = last_timestamp.get(instrument)
+        if previous is not None and candle.ts_open_utc <= previous:
+            raise ValueError("candle timestamps must be strictly increasing and unique")
+        last_timestamp[instrument] = candle.ts_open_utc
     by_identity = {
         (candle.market, candle.symbol, candle.timeframe, candle.ts_open_utc): index
         for index, candle in enumerate(candles)
