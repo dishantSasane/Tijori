@@ -42,7 +42,7 @@ and documented coverage limits in `docs/BUILD_ORDER.md`.
 
 ## Status log
 
-- [ ] Crypto
+- [x] Crypto
 - [ ] US equities
 - [ ] NSE currencies
 - [ ] MCX commodities

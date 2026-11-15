@@ -181,6 +181,44 @@ MCX commodities and NSE currencies; ML ranker (walk-forward, champion/challenger
 
 ---
 
+## Crypto coverage (data ecosystem build, 2026-11-15)
+
+Data source: Binance public spot REST (`/api/v3/klines`), no API key, no SDK
+-- same stdlib-`urllib` style as `adapters/upstox_history.py`. Verified
+directly against `api.binance.com/api/v3/exchangeInfo` and the public REST
+docs on 2026-11-15:
+
+- **History depth:** no stated cutoff; candles are available back to each
+  symbol's spot-listing date (most pairs: sometime after Binance's 2017
+  launch). Free, no tier gate.
+- **Intraday window:** all of M1/M5/M15/H1 (plus daily) are available for the
+  full listed history, not just a recent rolling window -- unlike Upstox's
+  India intraday limit, Binance does not truncate intraday history.
+- **Pagination cap:** 1,000 candles per `/api/v3/klines` call
+  (`MAX_CANDLES_PER_REQUEST` in `adapters/binance_history.py`).
+- **Rate limit:** 6,000 request-weight per IP per minute; `klines` costs
+  weight 2, so up to 3,000 calls/minute is technically allowed. The
+  historical loader (`storage/crypto_loader.py`) self-throttles to 60
+  requests/minute (`REQUESTS_PER_MINUTE_BUDGET`) -- backfilling is not
+  latency-sensitive and this stays far clear of a 429.
+- **Integrity:** Binance delists/rebrands tokens with no split-style price
+  adjustment needed, but a delisted symbol must stop being treated as
+  tradeable, and a gap in daily candles with no matching delist/rebrand
+  event must fail closed rather than be silently interpolated. Implemented
+  in `storage/crypto_integrity.py` (`ListingRegistry`), tested with known
+  answers in `tests/storage/test_crypto_integrity.py`.
+- **Universe:** general crypto sleeve = BTC/ETH always-in + top 20 by 24h
+  quote volume above a $5M floor; memecoin sleeve = tagged tokens with a
+  $1M floor and a minimum 30-day listing age. Both are pure, mechanical
+  functions of a liquidity snapshot (`storage/crypto_universe.py`), never a
+  hand-picked list, so re-running against a historical snapshot reproduces
+  the same point-in-time universe.
+- **Owner decision still open:** which exchange to actually trade on
+  (legality/tax/compliance for an Indian resident) is unchanged by this data
+  work -- Binance here is a free data source, not an execution-venue choice.
+
+---
+
 ## Rules for all phases
 
 - A phase is done only when its exit criteria are met **and** its lesson exists **and** `STATUS.md` is updated.
