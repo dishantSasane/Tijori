@@ -20,8 +20,12 @@ collection methods.
   dates, ratios, amounts, and detail fields for dividend, bonus, split, and
   rights events.
 - Added a client and fixture tests which preserve the raw ratio/details and do
-  not infer factor direction. The endpoint documentation does not explicitly
-  promise demerger coverage or historical completeness.
+  not infer factor direction. Independent review found and I fixed three
+  issues: authenticated redirects are now rejected; snapshots retain original
+  response bytes/hash/parser version/retrieval time; and ordered detail pairs
+  preserve duplicate labels. Regression tests cover each behavior. The
+  endpoint documentation does not explicitly promise demerger coverage or
+  historical completeness.
 - Made one token-authenticated probe for NESTLEIND. Cloudflare returned 403
   `browser_signature_banned` and explicitly instructed not to retry. No token
   was printed. No response data was fetched or saved; no workaround was tried.
@@ -31,15 +35,16 @@ collection methods.
 - Updated P1 source docs/decision: don't automate NSE/Nifty site collection;
   Upstox is the selected action API candidate; manual reviewed records or a
   permitted source are still needed for demergers/unknown events.
-- Full pytest and mypy passed. Ruff lint passed; formatter has been run on the
-  new client. Re-run final checks after any subsequent edits.
+- After those fixes: full pytest, Ruff lint/format, mypy, and diff checks passed.
+  A second independent review is still pending.
 
 ## Where I stopped (exact)
 - Branch: `codex/p1-build`.
 - Base/latest committed change: `9802fc7` (PR #53). Existing unrelated local
   edit to `src/trading/backtest/runner.py` was present at pickup and remains
   unstaged/untouched.
-- New Upstox client/test and P1 docs are local changes, not committed yet.
+- Client/docs commits `9a6cd8c` and `5e9b84a` are pushed to PR #53. The
+  reviewer has been asked for a second pass on the fixes; it is still pending.
 - No daily dataset rebuild, raw action-response archive, bonus-provider case,
   demerger manual ledger, or open-position replay was completed because no live
   response could be acquired and coverage is undocumented.
