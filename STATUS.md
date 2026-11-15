@@ -1,6 +1,6 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-15 by Codex (membership contract slice — see note 0029)
+Last updated: 2026-11-15 by Claude (sleeve allocation tests + non-India data ecosystem — see note 0032)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
@@ -8,13 +8,13 @@ Last updated: 2026-11-15 by Codex (membership contract slice — see note 0029)
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
 | P1 Data layer, strategy discovery, regime-gated activation | Codex | **ACTIVE; P1a gated on source/owner decisions** — split/bonus transform at `1a31c8e` and membership manifest/validator at `6a24c30`, both with synthetic tests; no real membership/action data loaded. Upstox adjustment basis, licensed action ledger, membership source, sizing/horizon and untouched split remain unresolved. See notes 0027-0029. | |
-| P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
+| P2 Paper broker + risk engine + minimal alerts | Claude (owner override) | **implemented, under review** — PR #50 (RiskEngine/PaperBroker), #52 (candle builder/scheduler); sleeve allocation cap test coverage added on `claude/sleeve-allocation-and-adapters`. See note 0032. | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
-| P5 Crypto + US sleeves (paper) | Codex | waiting | |
+| P5 Crypto + US sleeves (paper) | Claude (data layer only) | **data adapters/integrity/universe/loaders built, data-only, no execution** — crypto (Binance, free), US equities (Alpaca, free, raw-by-default corrected), on `claude/sleeve-allocation-and-adapters`, not yet merged. Strategy/execution work for this phase remains open. See note 0032. | |
 | P6 Brain + News | Codex | waiting | |
 | P7 Go-live readiness | both + owner | waiting | needs Claude audit before first live money |
-| P8 Expansion | both | waiting | gated |
+| P8 Expansion (MCX, NSE currency) | Claude (data layer only) | **data verified, data-only** — MCX found a free source after all (Upstox's own MCX_FO segment); NSE currency confirmed to need no new adapter. Roll-adjustment logic built for MCX, reusable for NSE currency later. On `claude/sleeve-allocation-and-adapters`, not merged. See note 0032. | |
 
 ## Next 3 actions
 1. Owner: decide whether to obtain NSE Indices' point-in-time constituent data after coverage/licence/quote details, or accept only a clearly scoped provisional sample with survivorship caveat.
