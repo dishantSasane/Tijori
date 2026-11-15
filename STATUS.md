@@ -148,3 +148,9 @@ Last updated: 2026-11-15 by Codex (membership contract slice — see note 0029)
 - NESTLEIND 10:1 split (2024-01-05, NSE circular FAOP60123) shows raw Upstox daily prices: ₹1,355.80 before vs ₹1,333.20 ex-date. Fixture/test added. Raw history requires separate action adjustment for research.
 - P1 intraday loader, resumable/idempotent via CandleStore, month chunked with runtime-injected token and Parquet export; tests pass. Auto OAuth refresh remains unavailable pending OAuth app config/flow.
 - P1 now targets daily and intraday from the start; exact intraday candidate catalog still outstanding. Branch `codex/p1-build` has uncommitted work, no PR, and requires cross-model review. Full checks last passed: pytest, ruff, format, mypy, diff-check.
+
+## Codex P1 corporate-action screening checkpoint (2026-11-15, note 0031)
+- **Correction to note 0030:** NESTLEIND Upstox daily close on 2024-01-04 is ₹1,355.80 (not ₹13,558); 2024-01-05 ex-date close is ₹1,333.20. For NSE's 10:1 split, the history is already on the post-split scale (case a) for this observed event. The known-answer test and docs were corrected; do not double-adjust it. Other symbols/action types remain unverified.
+- NSE row parser recognizes demerger, rights, split, bonus, dividend, and unknown events without guessing a factor. In-window unhandled actions are reported; affected symbols are excluded unless exact `(symbol, date, kind)` review is recorded. Orchestrator still must invoke screening and persist it before running primary/reference replay.
+- P1c note added: intraday promotion requires longer forward paper observation and more conservative sizing; freeze numeric gates before evaluation.
+- Current `codex/p1-build` changes remain uncommitted/no PR; full pytest, Ruff/format, mypy, diff-check passed at checkpoint.
