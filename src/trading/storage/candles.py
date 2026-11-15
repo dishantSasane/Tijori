@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable
 from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal, localcontext
 from hashlib import sha256
 from pathlib import Path
 from typing import cast
@@ -124,7 +124,7 @@ class CandleStore:
         adjustment_bases: dict[tuple[MarketId, str, Timeframe], tuple[date, str, str]],
     ) -> int:
         """Append atomically with per-series bases; raw append cannot bypass a bound basis."""
-        candle_list = list(candles)
+        candle_list = [self._canonicalize_candle(candle) for candle in candles]
         inserted = 0
         self._connection.execute("BEGIN TRANSACTION")
         try:
@@ -234,30 +234,32 @@ class CandleStore:
 
     def write_adjustment_manifest(self, parquet_path: Path) -> Path:
         """Write the action basis for every series beside its Parquet snapshot."""
-        rows = self._connection.execute(
-            """SELECT series.market, series.symbol, series.timeframe,
-                      basis.as_of_date, basis.ledger_hash, basis.basis_hash,
-                      count(*) FILTER (WHERE candles.adj_factor IS NOT NULL)
-               FROM (SELECT DISTINCT market, symbol, timeframe FROM candles) AS series
-               JOIN candles USING (market, symbol, timeframe)
-               LEFT JOIN adjustment_bases AS basis USING (market, symbol, timeframe)
-               GROUP BY series.market, series.symbol, series.timeframe,
-                        basis.as_of_date, basis.ledger_hash, basis.basis_hash
-               ORDER BY series.market, series.symbol, series.timeframe"""
+        file_series = self._connection.execute(
+            """SELECT market, symbol, timeframe,
+                      count(*) FILTER (WHERE adj_factor IS NOT NULL)
+               FROM read_parquet(?) GROUP BY market, symbol, timeframe
+               ORDER BY market, symbol, timeframe""",
+            [str(parquet_path)],
         ).fetchall()
+        basis_rows = self._connection.execute(
+            """SELECT market, symbol, timeframe, as_of_date, ledger_hash, basis_hash
+               FROM adjustment_bases"""
+        ).fetchall()
+        basis_by_scope = {(row[0], row[1], row[2]): row[3:] for row in basis_rows}
         entries = []
-        for row in rows:
-            if row[3] is None and row[6] > 0:
+        for market, symbol, timeframe, adjusted_count in file_series:
+            basis = basis_by_scope.get((market, symbol, timeframe))
+            if basis is None and adjusted_count:
                 raise ValueError("adjusted candle series has no corporate-action basis")
             entries.append(
                 {
-                    "market": row[0],
-                    "symbol": row[1],
-                    "timeframe": row[2],
-                    "status": "bound" if row[3] is not None else "unversioned",
-                    "as_of_date": row[3].isoformat() if row[3] is not None else None,
-                    "ledger_hash": row[4],
-                    "basis_hash": row[5],
+                    "market": market,
+                    "symbol": symbol,
+                    "timeframe": timeframe,
+                    "status": "bound" if basis is not None else "unversioned",
+                    "as_of_date": basis[0].isoformat() if basis is not None else None,
+                    "ledger_hash": basis[1] if basis is not None else None,
+                    "basis_hash": basis[2] if basis is not None else None,
                 }
             )
         manifest = {
@@ -347,6 +349,20 @@ class CandleStore:
 
     def __exit__(self, *_: object) -> None:
         self.close()
+
+    @staticmethod
+    def _canonicalize_candle(candle: Candle) -> Candle:
+        """Apply the database's 18-place Decimal precision before comparing/inserting."""
+        quantum = Decimal("0.000000000000000001")
+        values: dict[str, Decimal] = {}
+        with localcontext() as context:
+            context.prec = 50
+            context.rounding = ROUND_HALF_UP
+            for field_name in ("open", "high", "low", "close", "volume"):
+                values[field_name] = getattr(candle, field_name).quantize(quantum)
+            if candle.adj_factor is not None:
+                values["adj_factor"] = candle.adj_factor.quantize(quantum)
+        return candle.model_copy(update=values)
 
     @staticmethod
     def _matches(candle: Candle, row: tuple[object, ...]) -> bool:

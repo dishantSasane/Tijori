@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_EVEN, Decimal, localcontext
 from enum import StrEnum
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -270,31 +270,34 @@ def adjust_for_share_actions(
                 f"candle {candle.symbol} at {candle.ts_open_utc.isoformat()} is already adjusted"
             )
         session_date = candle.ts_open_utc.astimezone(INDIA_TIMEZONE).date()
-        price_factor = Decimal("1")
-        for action in selected_actions:
-            if (
-                action.market == candle.market
-                and action.symbol == candle.symbol
-                and session_date < action.effective_date <= as_of
-            ):
-                price_factor /= action.new_shares_per_old_share
+        with localcontext() as context:
+            context.prec = 50
+            context.rounding = ROUND_HALF_EVEN
+            price_factor = Decimal("1")
+            for action in selected_actions:
+                if (
+                    action.market == candle.market
+                    and action.symbol == candle.symbol
+                    and session_date < action.effective_date <= as_of
+                ):
+                    price_factor /= action.new_shares_per_old_share
 
-        if price_factor == Decimal("1"):
-            adjusted.append(candle)
-            continue
-        adjusted.append(
-            Candle.model_validate(
-                {
-                    **candle.model_dump(),
-                    "open": candle.open * price_factor,
-                    "high": candle.high * price_factor,
-                    "low": candle.low * price_factor,
-                    "close": candle.close * price_factor,
-                    "volume": candle.volume / price_factor,
-                    "adj_factor": price_factor,
-                }
+            if price_factor == Decimal("1"):
+                adjusted.append(candle)
+                continue
+            adjusted.append(
+                Candle.model_validate(
+                    {
+                        **candle.model_dump(),
+                        "open": candle.open * price_factor,
+                        "high": candle.high * price_factor,
+                        "low": candle.low * price_factor,
+                        "close": candle.close * price_factor,
+                        "volume": candle.volume / price_factor,
+                        "adj_factor": price_factor,
+                    }
+                )
             )
-        )
     return adjusted
 
 

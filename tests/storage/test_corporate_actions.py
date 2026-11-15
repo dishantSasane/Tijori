@@ -1,6 +1,6 @@
 import json
 from datetime import UTC, date, datetime
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from pathlib import Path
 
 import pytest
@@ -87,6 +87,21 @@ def test_two_for_one_split_adjusts_only_pre_effective_bars() -> None:
     assert adjusted[0].adj_factor == Decimal("0.5")
     assert adjusted[1] == on_effective_date
     assert before.open == Decimal("100")
+
+
+def test_raw_nestle_ratio_known_answer_scales_price_and_volume_by_ten() -> None:
+    adjusted = adjust_for_share_actions(
+        [candle(symbol="NESTLEIND")],
+        [split(ratio="10", symbol="NESTLEIND")],
+        as_of=date(2024, 1, 3),
+    )[0]
+
+    assert adjusted.open == Decimal("10")
+    assert adjusted.high == Decimal("11")
+    assert adjusted.low == Decimal("9")
+    assert adjusted.close == Decimal("10.5")
+    assert adjusted.volume == Decimal("10000")
+    assert adjusted.adj_factor == Decimal("0.1")
 
 
 def test_upstox_nestle_2024_split_known_answer_is_pre_adjusted() -> None:
@@ -179,9 +194,13 @@ def test_bonus_issue_uses_share_ratio_mechanics() -> None:
 
     adjusted = adjust_for_share_actions([candle()], [action], as_of=date(2024, 1, 2))[0]
 
-    assert adjusted.open == Decimal(100) / Decimal(3)
+    with localcontext() as context:
+        context.prec = 50
+        expected_third = Decimal(1) / Decimal(3)
+        expected_open = Decimal(100) * expected_third
+    assert adjusted.open == expected_open
     assert adjusted.volume == Decimal("3000")
-    assert adjusted.adj_factor == Decimal(1) / Decimal(3)
+    assert adjusted.adj_factor == expected_third
 
 
 def test_one_for_one_bonus_known_answer_halves_price_and_doubles_volume() -> None:
@@ -223,6 +242,47 @@ def test_daily_ingestion_adjusts_before_appending(tmp_path: Path) -> None:
     assert stored.close == Decimal("52.5")
     assert stored.volume == Decimal("2000")
     assert stored.adj_factor == Decimal("0.5")
+
+
+@pytest.mark.parametrize("ratio", ["3", "0.3333333333333333333333333333"])
+def test_repeating_decimal_adjustment_is_idempotent_after_storage_rounding(
+    tmp_path: Path, ratio: str
+) -> None:
+    action = split(ratio=ratio)
+    with CandleStore(tmp_path / f"ratio-{ratio}") as store:
+        first = append_adjusted_candles(
+            store,
+            [candle()],
+            [action],
+            as_of=date(2024, 1, 3),
+            action_ledger_complete=True,
+        )
+        second = append_adjusted_candles(
+            store,
+            [candle()],
+            [action],
+            as_of=date(2024, 1, 3),
+            action_ledger_complete=True,
+        )
+
+    assert first == 1
+    assert second == 0
+
+
+def test_share_adjustment_math_is_independent_of_ambient_decimal_context() -> None:
+    action = split(ratio="3")
+    with localcontext() as context:
+        context.prec = 6
+        low_precision_result = adjust_for_share_actions(
+            [candle()], [action], as_of=date(2024, 1, 3)
+        )
+    with localcontext() as context:
+        context.prec = 40
+        high_precision_result = adjust_for_share_actions(
+            [candle()], [action], as_of=date(2024, 1, 3)
+        )
+
+    assert low_precision_result == high_precision_result
 
 
 def test_storage_rejects_mixing_corporate_action_bases(tmp_path: Path) -> None:
@@ -452,7 +512,10 @@ def test_each_replay_uses_only_the_latest_published_action_revision() -> None:
     after_correction = adjust_for_share_actions([original], revisions, as_of=date(2024, 1, 3))[0]
 
     assert on_effective_date.adj_factor == Decimal("0.5")
-    assert after_correction.adj_factor == Decimal(1) / Decimal(3)
+    with localcontext() as context:
+        context.prec = 50
+        expected_third = Decimal(1) / Decimal(3)
+    assert after_correction.adj_factor == expected_third
 
 
 def test_duplicate_action_revision_is_rejected() -> None:

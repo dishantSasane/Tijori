@@ -6,6 +6,7 @@ import pytest
 
 from trading.adapters.upstox_history import UpstoxHistoryClient
 from trading.core.enums import MarketId, Timeframe
+from trading.core.models import Candle
 from trading.storage.candles import CandleStore
 from trading.storage.corporate_actions import ShareAdjustment
 from trading.storage.intraday_loader import (
@@ -57,6 +58,23 @@ def test_loader_resumes_idempotently_and_exports_intraday_parquet(tmp_path: Path
     instrument = Instrument("NSE_EQ|TEST", "TEST")
     now = [datetime(2026, 11, 14, tzinfo=UTC)]
     with CandleStore(tmp_path / "store") as store:
+        store.append(
+            [
+                Candle(
+                    market=MarketId.IN_EQUITY,
+                    symbol="DAILY",
+                    timeframe=Timeframe.D1,
+                    ts_open_utc=datetime(2026, 11, 12, tzinfo=UTC),
+                    open=Decimal("10"),
+                    high=Decimal("11"),
+                    low=Decimal("9"),
+                    close=Decimal("10"),
+                    volume=Decimal("100"),
+                    source="fixture",
+                    ingest_ts=now[0],
+                )
+            ]
+        )
         loader = UpstoxIntradayLoader(
             client=client,
             store=store,

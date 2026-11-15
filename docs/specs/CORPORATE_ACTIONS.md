@@ -37,6 +37,11 @@ adjusted OHLC = original OHLC / new_shares_per_old_share
 adjusted volume = original volume * new_shares_per_old_share
 ```
 
+Adjustment arithmetic uses a fixed Decimal precision and rounding mode so it
+does not change with the caller's process-wide Decimal context. Before DuckDB
+storage, candle values are rounded half up to the store's 18 decimal places;
+repeat ingestion compares those same canonical values.
+
 Bars on the effective date and later retain their recorded OHLCV. A historical
 replay must call the transform with that replay's own `as_of` date; future
 actions and actions not yet published by that date are ignored. This avoids
@@ -123,7 +128,7 @@ attempted.
 ## Validation completed and remaining
 
 Known-answer tests cover the Upstox NESTLEIND 10:1 provider-adjusted event, a
-synthetic 2-for-1 split, a synthetic 1-for-1 bonus issue,
+synthetic 10-for-1 and 2-for-1 split calculations, a synthetic 1-for-1 bonus issue,
 multiple events, effective-date boundaries, as-of filtering, revision
 selection, market/symbol scoping, provider-adjusted event exclusion, unsupported event types, invalid
 ratios, and double-adjustment rejection. Synthetic NSE-row tests cover event
