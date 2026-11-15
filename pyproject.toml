@@ -36,3 +36,11 @@ no_implicit_optional = true
 [[tool.mypy.overrides]]
 module = "trading.core.*"
 strict = true
+
+[[tool.mypy.overrides]]
+module = "trading.risk.*"
+strict = true
+
+[[tool.mypy.overrides]]
+module = "trading.execution.*"
+strict = true

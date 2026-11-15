@@ -89,6 +89,50 @@ Consequences: condition exits can be implemented without routing them through
 entry sizing. Exit execution remains fail-closed on state mismatch, and I14
 requires property-based coverage plus blind tests from the specification.
 
+**ADR-0028 · 2026-11-16 · proposed · P2: risk engine, paper broker, kill switch implementation choices**
+Context: Implementing P2 (`docs/BUILD_ORDER.md`) against the already-written
+`docs/specs/RISK_ENGINE_SPEC.md`, `PAPER_BROKER_SPEC.md`, `TELEGRAM_ALERT_SPEC.md`,
+and `TEST_SPEC_RISK.md`. A few things those specs leave as implementation
+judgment calls, resolved here:
+Decision: (1) `PortfolioState`/`RiskConfig`/`SleeveConfig`/`InstanceState`
+(`src/trading/risk/config.py`) are plain Pydantic `BaseModel`s, not frozen
+`Contract`s from `core/models.py` — they are the risk engine's own runtime
+input, not a cross-module fact, matching RISK_ENGINE_SPEC.md §1's framing.
+(2) Check 17 ("no open position already occupies this symbol slot") uses the
+newly-appended `ReasonCode.CONCURRENT_POSITION_EXISTS` per RISK_ENGINE_SPEC.md
+§9.3, placed between checks 12 and 13 to match RISK_SPEC.md's own numbering
+(the spec's check-order table stops at 16 and treats 17 as an addendum).
+(3) `RiskEngine.check()`'s market-session and data-freshness dependencies are
+small `Protocol`-like dataclasses (`MarketSession`, `DataFreshnessCheck`)
+rather than importing a real calendar library yet — no real adapter exists
+to wire them to, and a fake lambda is enough for every test in
+`TEST_SPEC_RISK.md`; wiring a real `exchange_calendars` adapter is P3+ work,
+not blocking P2. (4) The paper broker's SQLite layer (`StateStore`) is one
+hand-written file with plain SQL, not an ORM — the schema in
+`PAPER_BROKER_SPEC.md` §4 already *is* the contract; an ORM would just be a
+second description of the same seven tables to keep in sync (YAGNI). (5) The
+kill-switch drill (`tests/execution/test_kill_switch_drill.py`) is a single
+long-form test that runs all six steps from `PAPER_BROKER_SPEC.md` §6 against
+a real `StateStore`/`KillSwitch`/`PaperBroker`, including a real restart
+(construct a second `StateStore` against the same file) — not a mocked
+restart — because the exit criterion explicitly asks for "a real demonstrated
+run," not a unit test of one function. (6) The Telegram wiring
+(`src/trading/adapters/telegram_alert.py`) ships the `TelegramAlerts` Protocol,
+a `FakeTelegramAlerts` with zero network code, and the `telegram_decisions`
+state machine from `TELEGRAM_ALERT_SPEC.md` §2/§4 — the real
+`python-telegram-bot` adapter (reading `TELEGRAM_BOT_TOKEN` from `.env`) is
+left for the next session, since nothing in the P2 exit criteria requires a
+live bot token to exist, and AGENTS.md §4.4 forbids tests that could touch a
+real network service anyway.
+Consequences: Codex (or the next Claude session) can wire a real
+`python-telegram-bot` adapter behind `TelegramAlerts` without touching the
+state machine or risk engine. The real calendar/session adapter
+(`exchange_calendars`) and the pre-market batch scheduler
+(`TELEGRAM_ALERT_SPEC.md` §3) are explicitly not built yet — flagged in the
+handoff note, not silently assumed done. This PR is authored solely by
+Claude; per AGENTS.md §5, cross-model review (Codex/Astra) on `risk` and
+`execution` is still required before the owner merges.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**

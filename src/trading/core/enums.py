@@ -153,3 +153,4 @@ class ReasonCode(StrEnum):
     BRAIN_OUTPUT_INVALID = "brain_output_invalid"
     QUANTITY_ROUNDS_TO_ZERO = "quantity_rounds_to_zero"
     INTERNAL_ERROR_FAIL_CLOSED = "internal_error_fail_closed"
+    CONCURRENT_POSITION_EXISTS = "concurrent_position_exists"
