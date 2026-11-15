@@ -129,12 +129,17 @@ offers date/company filters and CSV downloads. It is a source-discovery referenc
 not a documented public ingestion API or evidence of a complete historical feed.
 The same website terms above apply.
 
-Open requirements for Claude's P0 contracts/test specs:
+P1 corporate-action adjustment requirements:
 
 - Distinguish raw prices from prices adjusted for splits/bonuses and other events;
   preserve the original file, provider, acquisition time, and adjustment version.
 - Specify treatment of dividends and rights separately. Do not infer factors from
   free-text corporate-action descriptions without validated, known-answer cases.
+- The synthetic split/bonus transformer and known-answer tests are specified in
+  [`CORPORATE_ACTIONS.md`](CORPORATE_ACTIONS.md). It must not be applied to
+  Upstox candles until the provider confirms whether those prices are already
+  adjusted; P1 backtests must also account for share-count changes on held
+  positions before adjusted data can support promotion.
 - Obtain historical instrument identifiers, symbol changes, delistings, and
   point-in-time index membership. Today's Nifty 50 list cannot prove a
   survivorship-free historical Nifty 50 result.

@@ -58,6 +58,15 @@ universe status is either resolved or logged as a `needs-human` blocker; split
 boundaries exist in a committed config file with no strategy code reading the
 holdout range.
 
+Progress note (2026-11-15): the pure daily split/bonus price-volume transform
+and synthetic known-answer tests are in `trading.storage.corporate_actions`
+and `tests/storage/test_corporate_actions.py`. This is not P1a completion:
+Upstox's raw/adjusted price basis is undocumented, an authorized point-in-time
+action ledger is still needed, and both backtesters must model share-count
+changes for positions crossing an event before adjusted-data results can be
+used as promotion evidence. Membership and untouched split boundaries are
+also still gated as recorded in ADR-0025 and handoff 0027.
+
 ### P1b — Candidate library (pre-registered)
 
 | Deliverable | A/R | Notes |
