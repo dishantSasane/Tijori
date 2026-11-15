@@ -40,6 +40,51 @@ A signal that is dropped by **any** guard — including an overlap/concurrency
 guard in the backtester — is a rejection with a reason code and an audit row
 (I11). Silent drops (no trade, no audit, no unfilled record) are a bug.
 
+## 2A. Tiered execution mode (replaces all-or-nothing approval)
+
+A sleeve's mode (`paper`/`approval`/`auto`, per `AGENTS.md` §4) still gates
+whether anything can ever reach a real broker. Within a sleeve that is in
+`auto` mode, routing is further tiered per strategy and per trade — this
+section only ever adds restrictions on top of the sleeve mode, never bypasses
+it, so `AGENTS.md` §4 rule 1 still holds unconditionally.
+
+| Condition | Route |
+|---|---|
+| Strategy is explicitly marked `promoted` (see promotion gate below) **and** trade risk is below the declared per-trade risk threshold **and** position size is below the declared position-size threshold | Auto-execute |
+| Strategy is **not yet promoted** | Require approval, regardless of size |
+| Trade trips a configured anomaly check: unexpected gap, stale data, or a signal outside the backtested parameter range | Require approval, even for a promoted strategy under threshold |
+| Any other case (above either threshold) | Require approval |
+
+The thresholds (`auto_max_risk_per_trade_pct`, `auto_max_position_value_pct`)
+are proposed defaults like every other number in this file; the owner
+confirms them in `config/risk.yaml` before any live `auto` routing exists.
+
+**Promotion gate** (moves a strategy from approval-required to auto-eligible):
+a strategy must have (1) passed the P1d holdout evaluation
+(`BUILD_ORDER.md` P1d) with the pre-written rejection rule not triggered, and
+(2) run a declared minimum period in paper/approval mode with live results
+matching backtest expectations within a stated tolerance. Both conditions are
+checked and recorded before the `promoted` flag is set; the flag change
+itself is a human action logged in the audit trail (ties to I10 — mode can
+only be escalated by an explicit human action).
+
+**Pre-market batch approval.** For sleeves/strategies in `approval` routing,
+the day's eligible candidate trades are shown together before the session
+open, rather than approved one at a time as they fire. This turns approval
+into a reviewed batch decision instead of a rushed in-the-moment one. Each
+batch item still carries its own accept/reject; approving the batch does not
+imply blanket approval of trades that did not appear in it.
+
+**Telegram notification spec.** Every trade notifies, regardless of route —
+silence must always mean "nothing was eligible," never "something broke":
+
+| Event | Notification |
+|---|---|
+| Approval-required trade | Notifies with Accept/Reject buttons (pre-market batch, or individually if it arrives intraday) |
+| Auto-executed trade | Notifies as a fill, after the fact |
+| Rejected signal (any risk-engine guard, including overlap) | Notifies with its reason code |
+| Abstained signal (P1e activation layer: no strategy eligible) | Notifies with "no strategy eligible" and the regime state that produced it |
+
 ## 3. Sizing
 
 `qty = floor( equity_sleeve * risk_per_trade_pct / |entry_ref - stop| )`, then cap by: max position value %, liquidity cap, lot size/tick size rounding (round **down**), available margin/cash. If qty < 1 lot/share -> reject (no rounding up).
