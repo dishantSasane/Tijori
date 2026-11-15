@@ -142,3 +142,9 @@ Last updated: 2026-11-15 by Codex (membership contract slice — see note 0029)
 - Real gaps: `RED_TEAM.md`, `STRATEGY_SPEC.md`,
   `TEST_SPEC_{BACKTEST,CANDLES,ADAPTERS,STRATEGIES}.md`, lessons 01-03 — none
   written. Note 0006 has a safe-to-start-now vs. must-wait split for Codex.
+
+## Codex P1 Upstox probe checkpoint (2026-11-15, note 0030)
+- The live Upstox token probe confirms M1 and M5 data for Nifty 50 plus five local Tier A sample names at 2026-11-13, 2026-10-15, and 2026-05-15; none at 2024-11-15. Provider docs state minute availability from Jan 2022 and one-month max requests for 1–15m; Jan 2022 returned candles, Dec 2021 did not. This is not proof of uninterrupted symbol coverage.
+- NESTLEIND 10:1 split (2024-01-05, NSE circular FAOP60123) shows raw Upstox daily prices: ₹1,355.80 before vs ₹1,333.20 ex-date. Fixture/test added. Raw history requires separate action adjustment for research.
+- P1 intraday loader, resumable/idempotent via CandleStore, month chunked with runtime-injected token and Parquet export; tests pass. Auto OAuth refresh remains unavailable pending OAuth app config/flow.
+- P1 now targets daily and intraday from the start; exact intraday candidate catalog still outstanding. Branch `codex/p1-build` has uncommitted work, no PR, and requires cross-model review. Full checks last passed: pytest, ruff, format, mypy, diff-check.
