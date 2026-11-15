@@ -79,6 +79,7 @@ def _rig(db_path):
     )
     config = RiskConfig(
         market=MarketId.IN_EQUITY,
+        sleeve_mode=Mode.PAPER,
         risk_per_trade_pct=Decimal("0.5"),
         max_position_value_pct=Decimal(100),
         max_risk_distance_pct_of_entry=Decimal(10),
@@ -419,6 +420,11 @@ def test_kill_automatic_trigger_matches_manual_path(tmp_path) -> None:
     threshold via a fixture, not a manual engage() call -- the resulting
     kill_switch_state row and AuditEvent are indistinguishable in shape from
     the manual path except reason/actor (actor="system" vs. a human id).
+
+    RISK_ENGINE_SPEC.md §8: `check()` stays read-only/pure on a drawdown
+    breach; the actual engagement is the separate `monitor_portfolio()`
+    path, called here explicitly -- matching how a real caller would invoke
+    it after each fill/mark, not folded into `check()` itself.
     """
     db_path = tmp_path / "auto.db"
     engine, kill_switch, broker, portfolio, config = _rig(db_path)
@@ -430,6 +436,9 @@ def test_kill_automatic_trigger_matches_manual_path(tmp_path) -> None:
     d = engine.check(_signal("drawdown", T0), breached, None, config, sleeve="india_equity", now=T0)
     assert d.allowed is False
     assert d.reason_codes == (ReasonCode.PORTFOLIO_DRAWDOWN_KILL,)
+    assert kill_switch.is_engaged("global") is False  # check() alone never engages it
+
+    assert engine.monitor_portfolio(breached, config, now=T0) is True
     assert kill_switch.is_engaged("global") is True
 
     automatic_events = broker.audit.events(event_type="kill_switch_engaged")

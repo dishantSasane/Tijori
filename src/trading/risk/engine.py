@@ -44,6 +44,15 @@ def default_absent_verdict(signal_id: str, *, now: datetime) -> BrainVerdict:
     )
 
 
+def _mode_permits_any_route(mode: Mode) -> bool:
+    """True if at least one (decision, human_action) combination under this
+    mode could reach `Route.PAPER`/`Route.LIVE` in `ModeGate.route()` --
+    mirrors that function's own branches so a future `Mode` value is forced
+    through both gates, not silently skipped by just this one.
+    """
+    return mode in (Mode.PAPER, Mode.APPROVAL, Mode.AUTO)
+
+
 def _reject(signal_id: str, now: datetime, *codes: ReasonCode, **snapshot: object) -> RiskDecision:
     return RiskDecision(
         signal_id=signal_id,
@@ -88,11 +97,11 @@ class RiskEngine:
             if self._kill_switch.is_engaged(scope):
                 return _reject(sid, now, ReasonCode.KILL_SWITCH_ENGAGED, engaged_scope=scope)
 
-        # Check 2: mode permits *any* route. Routing itself is ModeGate's job (§7);
-        # this only rejects a mode that can never produce an order at all, which
-        # today's Mode enum never does -- paper/approval/auto all permit something.
-        # Kept as an explicit no-op check so a future Mode value is forced through
-        # this gate rather than silently skipping it.
+        # Check 2: mode permits *any* route at all. Routing itself is ModeGate's
+        # job (§7); this only rejects a mode that could never produce an order
+        # under any (decision, human_action) combination.
+        if not _mode_permits_any_route(config.sleeve_mode):
+            return _reject(sid, now, ReasonCode.MODE_DOES_NOT_PERMIT_ROUTE)
 
         # Check 3: market session.
         if not self._calendar.is_open(signal.market.value, now):
@@ -149,17 +158,22 @@ class RiskEngine:
             return _reject(sid, now, ReasonCode.SLEEVE_ALLOCATION_EXCEEDED)
         if sleeve_state.open_positions >= sleeve_state.max_positions:
             return _reject(sid, now, ReasonCode.MAX_OPEN_POSITIONS_EXCEEDED, scope="sleeve")
-        # (global max_open_positions_total lives on config in a real deployment;
-        # omitted here as a second explicit field until a caller needs it distinct
-        # from the sleeve cap -- RISK_ENGINE_SPEC.md §2 note on shared reason code.)
+        if (
+            config.max_open_positions_total is not None
+            and portfolio.total_open_positions >= config.max_open_positions_total
+        ):
+            return _reject(sid, now, ReasonCode.MAX_OPEN_POSITIONS_EXCEEDED, scope="global")
 
         # Check 10: daily loss limit (sleeve-scoped, per §6's session reset).
         if sleeve_state.daily_pnl_pct <= -abs(config.max_daily_loss_pct):
             return _reject(sid, now, ReasonCode.DAILY_LOSS_LIMIT_BREACHED)
 
-        # Check 11: portfolio drawdown kill -- also engages the kill switch (§8).
+        # Check 11: portfolio drawdown kill -- read-only (RISK_ENGINE_SPEC.md
+        # §8: "checks 1 and 11 are read-only... check() must stay a pure
+        # function of its inputs"). The state transition into a kill scope
+        # is the separate `monitor_portfolio()` path's job, triggered by the
+        # caller after each fill/mark, never by check() itself.
         if portfolio.drawdown_pct >= config.max_portfolio_drawdown_pct:
-            self._kill_switch.engage("global", "portfolio_drawdown_kill", actor="system", now=now)
             return _reject(sid, now, ReasonCode.PORTFOLIO_DRAWDOWN_KILL)
 
         # Check 12: instance not paused.
@@ -195,6 +209,25 @@ class RiskEngine:
         if not self._decisions.record_if_absent(decision, now=now):
             return _reject(sid, now, ReasonCode.DUPLICATE_SIGNAL)
         return decision
+
+    def monitor_portfolio(
+        self, portfolio: PortfolioState, config: RiskConfig, *, now: datetime
+    ) -> bool:
+        """The explicit state-transition path RISK_ENGINE_SPEC.md §8 requires:
+        called by the caller after each fill/mark (not by `check()`, which
+        stays read-only/pure), evaluates drawdown, and engages the global
+        kill switch if breached. `KillSwitch.engage` is itself idempotent
+        and self-audits (`kill_switch_engaged`); calling this repeatedly
+        while already engaged is safe. Returns True if the global scope is
+        engaged (whether newly, by this call, or already).
+        """
+        if portfolio.drawdown_pct >= config.max_portfolio_drawdown_pct:
+            if not self._kill_switch.is_engaged("global"):
+                self._kill_switch.engage(
+                    "global", "portfolio_drawdown_kill", actor="system", now=now
+                )
+            return True
+        return False
 
 
 def check_fail_closed(

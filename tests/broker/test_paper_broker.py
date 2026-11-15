@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -171,6 +172,119 @@ def test_target_hit_closes_position() -> None:
     assert broker.outcome(signal.id) == OutcomeResult.TARGET_HIT
 
 
+def test_target_hit_intrabar_via_high_not_just_open() -> None:
+    """Regression for PAPER_BROKER_SPEC.md §2.4: the prior implementation only
+    checked `open_ >= target_price`, missing a candle that opens below target
+    but touches it intrabar via `high`. This candle's open (2590) never
+    reaches the 2600 target; only its high (2605) does.
+    """
+    broker = _broker()
+    signal = _signal()
+    broker.accept(
+        signal,
+        qty=Decimal(10),
+        sleeve="india_equity",
+        ledger_source=LedgerSource.USER_PAPER,
+        now=T0,
+    )
+    t1 = T0 + timedelta(days=1)
+    broker.on_candle(
+        market=MKT,
+        symbol="HDFCBANK",
+        ts_open_utc=t1,
+        open_=Decimal(2500),
+        high=Decimal(2505),
+        low=Decimal(2495),
+        now=t1,
+    )
+    t2 = t1 + timedelta(days=1)
+    broker.on_candle(
+        market=MKT,
+        symbol="HDFCBANK",
+        ts_open_utc=t2,
+        open_=Decimal(2590),
+        high=Decimal(2605),
+        low=Decimal(2585),
+        now=t2,
+    )
+    assert broker.open_positions() == []
+    assert broker.outcome(signal.id) == OutcomeResult.TARGET_HIT
+
+
+def test_stop_takes_precedence_over_target_on_same_candle() -> None:
+    """Both the stop (2450) and target (2600) fall inside this one candle's
+    range -- PAPER_BROKER_SPEC.md §2.4 requires stop-first precedence, same
+    as the backtester.
+    """
+    broker = _broker()
+    signal = _signal()
+    broker.accept(
+        signal,
+        qty=Decimal(10),
+        sleeve="india_equity",
+        ledger_source=LedgerSource.USER_PAPER,
+        now=T0,
+    )
+    t1 = T0 + timedelta(days=1)
+    broker.on_candle(
+        market=MKT,
+        symbol="HDFCBANK",
+        ts_open_utc=t1,
+        open_=Decimal(2500),
+        high=Decimal(2505),
+        low=Decimal(2495),
+        now=t1,
+    )
+    t2 = t1 + timedelta(days=1)
+    broker.on_candle(
+        market=MKT,
+        symbol="HDFCBANK",
+        ts_open_utc=t2,
+        open_=Decimal(2500),
+        high=Decimal(2610),
+        low=Decimal(2440),
+        now=t2,
+    )
+    assert broker.open_positions() == []
+    assert broker.outcome(signal.id) == OutcomeResult.STOP_HIT
+
+
+def test_duplicate_pending_signal_for_same_sleeve_is_rejected_not_crashed() -> None:
+    """Regression: `positions`' primary key is (market, symbol, sleeve). Two
+    pending signals for the same sleeve both becoming fillable on the same
+    candle previously crashed on that constraint for the second insert.
+    """
+    broker = _broker()
+    first = _signal(id="sig-first")
+    second = _signal(id="sig-second")
+    broker.accept(
+        first, qty=Decimal(10), sleeve="india_equity", ledger_source=LedgerSource.USER_PAPER, now=T0
+    )
+    broker.accept(
+        second,
+        qty=Decimal(10),
+        sleeve="india_equity",
+        ledger_source=LedgerSource.USER_PAPER,
+        now=T0,
+    )
+    t1 = T0 + timedelta(days=1)
+    broker.on_candle(
+        market=MKT,
+        symbol="HDFCBANK",
+        ts_open_utc=t1,
+        open_=Decimal(2500),
+        high=Decimal(2505),
+        low=Decimal(2495),
+        now=t1,
+    )  # must not raise
+    open_positions = broker.open_positions()
+    assert len(open_positions) == 1
+    assert open_positions[0].signal_id == "sig-first"
+    rejections = broker.audit.events(event_type="entry_rejected_duplicate_sleeve_position")
+    assert len(rejections) == 1
+    assert json.loads(rejections[0]["payload_json"])["signal_id"] == "sig-second"
+
+
 def test_session_ended_unfilled_expires_pending_signal() -> None:
     broker = _broker()
     signal = _signal()
@@ -185,6 +299,20 @@ def test_session_ended_unfilled_expires_pending_signal() -> None:
     assert expired == [signal.id]
     assert broker.pending_signals() == []
     assert broker.outcome(signal.id) == OutcomeResult.SESSION_ENDED_UNFILLED
+    # Regression: expiry previously hardcoded LedgerSource.SHADOW regardless
+    # of how the signal was actually accepted -- a normal paper signal must
+    # never be recorded as a shadow result just because it expired unfilled.
+    assert broker.outcome_ledger_source(signal.id) == LedgerSource.USER_PAPER
+
+
+def test_shadow_signal_that_expires_unfilled_keeps_its_own_ledger_source() -> None:
+    broker = _broker()
+    signal = _signal()
+    broker.accept(
+        signal, qty=Decimal(10), sleeve="india_equity", ledger_source=LedgerSource.SHADOW, now=T0
+    )
+    broker.expire_session(market=MKT, now=T0 + timedelta(hours=5))
+    assert broker.outcome_ledger_source(signal.id) == LedgerSource.SHADOW
 
 
 def test_shadow_signal_scored_cost_honestly_without_real_fill() -> None:

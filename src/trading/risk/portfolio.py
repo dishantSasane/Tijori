@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from trading.core.enums import MarketId
+from trading.core.enums import MarketId, Mode
 
 
 @dataclass(frozen=True)
@@ -61,6 +61,7 @@ class RiskConfig:
     """
 
     market: MarketId
+    sleeve_mode: Mode
     risk_per_trade_pct: Decimal
     max_position_value_pct: Decimal
     max_risk_distance_pct_of_entry: Decimal
@@ -70,3 +71,6 @@ class RiskConfig:
     max_daily_loss_pct: Decimal
     lot_size: Decimal = Decimal(1)
     liquidity_cap_qty: Decimal | None = None
+    max_open_positions_total: int | None = None
+    """Global cap across all sleeves (check 9); None if not configured for
+    this deployment -- distinct from the per-sleeve cap (check 8)."""

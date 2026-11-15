@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from trading.core.enums import MarketId, OrderSide, Timeframe
+from trading.core.enums import MarketId, Mode, OrderSide, Timeframe
 from trading.core.models import Signal
 from trading.risk.audit import AuditLog
 from trading.risk.decision_store import DecisionStore
@@ -81,6 +81,7 @@ def passing_portfolio() -> PortfolioState:
 def passing_config() -> RiskConfig:
     return RiskConfig(
         market=MarketId.IN_EQUITY,
+        sleeve_mode=Mode.PAPER,
         risk_per_trade_pct=Decimal("0.5"),
         max_position_value_pct=Decimal(100),
         max_risk_distance_pct_of_entry=Decimal(10),

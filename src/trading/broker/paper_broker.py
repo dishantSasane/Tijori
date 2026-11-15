@@ -169,11 +169,34 @@ class PaperBroker:
     def _try_fill_entries(
         self, market: str, symbol: str, ts_open_utc: datetime, open_: Decimal, now: datetime
     ) -> None:
+        # `positions`' primary key is (market, symbol, sleeve) -- a second
+        # pending entry for a sleeve that already holds (or just filled) this
+        # (market, symbol) would otherwise crash on that constraint. Track
+        # occupied sleeves locally and reject duplicates atomically instead.
+        occupied_sleeves = {
+            pos.sleeve
+            for pos in self.open_positions()
+            if pos.market == market and pos.symbol == symbol
+        }
         for pending in self.pending_signals():
             if pending.market != market or pending.symbol != symbol:
                 continue
             if ts_open_utc <= pending.formed_ts:
                 continue  # this candle is not strictly after the signal's own bar yet
+            if pending.sleeve in occupied_sleeves:
+                self._audit.write(
+                    ts_utc=now,
+                    event_type="entry_rejected_duplicate_sleeve_position",
+                    actor="system",
+                    payload={
+                        "signal_id": pending.signal_id,
+                        "market": market,
+                        "symbol": symbol,
+                        "sleeve": pending.sleeve,
+                    },
+                )
+                continue
+            occupied_sleeves.add(pending.sleeve)
             fill = fill_at_next_open(
                 open_, side=pending.side.value, quantity=pending.qty, profile=self._profile
             )
@@ -266,12 +289,17 @@ class PaperBroker:
                         },
                     )
                 continue
-            # ponytail: target check only at the open (no intrabar high-touch
-            # fill model yet) -- add intrabar fill if P3 strategies need it.
-            if pos.target_price is not None and open_ >= pos.target_price:
+            # Target check against the candle's high (PAPER_BROKER_SPEC.md §2.4:
+            # stop/target exits evaluated against every closed candle, same
+            # stop-first-on-the-fill-bar precedence as the backtester). Stop
+            # precedence is structural: stop_exit() above already fires and
+            # `continue`s on any stop touch this candle, so target is only
+            # ever checked when the candle did NOT touch the stop.
+            if pos.target_price is not None and high >= pos.target_price:
+                fill_price = open_ if open_ >= pos.target_price else pos.target_price
                 self._close_position(
                     pos,
-                    pos.target_price,
+                    fill_price,
                     self._profile.exit_fee,
                     OutcomeResult.TARGET_HIT,
                     ExitReason.TARGET,
@@ -399,20 +427,29 @@ class PaperBroker:
         session ends expires unfilled -- removed, audited, never carried to
         the next session silently.
         """
-        expired = [p.signal_id for p in self.pending_signals() if p.market == market]
-        for signal_id in expired:
-            self._conn.execute("DELETE FROM pending_fills WHERE signal_id = ?", (signal_id,))
+        expired = [p for p in self.pending_signals() if p.market == market]
+        for pending in expired:
+            self._conn.execute(
+                "DELETE FROM pending_fills WHERE signal_id = ?", (pending.signal_id,)
+            )
+            # Preserve the signal's own ledger_source -- a pending signal
+            # accepted as a normal paper record must never be written as a
+            # shadow result just because it expired unfilled.
             self._record_outcome(
-                signal_id, OutcomeResult.SESSION_ENDED_UNFILLED, None, now, LedgerSource.SHADOW
+                pending.signal_id,
+                OutcomeResult.SESSION_ENDED_UNFILLED,
+                None,
+                now,
+                pending.ledger_source,
             )
             self._audit.write(
                 ts_utc=now,
                 event_type="session_ended_unfilled",
                 actor="system",
-                payload={"signal_id": signal_id},
+                payload={"signal_id": pending.signal_id},
             )
         self._conn.commit()
-        return expired
+        return [p.signal_id for p in expired]
 
     # -- shadow/rejected outcome tracker (§5) ---------------------------------
 
@@ -451,6 +488,12 @@ class PaperBroker:
             "SELECT result FROM signal_outcomes WHERE signal_id = ?", (signal_id,)
         ).fetchone()
         return OutcomeResult(row[0]) if row else None
+
+    def outcome_ledger_source(self, signal_id: str) -> LedgerSource | None:
+        row = self._conn.execute(
+            "SELECT ledger_source FROM signal_outcomes WHERE signal_id = ?", (signal_id,)
+        ).fetchone()
+        return LedgerSource(row[0]) if row else None
 
     # -- kill-switch integration: cancel pending entries, keep stops live ----
 

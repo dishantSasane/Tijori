@@ -34,6 +34,19 @@ def test_check_1_kill_switch_blocks_before_anything_else(
     assert d.reason_codes == (ReasonCode.KILL_SWITCH_ENGAGED,)
 
 
+def test_check_2_mode_permitting_no_route_is_rejected_before_market_check(
+    engine, passing_signal, passing_portfolio, passing_config
+):
+    """No real `Mode` member fails this today (RISK_ENGINE_SPEC.md §2 note),
+    so this exercises the gate directly with an out-of-band value -- proving
+    check 2 actually executes and rejects, not just a comment that never runs.
+    """
+    config = replace(passing_config, sleeve_mode="disabled")
+    d = engine.check(passing_signal, passing_portfolio, None, config, sleeve="india_equity", now=TS)
+    assert d.allowed is False
+    assert d.reason_codes == (ReasonCode.MODE_DOES_NOT_PERMIT_ROUTE,)
+
+
 def test_check_3_market_closed(engine, passing_signal, passing_portfolio, passing_config):
     engine.calendar.set_open(MKT, False)
     d = engine.check(
@@ -104,6 +117,27 @@ def test_check_9_max_positions_sleeve(engine, passing_signal, passing_portfolio,
     assert d.reason_codes == (ReasonCode.MAX_OPEN_POSITIONS_EXCEEDED,)
 
 
+def test_check_9_max_positions_global(engine, passing_signal, passing_portfolio, passing_config):
+    """Global cap (check 9) is distinct from the sleeve cap (check 8): a
+    sleeve well under its own limit can still be rejected once the
+    portfolio-wide total hits `max_open_positions_total`.
+    """
+    config = replace(passing_config, max_open_positions_total=3)
+    portfolio = replace(passing_portfolio, total_open_positions=3)
+    d = engine.check(passing_signal, portfolio, None, config, sleeve="india_equity", now=TS)
+    assert d.reason_codes == (ReasonCode.MAX_OPEN_POSITIONS_EXCEEDED,)
+    assert d.limits_snapshot.get("scope") == "global"
+
+
+def test_check_9_global_cap_not_enforced_when_unconfigured(
+    engine, passing_signal, passing_portfolio, passing_config
+):
+    assert passing_config.max_open_positions_total is None
+    portfolio = replace(passing_portfolio, total_open_positions=1_000_000)
+    d = engine.check(passing_signal, portfolio, None, passing_config, sleeve="india_equity", now=TS)
+    assert d.allowed is True
+
+
 def test_check_10_daily_loss_limit_breached(
     engine, passing_signal, passing_portfolio, passing_config
 ):
@@ -115,19 +149,58 @@ def test_check_10_daily_loss_limit_breached(
     assert d.reason_codes == (ReasonCode.DAILY_LOSS_LIMIT_BREACHED,)
 
 
-def test_check_11_portfolio_drawdown_kill_also_engages_switch(
+def test_check_11_portfolio_drawdown_kill_is_read_only(
     engine, passing_signal, passing_portfolio, passing_config
 ):
-    from dataclasses import replace as dc_replace
-
-    portfolio = dc_replace(
+    """RISK_ENGINE_SPEC.md §8: check() must stay a pure function of its
+    inputs -- it rejects on a drawdown breach but never itself mutates the
+    kill switch. The state transition is `monitor_portfolio()`'s job.
+    """
+    portfolio = replace(
         passing_portfolio,
         portfolio_peak_equity=Decimal(1_000_000),
         portfolio_equity=Decimal(850_000),
     )
     d = engine.check(passing_signal, portfolio, None, passing_config, sleeve="india_equity", now=TS)
     assert d.reason_codes == (ReasonCode.PORTFOLIO_DRAWDOWN_KILL,)
+    assert engine.kill_switch_handle.is_engaged("global") is False
+
+
+def test_monitor_portfolio_engages_kill_switch_on_drawdown_breach(
+    engine, passing_portfolio, passing_config, audit
+):
+    portfolio = replace(
+        passing_portfolio,
+        portfolio_peak_equity=Decimal(1_000_000),
+        portfolio_equity=Decimal(850_000),
+    )
+    engaged = engine.monitor_portfolio(portfolio, passing_config, now=TS)
+    assert engaged is True
     assert engine.kill_switch_handle.is_engaged("global") is True
+    events = audit.events(event_type="kill_switch_engaged")
+    assert len(events) == 1
+
+
+def test_monitor_portfolio_is_idempotent_when_already_engaged(
+    engine, passing_portfolio, passing_config, audit
+):
+    portfolio = replace(
+        passing_portfolio,
+        portfolio_peak_equity=Decimal(1_000_000),
+        portfolio_equity=Decimal(850_000),
+    )
+    engine.monitor_portfolio(portfolio, passing_config, now=TS)
+    engine.monitor_portfolio(portfolio, passing_config, now=TS)
+    events = audit.events(event_type="kill_switch_engaged")
+    assert len(events) == 1
+
+
+def test_monitor_portfolio_does_not_engage_below_drawdown_threshold(
+    engine, passing_portfolio, passing_config
+):
+    engaged = engine.monitor_portfolio(passing_portfolio, passing_config, now=TS)
+    assert engaged is False
+    assert engine.kill_switch_handle.is_engaged("global") is False
 
 
 def test_check_12_instance_paused(engine, passing_signal, passing_portfolio, passing_config):
