@@ -289,6 +289,67 @@ actually recorded carries the independently-derived `exit_id`) and
 the identical exit produces zero new fills, one `exit_already_applied` audit
 row). Full suite, `ruff`, `mypy --strict` re-verified clean after the change.
 
+**ADR-0029 · 2026-11-16 · accepted · P3 daily report reads the state DB directly, scoped by UTC date-prefix match**
+Context: BUILD_ORDER.md P3 item 5 needs an end-of-day summary (signals, fills,
+P&L, rejection reasons). The state DB (`state_db.py`) already carries
+`fills`, `decisions`, and `signal_outcomes` tables with `TEXT` UTC timestamp
+columns written as ISO-8601 strings.
+Decision: `build_daily_report(conn, date)` in
+`src/trading/reporting/daily_report.py` takes a `YYYY-MM-DD` UTC date,
+never calls `datetime.now()`, and matches rows with `ts_utc LIKE '<date>%'`
+-- a plain string-prefix match, not a timezone-aware range query. This is
+only correct because every writer in this repo stores UTC with a fixed
+`+00:00`/`Z` suffix (AGENTS.md §6); it would silently misbehave if a writer
+ever stored local time. Alternative rejected: a `BETWEEN` range query on
+parsed datetimes -- more robust to timestamp format drift, but the schema
+has no index on a parsed form and it's extra code for a format this repo
+already guarantees elsewhere. Flagged with a `ponytail:`-style note in the
+module docstring instead of building the general form now.
+Consequences: cheap, correct today; if timestamp storage format ever
+changes, this function (and nothing else, since it's the only reader) needs
+a matching update.
+
+**ADR-0030 · 2026-11-16 · accepted · P3 Streamlit dashboard reads SQLite directly, not through an internal API**
+Context: `docs/PAGES.md` §3 specifies a FastAPI internal API
+(`GET /home`, `GET /ledger/{live|paper}`, ...) that the dashboard is meant
+to call, with §4's rule that "the dashboard never talks to brokers
+directly; only the engine/API does." That API does not exist yet -- there
+is no running engine process this session, only the SQLite state file it
+will eventually write to.
+Decision: ship four read-only Streamlit pages (`dashboard/Home.py`,
+`dashboard/pages/{1_India,2_Paper_Ledger,3_Strategies}.py`) that open the
+state DB directly via `dashboard/_data.py::get_connection()`, which only
+ever issues `SELECT`s. The owner's rule still holds in spirit -- nothing
+here can place an order or change a mode, because nothing here writes --
+but it is a real simplification: once `docs/PAGES.md`'s API exists,
+`_data.py` is the one file to swap for HTTP calls, and no page changes.
+Alternative rejected: build the FastAPI layer first -- correct per spec,
+but there is no engine running yet to serve it against, so it would be
+untestable scaffolding today.
+Consequences: needs-human note filed (see handoff) that this is a
+deliberate scope cut, not an oversight, so a reviewer doesn't flag it as a
+silent spec deviation.
+
+**ADR-0031 · 2026-11-16 · needs-human · P3 live data adapter and ORB/breakout paper wiring deferred**
+Context: P3's remaining scope (BUILD_ORDER.md) calls for (a) a real
+live/intraday `DataFeed` for NSE and (b) wiring the P1b ORB/breakout
+strategies through candle builder -> risk engine -> paper broker. Checking
+`origin/main`: `src/trading/strategies/` contains only `phase1.py`; the
+T1/T2/T4/T6/ORB implementations are still on PR #53 (per `handoffs`
+STATUS.md, "implementation-complete, Claude-reviewed, approved" but not
+merged). `docs/specs/DATA_SOURCES.md` confirms no India source is yet
+*selected* for a live feed -- Upstox's live-feed terms are unconfirmed, and
+every free alternative (Angel One, FYERS) needs the owner's own
+account/app setup before any adapter code can be written against it, let
+alone tested.
+Decision: do not build either item in this session. Building a live
+adapter against an unconfirmed/unselected API would be guesswork; wiring
+strategies that are not on `main` would mean importing from an unmerged PR
+branch, which is exactly the kind of duplicated-work mistake a previous
+session already made (see STATUS.md note 0035).
+Consequences: see the handoff note for the precise question for the owner
+and for Codex/Claude's next session.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
