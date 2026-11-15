@@ -36,15 +36,16 @@ collection methods.
   Upstox is the selected action API candidate; manual reviewed records or a
   permitted source are still needed for demergers/unknown events.
 - After those fixes: full pytest, Ruff lint/format, mypy, and diff checks passed.
-  A second independent review is still pending.
+  The independent reviewer approved through `68d7b5e`; GitHub CI passed on the
+  same commit.
 
 ## Where I stopped (exact)
 - Branch: `codex/p1-build`.
 - Base/latest committed change: `9802fc7` (PR #53). Existing unrelated local
   edit to `src/trading/backtest/runner.py` was present at pickup and remains
   unstaged/untouched.
-- Client/docs commits `9a6cd8c` and `5e9b84a` are pushed to PR #53. The
-  reviewer has been asked for a second pass on the fixes; it is still pending.
+- Client/docs commits `9a6cd8c`, `5e9b84a`, and `68d7b5e` are pushed to PR #53.
+  The PR description is updated; owner review/merge remains required.
 - No daily dataset rebuild, raw action-response archive, bonus-provider case,
   demerger manual ledger, or open-position replay was completed because no live
   response could be acquired and coverage is undocumented.
