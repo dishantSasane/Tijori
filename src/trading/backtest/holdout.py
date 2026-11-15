@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import fcntl
 import json
+import secrets
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import date
@@ -112,13 +113,23 @@ class HoldoutAlreadyConsumedError(RuntimeError):
 
 
 class ConsumedHoldout(Contract):
+    """Proof of a real `reserve_once` consumption.
+
+    `authorization_token` is a cryptographically random secret minted inside
+    `_consume` and never derivable from the plan's own (public, pre-registered)
+    fields -- unlike a hash of those fields, it cannot be reconstructed by a
+    caller who never actually went through consumption. `validate_authorization`
+    checks it against the ledger row, so a forged or copied-but-never-issued
+    token is rejected even if every other field matches a real, consumed plan.
+    """
+
     plan_id: str
     data_window_id: str
     shortlist_hash: str
     rejection_rule_hash: str
     metrics_hash: str
     family_hash: str
-    authorization_hash: str
+    authorization_token: str = Field(min_length=1)
 
 
 class HoldoutEvaluator:
@@ -143,6 +154,7 @@ class HoldoutEvaluator:
                 rejection_rule_hash VARCHAR NOT NULL,
                 metrics_hash VARCHAR NOT NULL,
                 family_hash VARCHAR NOT NULL,
+                authorization_token VARCHAR NOT NULL UNIQUE,
                 consumed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             """
@@ -160,7 +172,7 @@ class HoldoutEvaluator:
 
     def reserve_once(self, plan: HoldoutPlan) -> ConsumedHoldout:
         """Durably consume the holdout and return authorization for its rows."""
-        self._consume(plan)
+        token = self._consume(plan)
         return ConsumedHoldout(
             plan_id=plan.plan_id,
             data_window_id=plan.data_window_id,
@@ -168,10 +180,12 @@ class HoldoutEvaluator:
             rejection_rule_hash=plan.rejection_rule_hash,
             metrics_hash=plan.metrics_hash,
             family_hash=plan.family_hash,
-            authorization_hash=_authorization_hash(plan),
+            authorization_token=token,
         )
 
-    def _consume(self, plan: HoldoutPlan) -> None:
+    def _consume(self, plan: HoldoutPlan) -> str:
+        """Insert the consumption row and return its freshly minted secret token."""
+        token = secrets.token_hex(32)
         with self._lock, self._reservation_file_lock():
             transaction_started = False
             try:
@@ -195,8 +209,8 @@ class HoldoutEvaluator:
                         plan_id, data_window_id, holdout_start, holdout_end,
                         source_snapshot_id, universe_version, calendar_version,
                         corporate_action_version, shortlist_hash, rejection_rule_hash,
-                        metrics_hash, family_hash
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        metrics_hash, family_hash, authorization_token
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     [
                         plan.plan_id,
@@ -211,10 +225,12 @@ class HoldoutEvaluator:
                         plan.rejection_rule_hash,
                         plan.metrics_hash,
                         plan.family_hash,
+                        token,
                     ],
                 )
                 self._connection.execute("COMMIT")
                 transaction_started = False
+                return token
             except duckdb.ConstraintException as error:
                 if transaction_started:
                     self._connection.execute("ROLLBACK")
@@ -262,11 +278,32 @@ class HoldoutEvaluator:
                     parameters.append(value)
             return self._connection.execute(query, parameters).fetchone() is not None
 
-    @staticmethod
-    def validate_authorization(authorization: ConsumedHoldout) -> bool:
+    def validate_authorization(self, authorization: ConsumedHoldout) -> bool:
+        """True only if `authorization_token` matches the ledger row this
+        evaluator actually wrote during a real `reserve_once` call -- a value
+        an outsider cannot guess or recompute from the plan's public fields.
+        """
         if not isinstance(authorization, ConsumedHoldout):
             return False
-        return authorization.authorization_hash == _authorization_hash(authorization)
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT 1 FROM consumed_holdouts
+                WHERE plan_id = ? AND data_window_id = ? AND shortlist_hash = ?
+                  AND rejection_rule_hash = ? AND metrics_hash = ? AND family_hash = ?
+                  AND authorization_token = ?
+                """,
+                [
+                    authorization.plan_id,
+                    authorization.data_window_id,
+                    authorization.shortlist_hash,
+                    authorization.rejection_rule_hash,
+                    authorization.metrics_hash,
+                    authorization.family_hash,
+                    authorization.authorization_token,
+                ],
+            ).fetchone()
+            return row is not None
 
     def close(self) -> None:
         self._connection.close()
@@ -276,15 +313,3 @@ class HoldoutEvaluator:
 
     def __exit__(self, *_: object) -> None:
         self.close()
-
-
-def _authorization_hash(value: HoldoutPlan | ConsumedHoldout) -> str:
-    payload = {
-        "plan_id": value.plan_id,
-        "data_window_id": value.data_window_id,
-        "shortlist_hash": value.shortlist_hash,
-        "rejection_rule_hash": value.rejection_rule_hash,
-        "metrics_hash": value.metrics_hash,
-        "family_hash": value.family_hash,
-    }
-    return sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
