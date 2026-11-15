@@ -143,6 +143,25 @@ explicitly waived by the owner; the untouched holdout from the current
 2016-2026 sample is no longer valid once inspected, so a new, genuinely
 unread holdout range must be committed in P1a config before P1b/P1c runs.
 
+**ADR-0025 · 2026-11-15 · proposed · P1 data and evaluation assumptions requiring owner decision**
+Context: P1a-P1c cannot be made reproducible by implementation choices alone.
+Historical index membership has a possible official source, but its coverage,
+licence, and price are unpublished; using today's membership creates
+survivorship bias. P1's comparison also needs common sizing assumptions and an
+explicit holding horizon before metrics can be interpreted.
+Decision: leave these as hard gates, not defaults. For historical Nifty 50 /
+Next 50 membership, first request a quote and written coverage/licence details
+from NSE Indices; proceed only after the owner accepts the source/terms or
+explicitly signs off on a scoped survivorship-bias caveat. For comparisons,
+the owner must choose (or explicitly authorize a documented research-only
+assumption for) starting capital and per-trade risk. The owner must confirm
+daily swing horizon or specify another target horizon. Until these are settled,
+do not freeze split dates, ingest index history under an assumed licence, or
+rank a strategy library as if the results represented the intended system.
+Consequences: P1 can continue on source research, data-contract design, and
+synthetic/known-answer validation that does not consume the holdout. Real-data
+discovery and P1a completion remain blocked on the relevant decisions.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
