@@ -1,10 +1,15 @@
 # Corporate-action price adjustment
 
-Status: P1a implementation slice. The pure split/bonus transformation and
-synthetic known-answer tests exist. It is **not yet approved for the Upstox
-dataset**: the provider's documented candle fields do not establish whether
-prices are raw or already adjusted, and no authorized point-in-time action
-ledger has been acquired and validated.
+Status: P1a implementation slice; source and coverage gates remain open. The
+pure split/bonus transformation and synthetic known-answer tests exist. A real
+Upstox V3 daily response for
+NESTLEIND around its NSE 10:1 split (ex-date 2024-01-05) shows already adjusted
+prices: ₹1,355.80 on 2024-01-04 and ₹1,333.20 on 2024-01-05. The prior close is
+already on the post-split price scale; applying the 10:1 transform again would
+double-adjust it. See `tests/fixtures/upstox/upstox_nestle_2024_split.json`
+and the known-answer test. This one event does not establish behavior for all
+symbols/actions or validate the completeness, rights, or point-in-time
+correctness of an NSE action ledger.
 
 ## Supported events
 
@@ -17,7 +22,9 @@ revision published by that date. A 2-for-1 split uses `2`; a 1-for-1 bonus
 issue also uses `2` because each old share becomes two shares. A reverse split
 may use a ratio below one; a bonus issue must add shares and therefore uses a
 ratio above one. Dividends, rights, mergers, demergers, and other events are
-not converted into guessed factors.
+not converted into guessed factors. NSE row normalization classifies demerger,
+rights, dividend, and unknown-purpose events as review-only notices; it never
+constructs a share factor for them.
 
 For an event that is effective by the requested replay date, earlier bars are
 scaled by:
@@ -31,15 +38,55 @@ Bars on the effective date and later retain their recorded OHLCV. A historical
 replay must call the transform with that replay's own `as_of` date; future
 actions and actions not yet published by that date are ignored. This avoids
 using a later split to rewrite what the system would have observed before that
-split was effective. The current function accepts daily bars only, so an
-intraday or weekly candle that could straddle the effective date is rejected.
+split was effective. The transform accepts daily and intraday bars and compares
+each bar's timestamp in India local time to the effective date. Every intraday
+bar on the ex-date or later is left at its traded value; earlier sessions are
+adjusted. Daily and intraday ingestion use
+`trading.storage.adjusted_ingestion.append_adjusted_candles`, which invokes the
+transform before storage when given a verified action ledger. The intraday
+loader requires callers to attest that
+the ledger is complete and authorized, but cannot independently establish
+either property. An empty ledger does not prove there were no actions.
+
+## Backtest-window action screening
+
+`parse_nse_corporate_action_row` normalizes `SYMBOL`, `PURPOSE`, and `EX-DATE`
+(with common header/date variants) into a `CorporateActionNotice`. The
+classifier recognizes split, bonus, demerger, rights, and dividend purposes;
+unrecognized descriptions are retained as `other` so they cannot silently
+disappear. `inspect_unhandled_actions` selects notices whose ex-date is
+inclusive within the backtest window and whose symbol is in the candidate
+universe. A split or bonus is considered handled only when its exact
+`(symbol, ex_date)` is listed in the verified handled-action keys. A key can
+mean that the provider already adjusted the event or that the approved
+transform did. Demergers,
+rights issues, dividends, and unknown action types always produce review
+flags.
+
+`screen_backtest_symbols` excludes every flagged symbol by default. A caller
+may allow a symbol only by supplying an explicit reviewed key for that exact
+`(symbol, ex_date, kind)`; the flag remains in the result for audit. This is a
+screen over normalized feed rows, not a downloader or evidence that the feed
+is complete. The backtest orchestrator must run this screen before invoking
+either primary or reference replay, and record the flags and chosen exclusions
+or reviews in its experiment record.
+
+In particular, NSE demerger and rights issues alter company/shareholder value
+through mechanics that differ from splits and bonus issues. They are detected
+and blocked for review; no price, volume, quantity, or return adjustment is
+attempted.
 
 ## Safety and provenance boundary
 
-- Input must be verified raw/unadjusted candles. The Upstox V3 API describes
-  OHLCV fields but does not document their corporate-action adjustment basis in
-  the [historical candle contract](https://upstox.com/developer/api-documentation/v3/get-historical-candle-data/).
-  Verify this with Upstox before applying the transform to provider data.
+- Input to the transformer must be verified raw/unadjusted candles. The
+  captured NESTLEIND event is evidence that Upstox V3 daily candles are already
+  split-adjusted across that event; do not apply that event to those candles or
+  generalize the observation to every adjustment type, interval, or symbol.
+  Provider-adjusted event keys must be omitted from the transform ledger to
+  avoid double adjustment; `prepare_candles_for_storage` supports this exact
+  exclusion. Upstox's
+  [historical candle contract](https://upstox.com/developer/api-documentation/v3/get-historical-candle-data/)
+  documents OHLCV fields but not adjustment behavior.
 - Applying an action to candles already marked with a non-null `adj_factor`
   fails closed even if the requested as-of date would otherwise produce no
   adjustment; a previously transformed series cannot be reused as raw history.
@@ -55,17 +102,28 @@ intraday or weekly candle that could straddle the effective date is rejected.
   evidence for trades spanning an effective date. That requires a separately
   tested position/action replay contract and independent reference-runner
   equivalence.
-- No action source, licence, or corporate-action price adjustment has been
-  accepted by the owner. Do not claim the current six-symbol sample is fully
-  adjusted or survivorship-free.
+- The captured NSE circular is suitable as a single event reference, not as an
+  approved bulk action feed. NSE website terms prohibit systematic collection
+  and simulation use absent permission; therefore no automatic NSE feed pull
+  or real action ledger was added. The synthetic 1:1 bonus case validates the
+  formula, but is not evidence of NSE-feed parsing or completeness. Do not claim
+  the current six-symbol sample is fully adjusted or survivorship-free.
+- This branch has an intraday loader but no daily Upstox loader to retrofit.
+  Daily history already held locally has not been rewritten. The daily and
+  intraday adjustment function is available to ingestion code, but P1a cannot
+  claim all stored history was adjusted until a permitted, complete ledger and
+  verified provider adjustment basis are available.
 
 ## Validation completed and remaining
 
-Synthetic known-answer tests cover a 2-for-1 split, a 1-for-1 bonus issue,
+Known-answer tests cover the Upstox NESTLEIND 10:1 provider-adjusted event, a
+synthetic 2-for-1 split, a synthetic 1-for-1 bonus issue,
 multiple events, effective-date boundaries, as-of filtering, revision
-selection, market/symbol scoping, unsupported event types/timeframes, invalid
-ratios, and double-adjustment rejection. Before P1a can exit, obtain an
-authorized action source, confirm
-Upstox price basis, validate real event records against dated official notices,
+selection, market/symbol scoping, provider-adjusted event exclusion, unsupported event types, invalid
+ratios, and double-adjustment rejection. Synthetic NSE-row tests cover event
+classification and backtest-window screening for demergers, rights issues,
+splits, bonuses, dividends, and unknown action purposes. Before P1a can exit,
+obtain an action-source permission/coverage decision, validate additional event types,
 and extend both primary and reference backtesters for positions crossing share
-adjustments.
+adjustments. The NESTLEIND real-event probe closes the price-basis unknown for
+this 10:1 split only.

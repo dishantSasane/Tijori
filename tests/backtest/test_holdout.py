@@ -1,0 +1,149 @@
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date
+from pathlib import Path
+from threading import Barrier
+
+import pytest
+
+from trading.backtest.holdout import (
+    HoldoutAlreadyConsumedError,
+    HoldoutEvaluator,
+    HoldoutPlan,
+    holdout_plan_from_split,
+    holdout_window_id,
+)
+from trading.backtest.splits import create_split_plan
+
+
+def plan(**overrides: object) -> HoldoutPlan:
+    window_fields = {
+        "holdout_start": date(2023, 1, 1),
+        "holdout_end": date(2024, 1, 1),
+        "source_snapshot_id": "synthetic-source",
+        "universe_version": "synthetic-universe",
+        "calendar_version": "synthetic-calendar",
+        "corporate_action_version": "synthetic-actions",
+    }
+    values: dict[str, object] = {
+        "plan_id": "synthetic-plan-v1",
+        **window_fields,
+        "data_window_id": holdout_window_id(**window_fields),
+        "shortlist_hash": "sha-shortlist",
+        "rejection_rule_hash": "sha-rejection",
+        "metrics_hash": "sha-metrics",
+        "family_hash": "sha-family",
+    }
+    values.update(overrides)
+    return HoldoutPlan.model_validate(values)
+
+
+def test_holdout_is_marked_consumed_before_result_is_returned(tmp_path: Path) -> None:
+    with HoldoutEvaluator(tmp_path / "holdout.duckdb") as guard:
+        result = guard.evaluate_once(plan(), lambda: {"synthetic": 1})
+        assert result == {"synthetic": 1}
+        assert guard.is_consumed("synthetic-plan-v1")
+
+
+def test_holdout_plan_cannot_be_evaluated_twice(tmp_path: Path) -> None:
+    with HoldoutEvaluator(tmp_path / "holdout.duckdb") as guard:
+        guard.evaluate_once(plan(), lambda: "first")
+        with pytest.raises(HoldoutAlreadyConsumedError):
+            guard.evaluate_once(plan(), lambda: pytest.fail("must not run"))
+
+
+def test_renaming_plan_cannot_reuse_consumed_data_window(tmp_path: Path) -> None:
+    with HoldoutEvaluator(tmp_path / "holdout.duckdb") as guard:
+        guard.evaluate_once(plan(), lambda: "first")
+        renamed = plan(plan_id="different-plan-id")
+        with pytest.raises(HoldoutAlreadyConsumedError):
+            guard.evaluate_once(renamed, lambda: pytest.fail("same window must not run twice"))
+
+
+def test_failure_during_evaluation_does_not_unconsume_holdout(tmp_path: Path) -> None:
+    with HoldoutEvaluator(tmp_path / "holdout.duckdb") as guard:
+        with pytest.raises(RuntimeError, match="synthetic"):
+            guard.evaluate_once(plan(), lambda: (_ for _ in ()).throw(RuntimeError("synthetic")))
+        assert guard.is_consumed("synthetic-plan-v1")
+
+
+def test_plan_id_is_required() -> None:
+    with pytest.raises(ValueError):
+        plan(plan_id="")
+
+
+def frozen_split(**overrides: object):
+    values: dict[str, object] = {
+        "plan_id": "p1a-v1",
+        "version": "1",
+        "data_window_id": "full-window-sha",
+        "source_snapshot_id": "source-sha",
+        "universe_version": "universe-v1",
+        "calendar_version": "xnse-v1",
+        "corporate_action_version": "actions-v1",
+        "development": {"start": date(2018, 1, 1), "end": date(2020, 1, 1)},
+        "validation": {"start": date(2020, 1, 1), "end": date(2022, 1, 1)},
+        "holdout": {"start": date(2022, 1, 1), "end": date(2024, 1, 1)},
+        "embargo_bars": 1,
+        "holdout_unread": True,
+    }
+    values.update(overrides)
+    return create_split_plan(**values)
+
+
+def test_holdout_plan_is_derived_from_frozen_split_contents() -> None:
+    derived = holdout_plan_from_split(
+        frozen_split(),
+        shortlist_hash="shortlist",
+        rejection_rule_hash="rejection",
+        metrics_hash="metrics",
+        family_hash="family",
+    )
+    changed_plan_label = holdout_plan_from_split(
+        frozen_split(plan_id="renamed"),
+        shortlist_hash="shortlist",
+        rejection_rule_hash="rejection",
+        metrics_hash="metrics",
+        family_hash="family",
+    )
+    assert derived.plan_id != changed_plan_label.plan_id
+    assert derived.data_window_id == changed_plan_label.data_window_id
+
+
+def test_overlapping_holdout_range_cannot_be_reintroduced_by_new_split_id(tmp_path: Path) -> None:
+    with HoldoutEvaluator(tmp_path / "holdout.duckdb") as guard:
+        original_split = frozen_split()
+        original = holdout_plan_from_split(
+            original_split,
+            shortlist_hash="shortlist",
+            rejection_rule_hash="rejection",
+            metrics_hash="metrics",
+            family_hash="family",
+        )
+        guard.reserve_once(original)
+        overlapping_split = frozen_split(plan_id="different-split", version="2")
+        overlapping = holdout_plan_from_split(
+            overlapping_split,
+            shortlist_hash="new-shortlist",
+            rejection_rule_hash="new-rejection",
+            metrics_hash="new-metrics",
+            family_hash="new-family",
+        )
+        with pytest.raises(HoldoutAlreadyConsumedError):
+            guard.reserve_once(overlapping)
+
+
+def test_concurrent_attempts_for_same_window_allow_only_one_evaluator(tmp_path: Path) -> None:
+    with HoldoutEvaluator(tmp_path / "holdout.duckdb") as guard:
+        barrier = Barrier(2)
+
+        def evaluate(plan_id: str) -> str:
+            barrier.wait()
+            try:
+                return guard.evaluate_once(plan(plan_id=plan_id), lambda: f"evaluated:{plan_id}")
+            except HoldoutAlreadyConsumedError:
+                return "rejected"
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(evaluate, ("plan-a", "plan-b")))
+        assert sum(result.startswith("evaluated:") for result in results) == 1
+        assert results.count("rejected") == 1

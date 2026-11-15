@@ -44,49 +44,107 @@ Each sub-phase is its own PR (or PR group) with its own exit criteria. A later
 sub-phase must not start against data or splits that an earlier sub-phase has
 not frozen.
 
+While owner inputs are pending, continue deterministic contracts, pure
+algorithms, synthetic tests, and source-independent specs. Do not ingest a
+source whose rights/schema are unresolved, freeze dates without a known
+authorized data window, read the burned holdout, or report real-data strategy
+rankings. Gather remaining owner decisions in a consolidated handoff after the
+independent work is ready.
+
 ### P1a — Data foundation
 
 | Deliverable | A/R | Notes |
 |---|---|---|
 | Tier A daily history in Parquet (candle store + validation) | Sol / Terra | already done for the 6-symbol representative set |
-| Corporate-action adjustment, verified | Terra / Sol | splits/bonuses must not silently corrupt returns; add a known-answer test per action type |
-| Research universe: rule-based, computed from free NSE bhavcopy | Terra / Sol | **primary universe — resolved, no paid licence.** Top 50 (and separately top 100 for Tier B-adjacent research) by rolling 60-day median turnover, recomputed monthly, keyed on ISIN (not symbol — symbols get renamed/reused, ISINs don't). This is survivorship-free by construction: a stock that was liquid in year N and delisted in year N+2 appears in year N's universe and vanishes after, exactly as it should, with no manifest and no vendor needed. Data: NSE's free bhavcopy archives (`sec_bhavdata_full` daily files; evaluate the maintained `nse-archives` package's licence/maintenance before adopting it, otherwise write a small fetcher) |
-| Nifty 50 point-in-time manifest: reconstructed, benchmark-only | Terra / Sol | Not the research universe — only used so a scorecard can honestly say "vs. Nifty 50 as of 2021-06-30." Reconstruct by anchoring on today's known membership and walking NSE Indices' own public, dated replacement press releases (`niftyindices.com/Press_Release/ind_prsDDMMYYYY.pdf`) backward in time, one replacement at a time. Store as a dated table with the press-release URL cited per row, so every row is auditable. Cross-check against Wikipedia's replacements-since-2005 table, but never treat Wikipedia as the source; flag (don't silently resolve) any disagreement between the two |
-| Chronological split boundaries, written and frozen in config before any strategy runs | Sol / Terra | development period, validation period, untouched holdout; dates committed to config and never read until P1d |
+| Tier A intraday history in Parquet (1m and 5m) | Sol / Terra | Upstox V3 intraday history has a fixed provider floor of January 2022. Do not probe for earlier intraday history; it is unavailable through this provider. One-month maximum request span for 1–15m. Resumable loader and tests are implemented; sustained full-universe collection still pending. |
+| Corporate-action adjustment, verified | Terra / Sol | Upstox daily history is already split-adjusted for NESTLEIND’s official 10:1 split (ex-date 2024-01-05): ₹1,355.80 on the prior session and ₹1,333.20 ex-date; fixture/test added to prevent double adjustment. NSE row parser flags demerger, rights, dividend, and unknown actions in a backtest window; symbols are excluded unless the exact event is explicitly reviewed. No automatic factor is applied to these event types. Verify other actions/symbols and obtain a permitted/complete event ledger. |
+| Research universe: rule-based, proposed NSE bhavcopy source | Terra / Sol | Owner-approved selection rule under ADR-0026: top 50 (and separately top 100 for later Tier-B-adjacent research) by rolling 60-session median turnover, recomputed monthly, keyed on ISIN. **Source use is not cleared:** official terms and archived-file schema have not established permission for systematic collection, storage, or backtest/simulation use, nor stable identifier and historical coverage completeness. Implement and validate only the pure selector with synthetic normalized inputs until an authorized source and schema are confirmed. Do not call results survivorship-free unless dated coverage includes eligible securities later delisted and resolves missing/no-trade rows. |
+| Nifty 50 point-in-time manifest: reconstructed, benchmark-only | Terra / Sol | Benchmark only; not the research universe. Dated NSE Indices replacement notices are a candidate reconstruction source, but terms prohibit systematic/automated collection absent written consent and archive completeness/corrections are unverified. Do not automate collection or label a manifest complete until permitted use and coverage are established. A list of 50 names does not prove complete membership history or calculate index returns. If authorized, retain source URLs and publication/effective dates per change; flag gaps and disagreements with independent dated snapshots for human resolution. |
+| Chronological split boundaries, written and frozen in config before any strategy runs | Sol / Terra | Contract in `specs/RESEARCH_SPLITS.md`; dates remain unset until authorized source/window and fresh unread holdout are available |
 
-Exit: corporate-action adjustment has known-answer tests; the rule-based
-universe and the reconstructed Nifty 50 benchmark manifest are both built and
-ISIN-joined against the Upstox instrument master; split boundaries exist in a
-committed config file with no strategy code reading the holdout range.
+P1 candle scope includes **daily swing and intraday from the start**. Upstox
+historical 1m and 5m data has a fixed floor of January 2022; earlier intraday
+history is unavailable through this provider and must not be probed again.
+Intervals 1–15m have a one-month maximum range per request. The 2026-11-15
+probe found no different retention window for 1m versus 5m in the sampled
+symbols. The current intraday loader uses month-bounded requests; tokens are
+supplied at runtime and are never persisted. OAuth auto-renewal remains out of
+scope until the live/paper trading phase.
 
-Progress note (2026-11-15): the pure daily split/bonus price-volume transform
-and synthetic known-answer tests are in `trading.storage.corporate_actions`
+Exit: corporate-action adjustment has real-event and synthetic known-answer tests; the pure rule-based
+universe selector is implemented and tested; authorized, schema-verified
+historical universe inputs and permitted, coverage-verified benchmark data are
+available and ISIN-joined against the Upstox instrument master; split
+boundaries exist in committed config with no strategy code reading the
+holdout range. Source authorization and historical coverage are hard gates,
+not implied by public download availability.
+
+Progress note (2026-11-15): the pure daily/intraday split/bonus price-volume transform
+and known-answer tests are in `trading.storage.corporate_actions`
 and `tests/storage/test_corporate_actions.py`. The membership manifest
-contract and validator in `trading.storage.membership` were built against the
-"authorized vendor" design; they are being repointed at the rule-based
-universe (primary) and the reconstructed press-release manifest (benchmark
-only) instead — see ADR-0026, which supersedes ADR-0025's "pay for a licence"
-branch. **Owner decisions recorded:** no NSE Indices licence purchase, no
-vendor email; research-comparison sizing is 1% per-trade risk on a ₹1,00,000
-placeholder capital (not real trading capital, used only so candidates are
-sized identically). Still open: Upstox's raw/adjusted price basis
-(undocumented — verify empirically against a known corporate action in the
-existing 6-symbol sample, e.g. Infosys's 2018 bonus issue, before trusting any
-adjusted candle), both backtesters modelling share-count changes for
-positions crossing an event, the untouched holdout boundaries, and the
-holding-horizon confirmation (see Open Questions).
+contract and validator in `trading.storage.membership` validate a supplied
+benchmark manifest; they do not establish its source permission or
+completeness. The owner selected the rule-based turnover universe and declined
+an NSE Indices licence inquiry under ADR-0026. Source rights, bhavcopy schema,
+historical eligible-security coverage, and completeness of the benchmark
+notice archive remain unverified, so only synthetic selector validation may
+proceed pending resolution. **Owner decision recorded:** research-comparison
+sizing is 1% per-trade risk on a ₹1,00,000 placeholder capital (not real
+trading capital, used only so candidates are sized identically). Still open:
+Upstox's corporate-action basis has now been empirically checked for one
+specific event: NESTLEIND 10:1 split on 2024-01-05. Upstox returned ₹1,355.80
+on the prior session and ₹1,333.20 ex-date. The prior candle is already on the
+post-split price scale, so this event is pre-adjusted by Upstox (case a); do
+not apply the 10:1 transform a second time. The real-event fixture/test checks
+this. Do not generalize the single event to every action type or symbol.
+Validate provider adjustment markers/basis for other events, implement and
+independently verify position/share-count replay across actions in both
+backtesters, and obtain an authorized complete event ledger before P1a exit.
+The untouched holdout boundaries and holding-horizon confirmation also remain
+open (see Open Questions).
+
+Intraday history probe (2026-11-15): Upstox V3 returned 375 one-minute and 75
+five-minute candles per full session for Nifty 50 and RELIANCE, INFY, TCS,
+HDFCBANK, ICICIBANK on 2026-11-13, 2026-10-15, and 2026-05-15. Both intervals
+returned zero rows on 2024-11-15. Nifty 50 returned history for 2022-01-03
+through 2022-01-31 at both intervals and none for December 2021. The provider
+documents minute availability since January 2022 and a one-month request cap
+for 1–15 minute intervals; both 44-day probes were rejected with UDAPI1148.
+Requests at the documented boundary were chunked by month. Published rate
+limits for standard APIs (including historical candles) are 50/second,
+500/minute, and 2,000/30 minutes; this low-rate probe did not trigger a 429.
+The runtime token is daily and must be freshly injected by the operator or
+future login flow; the loader deliberately has no `.env` fallback.
+
+Progress note (2026-11-15, selector slice):
+`trading.storage.research_universe.build_snapshot` and synthetic contract
+tests implement the pure monthly turnover ranker. Real feed parsing and
+collection remain blocked by the source gate above. The selector API and
+provenance contract are specified in `specs/RESEARCH_UNIVERSE.md`.
+The three-way split contract is in `specs/RESEARCH_SPLITS.md`; it deliberately
+contains no boundaries because the available 2016–2026 window is burned and
+source/coverage gates remain unresolved.
 
 ### P1b — Candidate library (pre-registered)
 
+The P1-specific catalogs in `specs/P1_CANDIDATES.md` freeze daily-swing and
+intraday families and limit each family to three total variants. The broad
+sweep ranges in `STRATEGIES.md` remain general guidance and do not authorize a
+larger P1 search.
+
 | Deliverable | A/R | Notes |
 |---|---|---|
-| Fixed candidate family spec, declared before any ranking | Sol / Terra | buy-and-hold benchmark, cash/no-trade benchmark, moving-average trend, Donchian breakout, RSI/Bollinger mean reversion, volatility breakout, momentum, plus existing T1/T4 baselines |
+| Fixed candidate family spec, declared before any ranking | Sol / Terra | daily families plus a parallel pre-registered intraday family catalog from the start; ORB requires its own exact intraday rules and is not deferred to a later phase |
 | Declared parameter grid per candidate, with a hard cap on variations | Sol / Terra | state the cap explicitly in the spec file; no free-form parameter sweeps |
 | Versioned, deterministic spec per candidate | Sol / Terra | same immutable-version discipline as `STRATEGIES.md` §6 |
 
-Exit: every candidate and its parameter grid exists in a spec file before any
-backtest of it runs; the cap on variations is a number written down, not an
-intention.
+Exit: every executable candidate and parameter grid exists in a spec file
+before any backtest runs; the cap on variations is a number written down, not
+an intention. The daily catalog is drafted, but its RPF hypothesis remains
+non-executable until its complete rules are specified. A separate intraday
+catalog with exact ORB rules and parameter variants remains to be written.
+Owner confirmation of the promotion horizon and viability thresholds is still
+required before result generation.
 
 ### P1c — Evaluation harness and experiment registry
 
@@ -97,8 +155,10 @@ intention.
 | Experiment registry | Sol / Terra | every candidate and variant attempted, including failures, logged with run ID, spec version, split used, and result, so the eventual winner can be discounted for the number of attempts behind it |
 
 Exit: the registry has one row per attempted run (pass or fail); the ranking
-report states which correction method was applied and shows ranked results
-both with and without it.
+report states which correction method was applied and shows results both with
+and without it. The append-only registry, deterministic moving-block bootstrap
+and Bonferroni helpers now exist, but no ranking report can be produced until
+P1a's source/split gates and the portfolio aggregation contract are settled.
 
 ### P1d — Holdout evaluation
 
@@ -110,7 +170,9 @@ both with and without it.
 
 Exit: holdout is evaluated exactly once per shortlist candidate; rejections
 and survivors are both recorded with the rejection rule applied, not a
-post-hoc judgment call.
+post-hoc judgment call. A durable one-shot evaluator now records consumption
+before evaluation; actual use waits for a fresh unread holdout and frozen
+shortlist/rejection/metric hashes.
 
 ### P1e — Regime-gated activation layer
 
@@ -129,7 +191,10 @@ instrument.
 
 Exit: activation rule set exists as a versioned spec with a stated complexity
 cap; overlap and abstention are both covered by tests; activation frequency is
-part of the per-instance scorecard (`STRATEGIES.md` §7).
+part of the per-instance scorecard (`STRATEGIES.md` §7). The fixed two-axis
+regime calculation and router skeleton are implemented and synthetically
+tested; promotion thresholds, empirical validation and production scorecard
+integration remain gated on P1a-P1d.
 
 ### Candidate original hypothesis (frozen pre-registered, untested)
 

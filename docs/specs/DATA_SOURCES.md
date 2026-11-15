@@ -138,11 +138,17 @@ P1 corporate-action adjustment requirements:
   preserve the original file, provider, acquisition time, and adjustment version.
 - Specify treatment of dividends and rights separately. Do not infer factors from
   free-text corporate-action descriptions without validated, known-answer cases.
-- The synthetic split/bonus transformer and known-answer tests are specified in
-  [`CORPORATE_ACTIONS.md`](CORPORATE_ACTIONS.md). It must not be applied to
-  Upstox candles until the provider confirms whether those prices are already
-  adjusted; P1 backtests must also account for share-count changes on held
-  positions before adjusted data can support promotion.
+- Detect demerger, rights, dividend, and unrecognized corporate-action purposes
+  in each backtest window. Exclude affected symbols or require event-level human
+  review; never silently leave the event in returns, and do not auto-adjust
+  demergers or rights issues.
+- The split/bonus transformer and known-answer tests are specified in
+  [`CORPORATE_ACTIONS.md`](CORPORATE_ACTIONS.md). A real NESTLEIND 10:1 event
+  indicates Upstox's daily candles are already adjusted across that split;
+  never apply the transform again to those candles. Treat other symbols and
+  action types as unverified until checked. P1 backtests must also account for
+  share-count changes on held positions before adjusted data can support
+  promotion.
 - Obtain historical instrument identifiers, symbol changes, delistings, and
   point-in-time index membership. Today's Nifty 50 list cannot prove a
   survivorship-free historical Nifty 50 result.

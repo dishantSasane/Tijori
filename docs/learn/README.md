@@ -10,6 +10,8 @@ You are learning trading systems while they are built. Every milestone produces 
 | 01 | Candles, ticks, and why we summarise | P0 |
 | 02 | What is a backtest, and how to read one (return, drawdown, win rate, profit factor) | P0 / P1 |
 | 03 | Why backtests lie: costs, slippage, overfitting, survivorship, look-ahead | P0 / P1 |
+| 03A | Point-in-time stock universes | P1 |
+| 03B | Pre-registration, multiple testing, and the holdout | P1 |
 | 04 | Stop-loss, position sizing, and risk per trade | P2 |
 | 05 | The risk engine and the kill switch (why it can say no to everything) | P2 |
 | 06 | Paper trading and auto-paper shadow: learning from trades you did not take | P2-P3 |

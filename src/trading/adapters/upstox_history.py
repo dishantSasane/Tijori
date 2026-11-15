@@ -27,7 +27,8 @@ class UpstoxHistoryError(RuntimeError):
 
 
 def _request(url: str, headers: dict[str, str]) -> bytes:
-    request = Request(url, headers=headers, method="GET")
+    request_headers = {"User-Agent": "tijori-research/1.0", **headers}
+    request = Request(url, headers=request_headers, method="GET")
     try:
         with urlopen(request, timeout=30) as response:  # noqa: S310 - fixed HTTPS base URL
             return cast(bytes, response.read())
@@ -42,10 +43,15 @@ class UpstoxHistoryClient:
     """Fetch V3 historical/intraday candles without implementing login flow."""
 
     def __init__(
-        self, *, base_url: str = BASE_URL, requester: Callable[..., bytes] = _request
+        self,
+        *,
+        base_url: str = BASE_URL,
+        requester: Callable[..., bytes] = _request,
+        user_agent: str | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._requester = requester
+        self._user_agent = user_agent
 
     def fetch(
         self,
@@ -68,6 +74,8 @@ class UpstoxHistoryClient:
             if from_date is not None:
                 path += f"/{from_date}"
         headers = {"Accept": "application/json"}
+        if self._user_agent:
+            headers["User-Agent"] = self._user_agent
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
         try:
