@@ -118,6 +118,9 @@ and 50 per normal Next 50 interval, reconcile every notice's before/after
 counts, investigate special-event exceptions, and compare selected dated
 snapshots to official constituent reports. Completeness should not be claimed
 for any interval with an unexplained event or unresolved identity.
+The manifest schema and fail-closed validation rules are specified in
+[`INDEX_MEMBERSHIP.md`](INDEX_MEMBERSHIP.md); they validate a supplied dataset,
+not the source's license or completeness claim.
 
 Commercial data vendors are another possible route, but the source, coverage,
 research-use licence, and cost must be verified with the vendor. Community
