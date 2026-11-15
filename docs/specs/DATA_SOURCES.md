@@ -75,11 +75,14 @@ anti-bot challenges.
 Upstox documents the authenticated
 [`GET /v2/fundamentals/{isin}/corporate-actions` endpoint](https://upstox.com/developer/api-documentation/get-corporate-actions/).
 It returns event names, effective/ex-dates, amounts, ratios, and details for
-dividends, bonuses, splits, and rights issues. Use this documented API for P1
-action records; do not automate requests to NSE/NSE Indices websites. Fetch by
-ISIN from the pinned Tier A instrument list, retain the unmodified response,
-request date, ISIN, response checksum, and parser version. Refresh periodically
-and retain revisions rather than replacing old evidence.
+dividends, bonuses, splits, and rights issues. The owner selected this
+documented API as P1's action-source candidate; before bulk retention/use,
+verify the account's applicable API terms and entitlement cover local storage
+and research/backtesting. The API reference alone does not establish those
+rights. Do not automate requests to NSE/NSE Indices websites. Fetch by ISIN from
+the pinned Tier A instrument list, retain the unmodified response bytes,
+retrieval time, ISIN, response checksum, and parser version. Refresh
+periodically and retain revisions rather than replacing old evidence.
 
 The API documentation does not state that its event list is exhaustive over a
 given history range, and does not explicitly list demergers. A successful empty
@@ -94,8 +97,10 @@ An authenticated live probe on 2026-11-15 was denied by Cloudflare with HTTP
 retry. The token was present but was not exposed. No data was acquired or
 saved, and no alternate user-agent or access-control workaround was attempted.
 The adapter is implemented against the published response schema and has
-fixture-based tests. Bulk acquisition, data persistence, and event coverage
-remain unverified until a permitted request succeeds.
+fixture-based tests. It returns the raw response and parsed snapshot but does
+not yet persist it to disk or connect events to the backtest screen. Bulk
+acquisition, storage permission, data persistence, and event coverage remain
+unverified until an allowed request succeeds.
 
 ### Point-in-time Nifty 50 / Next 50 membership
 

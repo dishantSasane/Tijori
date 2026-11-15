@@ -60,8 +60,11 @@ either property. An empty ledger does not prove there were no actions.
 
 `UpstoxCorporateActionsClient` fetches the documented authenticated corporate-
 actions endpoint by ISIN. It preserves the provider's event name, date, raw
-ratio text, amount, detail fields, and endpoint reference. It deliberately does
-not infer share factors from the ratio text. The shared classifier recognizes
+ratio text, amount, ordered detail pairs (including duplicate labels), exact
+response bytes, retrieval timestamp, response checksum, parser version, and
+endpoint reference. It deliberately does not infer share factors from the
+ratio text. The adapter's returned events are not yet converted into
+`CorporateActionNotice` or wired to either runner. The shared classifier recognizes
 split, bonus, demerger, rights, dividend, and unknown purposes;
 unrecognized descriptions are retained as `other` so they cannot silently
 disappear. The legacy `parse_nse_corporate_action_row` is a pure row

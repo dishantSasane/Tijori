@@ -1,6 +1,17 @@
 import json
+from datetime import UTC, datetime
+from hashlib import sha256
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Thread
 
-from trading.adapters.upstox_corporate_actions import UpstoxCorporateActionsClient
+import pytest
+
+from trading.adapters.upstox_corporate_actions import (
+    UpstoxCorporateActionsClient,
+    UpstoxCorporateActionsError,
+    UpstoxCorporateActionsSnapshot,
+    _request,
+)
 
 
 def test_fetches_upstox_corporate_actions_and_preserves_uninterpreted_ratio() -> None:
@@ -16,6 +27,7 @@ def test_fetches_upstox_corporate_actions_and_preserves_uninterpreted_ratio() ->
                 "event_details": [
                     {"name": "Ex date", "value": "05 Jan 2024"},
                     {"name": "Details", "value": "Face value subdivision"},
+                    {"name": "Details", "value": "Second provider detail"},
                 ],
             }
         ],
@@ -25,21 +37,34 @@ def test_fetches_upstox_corporate_actions_and_preserves_uninterpreted_ratio() ->
         calls.append((url, headers))
         return json.dumps(response).encode()
 
-    events = UpstoxCorporateActionsClient(requester=fake_request).fetch(
-        "INE239A01016", access_token="test-token"
-    )
+    raw_response = json.dumps(response).encode()
+    snapshot = UpstoxCorporateActionsClient(
+        requester=fake_request,
+        clock=lambda: datetime(2026, 11, 15, tzinfo=UTC),
+    ).fetch("INE239A01016", access_token="test-token")
 
+    assert isinstance(snapshot, UpstoxCorporateActionsSnapshot)
+    assert snapshot.raw_response == raw_response
+    assert snapshot.response_sha256 == sha256(raw_response).hexdigest()
+    assert snapshot.parser_version == "1"
+    assert snapshot.retrieved_at_utc == datetime(2026, 11, 15, tzinfo=UTC)
     assert calls == [
         (
             "https://api.upstox.com/v2/fundamentals/INE239A01016/corporate-actions",
             {"Accept": "application/json", "Authorization": "Bearer test-token"},
         )
     ]
+    events = snapshot.events
+
     assert len(events) == 1
     assert events[0].name == "Split"
     assert events[0].effective_date.isoformat() == "2024-01-05"
     assert events[0].ratio_text == "10:1"
-    assert events[0].details["Details"] == "Face value subdivision"
+    assert events[0].details == (
+        ("Ex date", "05 Jan 2024"),
+        ("Details", "Face value subdivision"),
+        ("Details", "Second provider detail"),
+    )
 
 
 def test_demerger_and_rights_are_preserved_for_downstream_review_screen() -> None:
@@ -51,8 +76,70 @@ def test_demerger_and_rights_are_preserved_for_downstream_review_screen() -> Non
         ],
     }
 
-    events = UpstoxCorporateActionsClient(
+    snapshot = UpstoxCorporateActionsClient(
         requester=lambda _url, _headers: json.dumps(response).encode()
     ).fetch("INE000A01001", access_token="test-token")
 
-    assert [event.name for event in events] == ["Demerger", "Rights"]
+    assert [event.name for event in snapshot.events] == ["Demerger", "Rights"]
+
+
+def test_empty_token_fails_before_making_request() -> None:
+    called = False
+
+    def fake_request(_url: str, _headers: dict[str, str]) -> bytes:
+        nonlocal called
+        called = True
+        return b'{"status":"success","data":[]}'
+
+    try:
+        UpstoxCorporateActionsClient(requester=fake_request).fetch("INE239A01016", access_token=" ")
+    except ValueError as error:
+        assert "access token is required" in str(error)
+    else:
+        raise AssertionError("empty token must be rejected")
+    assert not called
+
+
+def test_authenticated_request_never_follows_redirect_to_another_host() -> None:
+    target_authorizations: list[str | None] = []
+
+    class TargetHandler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            target_authorizations.append(self.headers.get("Authorization"))
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, _format: str, *_args: object) -> None:
+            pass
+
+    target = ThreadingHTTPServer(("127.0.0.1", 0), TargetHandler)
+    target_thread = Thread(target=target.serve_forever)
+    target_thread.start()
+    target_url = f"http://127.0.0.1:{target.server_port}/capture"
+
+    class RedirectHandler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(302)
+            self.send_header("Location", target_url)
+            self.end_headers()
+
+        def log_message(self, _format: str, *_args: object) -> None:
+            pass
+
+    redirect = ThreadingHTTPServer(("127.0.0.1", 0), RedirectHandler)
+    redirect_thread = Thread(target=redirect.serve_forever)
+    redirect_thread.start()
+    try:
+        with pytest.raises(UpstoxCorporateActionsError, match="HTTP 302"):
+            _request(
+                f"http://127.0.0.1:{redirect.server_port}/redirect",
+                {"Authorization": "Bearer fake-secret"},
+            )
+        assert target_authorizations == []
+    finally:
+        redirect.shutdown()
+        redirect.server_close()
+        redirect_thread.join()
+        target.shutdown()
+        target.server_close()
+        target_thread.join()
