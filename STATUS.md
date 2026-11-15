@@ -1,6 +1,6 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-16 by Claude (P1a pilot data foundation closed — see note 0034; P2 re-assignment collided with already-merged PR #50, duplicate PR #55 closed without merge — see note 0035, needs-human on whether PR #50 has had its required cross-model review)
+Last updated: 2026-11-16 by Claude (P1a pilot data foundation closed — see note 0034; P2 re-assignment collided with already-merged PR #50, duplicate PR #55 closed without merge — see note 0035, needs-human on whether PR #50 has had its required cross-model review; P3 daily report + dashboard shipped PR #56, live adapter/ORB-wiring blocked on owner decision — see note 0036)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
@@ -14,7 +14,7 @@ Last updated: 2026-11-16 by Claude (P1a pilot data foundation closed — see not
 | P1e Activation | Codex | waiting on P1b/P1c closure per sequencing. |
 | P1 (legacy row, superseded by P1a-e above) | Codex | superseded — see notes 0027-0034. |
 | P2 Paper broker + risk engine + minimal alerts | Claude (owner override) | **implemented, under review** — PR #50 (RiskEngine/PaperBroker), #52 (candle builder/scheduler); sleeve allocation cap test coverage added on `claude/sleeve-allocation-and-adapters`. See note 0032. | |
-| P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
+| P3 India Tier A paper end-to-end + dashboard | Claude (picked up; author=Claude) | **partial** — daily report + read-only Streamlit dashboard (Home/India/Paper ledger/Strategies) shipped, PR #56; cross-model review still needed per AGENTS.md §5. Auto-paper-shadow confirmed already done (PR #50's `Mode.PAPER`/`ModeGate`). Live NSE data adapter and ORB/breakout live-paper wiring **blocked on owner decisions** (no live data source selected yet; PR #53 strategies not merged) — see note 0036. | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
 | P5 Crypto + US sleeves (paper) | Claude (data layer only) | **data adapters/integrity/universe/loaders built, data-only, no execution** — crypto (Binance, free), US equities (Alpaca, free, raw-by-default corrected), on `claude/sleeve-allocation-and-adapters`, not yet merged. Strategy/execution work for this phase remains open. See note 0032. | |
 | P6 Brain + News | Codex | waiting | |
