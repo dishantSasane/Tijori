@@ -17,12 +17,16 @@ results.
   intraday holding/exit rules belong in the intraday catalog; the unresolved
   owner choice is which horizon to prioritize for promotion, not whether to
   collect intraday data.
-- Universe: the point-in-time Top 50 from `RESEARCH_UNIVERSE.md`; this is
-  unusable until its source rights, schema and coverage gates are cleared.
+- First-pass pilot universe: fixed RELIANCE, INFY, TCS, HDFCBANK and ICICIBANK.
+  This bounded sample has survivorship and concentration bias; conclusions are
+  pipeline validation/exploratory evidence for these five names only, not an
+  India-wide strategy claim. The Top-50 point-in-time universe in
+  `RESEARCH_UNIVERSE.md` remains a follow-up pending a permitted complete
+  historical source.
 - Variations: at most **3 frozen variants per family**, including the baseline.
   No Cartesian product across parameter axes. Every attempted run, including
   failed runs, counts toward the pre-registered family and experiment totals.
-- Version: `p1-daily-v1`. Any rule, parameter, sizing, universe, cost or data
+- Version: `p1-daily-v2`. Any rule, parameter, sizing, universe, cost or data
   change requires a new catalog version and is counted as a new research
   decision.
 
@@ -34,21 +38,27 @@ results.
 | `buy-hold-v1` | Buy-and-hold comparator | one | Buy at first eligible next open; hold to final close; no universe rebalance; include declared costs. Report separately because this is not a strategy instance. |
 | `t1-donchian-v1` | T1 breakout | `N=20,M=10,k=2`; `N=10,M=10,k=2`; `N=40,M=10,k=2` | Existing `STRATEGY_SPEC.md` T1 entry/exit, ATR(14) stop, closed-bar signal, next-open fill. No optional SMA filter. |
 | `t2-trend-adx-v1` | MA + ADX trend | `F=20,S=50,A=25,k=2`; `F=10,S=50,A=25,k=2`; `F=20,S=100,A=25,k=2` | Existing T2 exact rule; EMA cross-up and ADX(14) threshold, ATR(14) stop. |
-| `t3-momentum-v1` | Cross-sectional momentum | `(L=126,S=21,K=20,R=21)`; `(L=63,S=21,K=20,R=21)`; `(L=252,S=21,K=20,R=21)` | Existing T3 rule; price above SMA(200), equal weight, exit below top `2K`, same universe and monthly/daily rebalance semantics frozen by its implementation contract. No inverse-volatility variant. |
 | `t4-rsi-pullback-v1` | T4 mean reversion | `r=10,k=2.5`; `r=5,k=2.5`; `r=15,k=2.5` | Existing T4 entry/exit and 5-bar time stop; ATR(14) stop; no added confirmation filter. |
-| `t5-orb-v1` | Opening-range breakout | intraday catalog required | P1 includes intraday research from the start. Freeze exact ORB variants, closed-bar event order, session handling, 1m/5m source selection and costs in an intraday catalog before any ranking. The daily-only catalog below excludes ORB because it is a different timeframe family, not because intraday is deferred. |
+| `t5-orb-v1` | Opening-range breakout | `m=1.0`; `m=1.5`; `m=2.0` | Exact 5-minute session/event ordering and costs are in `P1_INTRADAY_CANDIDATES.md`; only the target multiple changes. |
 | `t6-bollinger-v1` | Mean reversion | `N=20,k=2`; `N=20,k=1.5`; `N=20,k=2.5` | Existing T6 entry/exit with ADX(14)<20, ATR(14) stop multiple 1.5 and 10-bar time stop. Here `k` is Bollinger width only. |
-| `rpf-pullback-v1` | Regime-gated failed-breakout pullback | one fixed hypothesis | The exact hypothesis in `BUILD_ORDER.md`; its complete event order, filters and stop must be expanded into a versioned executable spec before any run. Until then it is **not executable and not in the ranking set**. |
 
-The daily ranking catalog contains 7 executable entries (cash, buy-and-hold, T1,
-T2, T3, T4, T6) with 17 executable variants: 2 fixed baselines and 15
-strategy variants. The two baselines are reference comparators, not tested
-hypotheses.
-The intraday catalog is a required parallel P1 deliverable; it must be frozen
-before intraday results are generated. T5 is excluded from the daily sample.
-The original self-designed RPF idea remains a separate
-pre-registered hypothesis that must be made fully mechanical before it can
-enter the family count; it cannot be silently added after observing rankings.
+The daily ranking catalog contains cash, buy-and-hold, T1, T2, T4 and T6. The
+separate intraday catalog contains three frozen T5 variants. Across both
+timeframes there are 17 executable variants: 2 fixed baselines and 15 strategy
+variants (12 daily, 3 intraday). The baselines are comparators, not tested
+hypotheses. T5 is excluded from daily results. Each timeframe still requires
+its own coverage and promotion analysis.
+
+T3 cross-sectional momentum is deferred from this bounded pilot **before any
+P1 result is inspected**. Its frozen `K=20`/top-`2K` rules are not meaningful
+on a five-symbol universe: all symbols fit in the top 20 and none can fall
+outside the top 40, so the cross-sectional rank has no selection effect. Do
+not silently change K to fit the pilot; revisit T3 only in the wider-universe
+follow-up with a newly frozen candidate catalog.
+The self-designed regime-gated failed-breakout pullback (RPF) idea is **deferred
+before any P1 result is inspected** and is not part of this P1 catalog or its
+  15-trial family. If revisited later, its full rules must be specified and
+versioned as a new catalog before that later study's data is inspected.
 
 ## Implementation gates
 
@@ -65,20 +75,31 @@ enter the family count; it cannot be silently added after observing rankings.
 ## Machine-readable hypothesis family
 
 ```yaml
-catalog_version: p1-daily-v1
+catalog_version: p1-daily-v2
 baseline_ids: [cash-v1, buy-hold-v1]
 strategy_families:
   t1-donchian-v1: 3
   t2-trend-adx-v1: 3
-  t3-momentum-v1: 3
   t4-rsi-pullback-v1: 3
   t6-bollinger-v1: 3
-  rpf-pullback-v1: 0
-  t5-orb-v1: 0
+  t5-orb-v1: 3
 hypothesis_count: 15
 ```
 
-RPF is not yet executable (zero included variants). The statistical family is
-15. The two fixed
-baselines are excluded. Any future RPF variants require a new catalog version
-and updated family count before data is viewed.
+The statistical family is 15: 12 daily plus 3 intraday variants. The two fixed
+baselines are excluded. T3 and RPF are deferred and have no entries in this
+catalog.
+
+## Stable executable candidate IDs
+
+Every row in an experiment registry uses one of these immutable IDs. The
+parameter tuples are duplicated in `trading.strategies.p1_catalog` and tested
+against this list so a report cannot silently substitute another variant.
+
+| Family | Candidate IDs (parameters follow the frozen table above) |
+|---|---|
+| T1 | `t1-donchian-n20-m10-k2-v1`, `t1-donchian-n10-m10-k2-v1`, `t1-donchian-n40-m10-k2-v1` |
+| T2 | `t2-ema20-50-adx25-v1`, `t2-ema10-50-adx25-v1`, `t2-ema20-100-adx25-v1` |
+| T4 | `t4-rsi2-10-atr25-v1`, `t4-rsi2-5-atr25-v1`, `t4-rsi2-15-atr25-v1` |
+| T5 | `t5-orb-m1-v1`, `t5-orb-m15-v1`, `t5-orb-m2-v1` |
+| T6 | `t6-bollinger20-2-v1`, `t6-bollinger20-15-v1`, `t6-bollinger20-25-v1` |

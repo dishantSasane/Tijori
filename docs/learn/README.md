@@ -12,6 +12,7 @@ You are learning trading systems while they are built. Every milestone produces 
 | 03 | Why backtests lie: costs, slippage, overfitting, survivorship, look-ahead | P0 / P1 |
 | 03A | Point-in-time stock universes | P1 |
 | 03B | Pre-registration, multiple testing, and the holdout | P1 |
+| 03C | How frozen strategy rules are replayed | P1b |
 | 04 | Stop-loss, position sizing, and risk per trade | P2 |
 | 05 | The risk engine and the kill switch (why it can say no to everything) | P2 |
 | 06 | Paper trading and auto-paper shadow: learning from trades you did not take | P2-P3 |
