@@ -11,5 +11,6 @@ Detailed, implementable specs. Written by Claude during the P0 Foundation Sprint
 | `TEST_SPEC_RISK.md`, `TEST_SPEC_BACKTEST.md`, `TEST_SPEC_CANDLES.md`, `TEST_SPEC_ADAPTERS.md`, `TEST_SPEC_STRATEGIES.md` | Claude Opus | What must be tested, with hand-calculated known-answer cases |
 | `STRATEGY_SPEC.md` | Claude Sonnet | Pseudo-code and test vectors for T1-T6 and F1 |
 | `DATA_SOURCES.md` | Codex (Terra/Luna) | Verified data sources, URL formats, limits, terms (official docs only) |
+| `PAPER_BROKER_SPEC.md` | Claude Sonnet (P2) | Live fill model (vs. backtest's stored-array model), SQLite state schema backing I12, outcome tracker for shadow/rejected signals, kill-switch drill procedure |
 
 Rule: if code and spec disagree, the spec is right until a PR changes both.
