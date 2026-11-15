@@ -1,13 +1,13 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-15 by Codex (P1 restructure and membership research — see note 0027)
+Last updated: 2026-11-15 by Codex (corporate-action transform slice — see note 0028)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1 Data layer, strategy discovery, regime-gated activation | Codex | **ACTIVE; P1a gated on owner decisions** — existing backtester/indicators and six-symbol Upstox Parquet sample exist; P1 is now split into P1a-e by ADR-0024. See note 0027. | |
+| P1 Data layer, strategy discovery, regime-gated activation | Codex | **ACTIVE; P1a gated on owner decisions** — pure daily split/bonus transform and synthetic tests committed at `1a31c8e`; Upstox adjustment basis, authorized action ledger, membership, sizing/horizon and untouched split remain unresolved. See notes 0027-0028. | |
 | P2 Paper broker + risk engine + minimal alerts | Codex | waiting | |
 | P3 India Tier A paper end-to-end + dashboard | Codex | waiting | |
 | P4 Tier B scanner + Stocks page | Codex | waiting | |
@@ -19,7 +19,7 @@ Last updated: 2026-11-15 by Codex (P1 restructure and membership research — se
 ## Next 3 actions
 1. Owner: decide whether to obtain NSE Indices' point-in-time constituent data after coverage/licence/quote details, or accept only a clearly scoped provisional sample with survivorship caveat.
 2. Owner: set research comparison capital/per-trade risk assumption and confirm daily swing horizon.
-3. Codex: after decisions, finish P1a with corporate-action known answers and frozen chronological splits; do not read the holdout before P1d.
+3. Codex: finish real action-source validation, position/action replay in both backtesters, and frozen chronological splits after source and owner decisions; do not read the holdout before P1d.
 
 ## Blockers / needs-human
 - P1 historical membership source/terms or explicit scoped survivorship-bias caveat.
