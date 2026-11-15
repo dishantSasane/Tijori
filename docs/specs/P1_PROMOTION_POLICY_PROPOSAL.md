@@ -52,6 +52,11 @@ mechanism.
   P1 results — none exist yet; this is a policy proposal to review now so
   it's ready the moment P1a's data gates clear, not a retroactive fit to
   evidence.
+- **Is not wired into any code path.** Nothing in this repo currently reads
+  or enforces these numbers; no gate, scheduler or runner consults this
+  document. It exists for the owner to review and for whoever later builds
+  the actual paper-eligibility check to implement against — it is not,
+  itself, an active control.
 
 ## Open for owner decision
 
