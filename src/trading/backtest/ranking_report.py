@@ -49,6 +49,13 @@ class RankingReportRow:
     """Caller-supplied grouping label (e.g. "daily"/"intraday") for display
     only -- every row uses the same `family_size` regardless of this label.
     """
+    dataset_manifest_hash: str
+    """Identity of the exact frozen data snapshot (candles + corporate-action
+    coverage + calendar version) this row was computed against -- opaque to
+    this module; Codex's P1a snapshot-manifest contract defines what goes
+    into it. A report row with no hash, or two rows claiming the same
+    candidate under different hashes, is not a comparable result.
+    """
     scorecard: Scorecard
     max_drawdown_pct: Decimal
     sharpe: Decimal
@@ -68,6 +75,7 @@ def build_ranking_report_row(
     *,
     candidate_id: str,
     timeframe: str,
+    dataset_manifest_hash: str,
     trades: Sequence[Trade],
     starting_equity: Decimal,
     daily_excess_returns: Sequence[Decimal],
@@ -86,6 +94,11 @@ def build_ranking_report_row(
     """
     if starting_equity <= 0:
         raise ValueError("starting_equity must be positive")
+    if not dataset_manifest_hash:
+        raise ValueError(
+            "dataset_manifest_hash is required -- a row not tied to a frozen "
+            "data snapshot is not a comparable result"
+        )
     card = scorecard(list(trades))
     max_drawdown_pct = card.max_drawdown / starting_equity * Decimal(100)
     returns = trade_returns(trades, starting_equity=starting_equity)
@@ -108,6 +121,7 @@ def build_ranking_report_row(
     return RankingReportRow(
         candidate_id=candidate_id,
         timeframe=timeframe,
+        dataset_manifest_hash=dataset_manifest_hash,
         scorecard=card,
         max_drawdown_pct=max_drawdown_pct,
         sharpe=sharpe_ratio(returns, periods_per_year=periods_per_year),
