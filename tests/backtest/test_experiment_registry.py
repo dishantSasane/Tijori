@@ -112,7 +112,7 @@ def test_holdout_access_requires_sealed_authorization_and_consumed_plan(tmp_path
                     rejection_rule_hash=plan.rejection_rule_hash,
                     metrics_hash=plan.metrics_hash,
                     family_hash=plan.family_hash,
-                    authorization_hash="forged",
+                    authorization_token="forged",
                 ),
                 holdout_guard=guard,
             )
@@ -120,6 +120,44 @@ def test_holdout_access_requires_sealed_authorization_and_consumed_plan(tmp_path
         assert registry.holdout_records(authorization=authorization, holdout_guard=guard) == [
             holdout
         ]
+
+
+def test_holdout_authorization_cannot_be_self_minted_from_public_plan_fields(
+    tmp_path: Path,
+) -> None:
+    """Regression for the forgeable one-shot guard: every field on `ConsumedHoldout`
+    other than `authorization_token` is derived from the plan itself (pre-registered,
+    not secret) -- a caller who never called `reserve_once` can copy them all. Only
+    a token actually minted and stored by `_consume` must unlock holdout rows,
+    even once someone else has legitimately consumed the same plan.
+    """
+    database = tmp_path / "runs.duckdb"
+    plan = holdout_plan()
+    with ExperimentRegistry(database) as registry, HoldoutEvaluator(database) as guard:
+        registry.append(
+            record(
+                partition="holdout",
+                split_plan_id=plan.plan_id,
+                data_window_id=plan.data_window_id,
+            )
+        )
+        real_authorization = guard.reserve_once(plan)  # legitimate consumption happens
+
+        self_minted = ConsumedHoldout(
+            plan_id=plan.plan_id,
+            data_window_id=plan.data_window_id,
+            shortlist_hash=plan.shortlist_hash,
+            rejection_rule_hash=plan.rejection_rule_hash,
+            metrics_hash=plan.metrics_hash,
+            family_hash=plan.family_hash,
+            authorization_token="attacker-guessed-this",
+        )
+        assert guard.validate_authorization(self_minted) is False
+        with pytest.raises(PermissionError):
+            registry.holdout_records(authorization=self_minted, holdout_guard=guard)
+
+        # the real, minted-by-`_consume` token still works.
+        assert guard.validate_authorization(real_authorization) is True
 
 
 def test_holdout_authorization_must_come_from_registry_database(tmp_path: Path) -> None:

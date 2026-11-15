@@ -175,6 +175,20 @@ def test_concurrent_attempts_for_same_window_allow_only_one_evaluator(tmp_path: 
         assert results.count("rejected") == 1
 
 
+def test_reserve_once_mints_an_unguessable_token_and_rejects_self_minted_ones(
+    tmp_path: Path,
+) -> None:
+    with HoldoutEvaluator(tmp_path / "holdout.duckdb") as guard:
+        authorization = guard.reserve_once(plan())
+        assert authorization.authorization_token
+        # the token is independent of the plan's own public fields -- an
+        # attacker who only knows the plan (pre-registered, not secret)
+        # cannot derive it.
+        forged = authorization.model_copy(update={"authorization_token": "guessed"})
+        assert guard.validate_authorization(authorization) is True
+        assert guard.validate_authorization(forged) is False
+
+
 def test_concurrent_connections_cannot_reserve_overlapping_windows(tmp_path: Path) -> None:
     database = tmp_path / "multi-connection.duckdb"
     with HoldoutEvaluator(database) as first_guard, HoldoutEvaluator(database) as second_guard:
