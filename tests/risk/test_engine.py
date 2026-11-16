@@ -7,6 +7,7 @@ from decimal import Decimal
 from trading.core.enums import BrainLabel, MarketId, Mode, ReasonCode, Route
 from trading.core.models import BrainVerdict
 from trading.risk.engine import ModeGate, check_fail_closed
+from trading.risk.portfolio import SleeveState
 
 TS = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
 MKT = MarketId.IN_EQUITY.value
@@ -102,6 +103,85 @@ def test_check_9_max_positions_sleeve(engine, passing_signal, passing_portfolio,
     portfolio = dc_replace(passing_portfolio, sleeves={"india_equity": sleeve})
     d = engine.check(passing_signal, portfolio, None, passing_config, sleeve="india_equity", now=TS)
     assert d.reason_codes == (ReasonCode.MAX_OPEN_POSITIONS_EXCEEDED,)
+
+
+def test_check_8_sleeve_allocation_exceeded(
+    engine, passing_signal, passing_portfolio, passing_config
+):
+    sleeve = replace(
+        passing_portfolio.sleeve("india_equity"),
+        allocation_used_pct=Decimal(45),
+        allocation_cap_pct=Decimal(40),
+    )
+    portfolio = replace(passing_portfolio, sleeves={"india_equity": sleeve})
+    d = engine.check(passing_signal, portfolio, None, passing_config, sleeve="india_equity", now=TS)
+    assert d.reason_codes == (ReasonCode.SLEEVE_ALLOCATION_EXCEEDED,)
+
+
+def test_check_8_rejects_order_that_would_cross_cap_post_trade(
+    engine, passing_signal, passing_portfolio, passing_config
+):
+    """Sleeve is currently *under* cap, but this specific order's size would
+    push it over -- must be rejected on the post-trade allocation, not just
+    whether the sleeve was already over cap before this order.
+    """
+    small_equity_sleeve = replace(
+        passing_portfolio.sleeve("india_equity"),
+        equity=Decimal(100_000),
+        allocation_used_pct=Decimal(10),
+        allocation_cap_pct=Decimal(25),
+    )
+    portfolio = replace(passing_portfolio, sleeves={"india_equity": small_equity_sleeve})
+    # passing_signal/passing_config size this order to 25% of a 100,000
+    # equity sleeve (risk_per_trade_pct=0.5%, entry_ref=2500, stop=2450),
+    # which added to the existing 10% crosses the 25% cap.
+    d = engine.check(passing_signal, portfolio, None, passing_config, sleeve="india_equity", now=TS)
+    assert d.reason_codes == (ReasonCode.SLEEVE_ALLOCATION_EXCEEDED,)
+
+
+def test_memecoin_allocation_cap_enforced_independently_of_crypto_cap(
+    engine, passing_signal, passing_portfolio, passing_config
+):
+    """Config separates `memecoin` from the general `crypto` sleeve (RISK_SPEC.md,
+    config/risk.example.yaml) so a tight memecoin cap can't be masked by crypto's
+    looser one, and vice versa.
+    """
+    engine.calendar.set_open(MarketId.CRYPTO.value, True)
+
+    crypto_sleeve = SleeveState(
+        # passing_signal/passing_config size every order to 25% of sleeve
+        # equity (0.5% risk-per-trade / 2% stop distance); cap must be wide
+        # enough to admit that order on top of the existing 10% used, since
+        # the point of this test is per-sleeve cap isolation, not whether
+        # this particular order's post-trade allocation fits.
+        equity=Decimal(100_000),
+        open_positions=0,
+        daily_pnl_pct=Decimal(0),
+        allocation_used_pct=Decimal(10),
+        allocation_cap_pct=Decimal(50),
+        max_positions=4,
+    )
+    memecoin_sleeve = SleeveState(
+        equity=Decimal(100_000),
+        open_positions=0,
+        daily_pnl_pct=Decimal(0),
+        allocation_used_pct=Decimal(6),
+        allocation_cap_pct=Decimal(5),
+        max_positions=3,
+    )
+    portfolio = replace(
+        passing_portfolio, sleeves={"crypto": crypto_sleeve, "memecoin": memecoin_sleeve}
+    )
+    signal = passing_signal.model_copy(update={"market": MarketId.CRYPTO})
+    config = replace(passing_config, market=MarketId.CRYPTO)
+
+    # memecoin is over its own (tighter) cap even though crypto's cap has room.
+    memecoin_decision = engine.check(signal, portfolio, None, config, sleeve="memecoin", now=TS)
+    assert memecoin_decision.reason_codes == (ReasonCode.SLEEVE_ALLOCATION_EXCEEDED,)
+
+    # crypto is unaffected by memecoin's breach -- caps are tracked per sleeve.
+    crypto_decision = engine.check(signal, portfolio, None, config, sleeve="crypto", now=TS)
+    assert crypto_decision.reason_codes == (ReasonCode.OK,)
 
 
 def test_check_10_daily_loss_limit_breached(

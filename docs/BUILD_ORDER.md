@@ -276,6 +276,44 @@ MCX commodities and NSE currencies; ML ranker (walk-forward, champion/challenger
 
 ---
 
+## Crypto coverage (data ecosystem build, 2026-11-15)
+
+Data source: Binance public spot REST (`/api/v3/klines`), no API key, no SDK
+-- same stdlib-`urllib` style as `adapters/upstox_history.py`. Verified
+directly against `api.binance.com/api/v3/exchangeInfo` and the public REST
+docs on 2026-11-15:
+
+- **History depth:** no stated cutoff; candles are available back to each
+  symbol's spot-listing date (most pairs: sometime after Binance's 2017
+  launch). Free, no tier gate.
+- **Intraday window:** all of M1/M5/M15/H1 (plus daily) are available for the
+  full listed history, not just a recent rolling window -- unlike Upstox's
+  India intraday limit, Binance does not truncate intraday history.
+- **Pagination cap:** 1,000 candles per `/api/v3/klines` call
+  (`MAX_CANDLES_PER_REQUEST` in `adapters/binance_history.py`).
+- **Rate limit:** 6,000 request-weight per IP per minute; `klines` costs
+  weight 2, so up to 3,000 calls/minute is technically allowed. The
+  historical loader (`storage/crypto_loader.py`) self-throttles to 60
+  requests/minute (`REQUESTS_PER_MINUTE_BUDGET`) -- backfilling is not
+  latency-sensitive and this stays far clear of a 429.
+- **Integrity:** Binance delists/rebrands tokens with no split-style price
+  adjustment needed, but a delisted symbol must stop being treated as
+  tradeable, and a gap in daily candles with no matching delist/rebrand
+  event must fail closed rather than be silently interpolated. Implemented
+  in `storage/crypto_integrity.py` (`ListingRegistry`), tested with known
+  answers in `tests/storage/test_crypto_integrity.py`.
+- **Universe:** general crypto sleeve = BTC/ETH always-in + top 20 by 24h
+  quote volume above a $5M floor; memecoin sleeve = tagged tokens with a
+  $1M floor and a minimum 30-day listing age. Both are pure, mechanical
+  functions of a liquidity snapshot (`storage/crypto_universe.py`), never a
+  hand-picked list, so re-running against a historical snapshot reproduces
+  the same point-in-time universe.
+- **Owner decision still open:** which exchange to actually trade on
+  (legality/tax/compliance for an Indian resident) is unchanged by this data
+  work -- Binance here is a free data source, not an execution-venue choice.
+
+---
+
 ## Rules for all phases
 
 - A phase is done only when its exit criteria are met **and** its lesson exists **and** `STATUS.md` is updated.
@@ -301,3 +339,140 @@ MCX commodities and NSE currencies; ML ranker (walk-forward, champion/challenger
 No time estimate is given for the restructured P1 — the owner's original
 Claude-Pro time-box applied to the P0 sprint, not to this multi-sub-phase
 research program, and guessing a duration here would just be noise.
+
+## US equities coverage (data ecosystem, phase 2 — verified 2026-11-15)
+
+Live-verified against docs.alpaca.markets (not just the dated note in
+`docs/MARKETS.md`), via the free "Basic" data plan bundled with any Alpaca
+paper/live account (IEX feed):
+
+- **Key required even though free.** Unlike Binance's anonymous REST, Alpaca's
+  bars endpoint rejects every request without an `APCA-API-KEY-ID` /
+  `APCA-API-SECRET-KEY` pair. Getting the pair costs nothing (sign up for a
+  paper account) but it is not keyless the way Binance is.
+- **Raw vs. adjusted — corrects the earlier dated note.** The bars endpoint's
+  own default is `adjustment=raw` (unadjusted). Split/dividend-adjusted bars
+  only come back if the caller explicitly passes `adjustment=all` (or
+  `split`/`dividend`). `src/trading/adapters/alpaca_history.py` defaults to
+  `"raw"` to match Alpaca's own default and keep the basis explicit at the
+  call site.
+- **Corporate actions are free.** Alpaca's `/v1/corporate-actions` endpoint
+  (splits, dividends, mergers, spin-offs, etc.) is included on the free plan
+  with no paid-tier gate, per its own docs. `src/trading/storage/
+  us_equity_corporate_actions.py` is an independent splits+dividends
+  adjustment layer built from that feed, for cross-checking Alpaca's own
+  `adjustment=all` or adjusting bars fetched raw. No other free, complete US
+  corporate-action source was found during this check — if Alpaca's feed is
+  ever unavailable there is currently no verified free fallback; flag to the
+  owner before relying on anything else.
+- **History depth:** 7+ years of IEX-feed history (free plan pricing table).
+- **Rate limit:** 200 API requests/minute (free "Basic" plan). The loader
+  (`src/trading/storage/us_equity_loader.py`) self-throttles to 150/min.
+- **Universe:** rule-based top-N-by-dollar-volume trading universe
+  (`src/trading/storage/us_equity_universe.py`, survivorship-safe by
+  construction, same shape as the crypto sleeve) plus a separate S&P 500
+  membership manifest sourced from Wikipedia's "List of S&P 500 companies"
+  changes table (free, community-maintained — not an official S&P feed) for
+  benchmarking only, never for universe selection.
+- Status: adapter, independent adjustment layer, universe rule, benchmark
+  manifest shape, and loader are implemented with known-answer/fake-requester
+  tests (no test touches Alpaca's real API). "US equities" data-ecosystem
+  checklist item: done.
+
+## NSE currencies coverage (verified, not assumed)
+
+Checked empirically against Upstox's public API docs and NSE's currency
+derivatives contract specifications before building anything, per the owner's
+instruction not to assume "simpler than equities."
+
+- **Adapter:** genuinely no new HTTP client needed. `UpstoxHistoryClient`
+  (`src/trading/adapters/upstox_history.py`) is instrument-key-agnostic — it
+  URL-encodes whatever key it's given and hits the same `/v3/historical-candle`
+  path regardless of segment. Currency derivatives live in Upstox's `CDS`
+  exchange / `CD` segment (instrument keys shaped `CDS_FO|<token>`), distinct
+  from equities' `NSE_EQ`, but that's just a different string, not a different
+  client. Proven by `tests/storage/test_nse_currency_universe.py::
+  test_existing_upstox_client_accepts_a_currency_instrument_key`, which feeds
+  a `CDS_FO|USDINR...` key through the unmodified client. Did **not** edit
+  `upstox_history.py` itself (shared with Codex's India equity work) — no
+  edit was needed.
+- **Corporate actions / integrity:** no equivalent problem. FX futures have
+  no splits or dividends, so no adjustment layer is needed (unlike India
+  equities' `corporate_actions.py`).
+- **Contract roll / expiry:** also simpler than first feared. Currency
+  futures expire monthly like MCX, but this phase makes **no attempt to
+  stitch a continuous series** — each expiry is queried as its own distinct
+  `instrument_key`. Because nothing is being glued together, there is no
+  "fake price jump at rollover" bug to guard against here. If a continuous
+  series is ever wanted (e.g. for a strategy that needs one unbroken price
+  line), build that roll-adjustment logic once for MCX (phase 4) and reuse
+  it here rather than duplicating it — flagged for whoever builds phase 4.
+- **Universe:** fixed, tiny, hand-enumerated set — USDINR, EURINR, GBPINR,
+  JPYINR (`src/trading/storage/nse_currency_universe.py`). No liquidity-rule
+  universe built; AGENTS.md §10 keeps this sleeve deliberately small.
+- **Session hours:** confirmed NSE currency derivatives trade 09:00-17:00
+  IST, Monday-Friday — different from NSE equity's 09:15-15:30. This
+  resolves the "verify per contract" note docs/MARKETS.md previously carried
+  as unverified.
+- **Net verdict:** NSE currencies *is* simpler than equities overall (no
+  adjustment layer, tiny fixed universe, reused adapter) but for a different
+  reason than assumed — the simplification comes from skipping continuous-
+  series stitching entirely, not from the segment being easy. If a continuous
+  series is ever required, that assumption needs revisiting.
+- Status: "NSE currencies" data-ecosystem checklist item: done.
+
+## MCX commodities coverage (verified, not assumed)
+
+Checked empirically against Upstox's public API docs (instrument master and
+V3 historical-candle docs) and MCX's own public bhavcopy page, per AGENTS.md
+rule 9 ("do not build on an unverified source") and the explicit flag that
+this phase was most likely to hit a paywall.
+
+- **Free source found:** Upstox. Its daily-refreshed instrument master
+  (`https://assets.upstox.com/market-quote/instruments/exchange/MCX.json.gz`)
+  lists `MCX_FO` as a segment alongside `NSE_EQ`/`NSE_FO`/`BSE_FO`/`CDS_FO`,
+  with `lot_size` and `expiry` per contract — a free, structured
+  contract-master feed, no separate vendor needed. `UpstoxHistoryClient`
+  (`src/trading/adapters/upstox_history.py`) is instrument-key-agnostic (it
+  URL-encodes whatever key it's given and hits the same
+  `/v3/historical-candle` path regardless of segment) — proven by
+  `tests/storage/test_mcx_universe.py::
+  test_existing_upstox_client_accepts_an_mcx_instrument_key`, which feeds an
+  `MCX_FO|GOLD...` key through the unmodified client, same pattern as the
+  NSE-currencies phase. Did **not** edit `upstox_history.py`.
+- **MCX's own site:** mcxindia.com publishes free daily bhavcopy (CSV/PDF,
+  no login) as a secondary/cross-check source, but only recent history for
+  free (roughly the last ~3 months outside the most recent 12, per MCX's own
+  terms) — Upstox is the primary source for depth.
+- **Contract roll / continuous series — unlike NSE currencies, built this
+  time.** MCX futures have real term-structure (contango/backwardation from
+  cost-of-carry), so a continuous series is more likely to be wanted than
+  for FX. `src/trading/adapters/mcx_roll.py` implements ratio
+  back-adjustment (ponytail: chose ratio over additive specifically because
+  commodities can swing enough in relative price that an additive offset
+  risks pushing an old leg through zero/negative — a ratio cannot). Proven
+  with a known-answer test
+  (`tests/adapters/test_mcx_roll.py::test_continuous_series_has_no_fake_jump_at_the_roll`)
+  using illustrative-but-realistic gold-futures contango prices: raw
+  concatenation shows a fake ~300 jump at the roll date; the back-adjusted
+  series shows none. This is a **display/backtest series only** — live
+  signal code must still read the single current-expiry instrument_key
+  directly (AGENTS.md §4.5, no look-ahead); the adjustment runs after a
+  leg's full history is already known, exactly like
+  `trading/storage/corporate_actions.py`'s multiplicative `adj_factor`
+  convention (reused here, not reinvented).
+- **Reusable for NSE currencies:** `build_continuous_series` takes a plain
+  list of `ContractLeg(instrument_key, candles)` — nothing MCX-specific in
+  its signature. If a continuous FX series is ever wanted (phase 3 flagged
+  this), it can call this function directly with CDS_FO legs.
+- **Universe:** fixed, tiny, hand-enumerated set — GOLD, SILVER, CRUDEOIL,
+  NATURALGAS, COPPER (`src/trading/storage/mcx_universe.py`), MCX's own most
+  liquid contracts. No liquidity-rule universe (AGENTS.md §10).
+- **Session hours:** docs/MARKETS.md's "approx 09:00–23:30, or 23:55 in some
+  seasons" note was not re-verified against a primary source in this pass
+  (out of scope for the data-adapter work) — still flagged for a human/future
+  session to confirm against MCX's circular before any live/paper trading
+  uses the session boundary.
+- **Net verdict:** a free source exists and is the one already in use for
+  every other NSE-routed sleeve; MCX did *not* hit the paywall this project
+  feared. Status: "MCX commodities" data-ecosystem checklist item: done.

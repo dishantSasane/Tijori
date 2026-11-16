@@ -144,8 +144,14 @@ class RiskEngine:
         if qty > 0 and realized_trade_risk > risk_budget:
             return _reject(sid, now, ReasonCode.RISK_PER_TRADE_EXCEEDED)
 
-        # Check 8/9: sleeve + global open-position caps.
-        if sleeve_state.allocation_used_pct > sleeve_state.allocation_cap_pct:
+        # Check 8/9: sleeve + global open-position caps. Must check the
+        # allocation this order would *produce*, not just whether the sleeve
+        # is already over cap -- otherwise an order that pushes a
+        # not-yet-breached sleeve over the cap is allowed through.
+        proposed_allocation_pct = sleeve_state.allocation_used_pct + (
+            qty * signal.entry_ref / sleeve_state.equity * Decimal(100) if qty > 0 else Decimal(0)
+        )
+        if proposed_allocation_pct > sleeve_state.allocation_cap_pct:
             return _reject(sid, now, ReasonCode.SLEEVE_ALLOCATION_EXCEEDED)
         if sleeve_state.open_positions >= sleeve_state.max_positions:
             return _reject(sid, now, ReasonCode.MAX_OPEN_POSITIONS_EXCEEDED, scope="sleeve")
