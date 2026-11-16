@@ -20,7 +20,17 @@ from trading.storage.corporate_actions import (
     ShareAdjustment,
 )
 
-PilotSymbol = Literal["RELIANCE", "INFY", "TCS", "HDFCBANK", "ICICIBANK"]
+#: Any NSE cash-equity trading symbol (e.g. from `upstox_instrument_master`),
+#: not just the original five-symbol pilot -- broadened so action evidence
+#: can be recorded for the full-universe selector's output. This does not
+#: weaken per-record review discipline: `ActionRecord`/`CoverageRecord`
+#: still require an explicit reviewer/review_date for anything to count as
+#: approved, same as before. `PilotSymbol` is kept as an alias since nothing
+#: about the five-symbol pilot's already-recorded evidence needs to change.
+NseEquitySymbol = Annotated[
+    str, StringConstraints(strip_whitespace=True, pattern=r"^[A-Z0-9&-]{1,20}$")
+]
+PilotSymbol = NseEquitySymbol
 Basis = Literal["unknown", "raw", "provider_adjusted"]
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4096)]
 ISIN = Annotated[str, StringConstraints(pattern=r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")]
