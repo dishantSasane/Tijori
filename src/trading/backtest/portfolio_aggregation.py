@@ -137,6 +137,8 @@ def portfolio_equity_curve(
     return need, that `metrics.py` never had to build itself (its callers
     passed an already-known total-return/drawdown pair).
     """
+    if not starting_equity.is_finite():
+        raise ValueError("starting_equity must be finite (no NaN/Infinity)")
     if starting_equity <= 0:
         raise ValueError("starting_equity must be positive")
     equity = starting_equity

@@ -89,6 +89,32 @@ def test_portfolio_equity_curve_compounds() -> None:
     assert curve == [Decimal(100), Decimal("110.0"), Decimal("99.00")]
 
 
+@pytest.mark.parametrize("bad_equity", [Decimal("Infinity"), Decimal("-Infinity"), Decimal("NaN")])
+def test_portfolio_equity_curve_rejects_non_finite_starting_equity(bad_equity: Decimal) -> None:
+    """BLOCKING re-review finding: starting_equity=Decimal('Infinity') passed
+    the `<= 0` positivity check silently and crashed later in
+    max_drawdown_pct_from_curve with decimal.InvalidOperation instead of
+    being rejected at the boundary. Must raise ValueError here, immediately.
+    """
+    with pytest.raises(ValueError, match="finite"):
+        portfolio_equity_curve([Decimal("0.01")], starting_equity=bad_equity)
+
+
+def test_aggregate_portfolio_rejects_non_finite_starting_equity() -> None:
+    """Same finding, exercised through the exact reproduction Codex posted:
+    aggregate_portfolio({"A": [Decimal("0.01")]},
+    cumulative_return_by_instrument={"A": Decimal("0.01")},
+    cash_daily_returns=Decimal("0"), starting_equity=Decimal("Infinity")).
+    """
+    with pytest.raises(ValueError, match="finite"):
+        aggregate_portfolio(
+            {"A": [Decimal("0.01")]},
+            cumulative_return_by_instrument={"A": Decimal("0.01")},
+            cash_daily_returns=Decimal("0"),
+            starting_equity=Decimal("Infinity"),
+        )
+
+
 def test_max_drawdown_pct_known_answer() -> None:
     # Peak 110, trough 99 -> (110-99)/110 * 100 = 10%.
     curve = [Decimal(100), Decimal("110.0"), Decimal("99.00")]
