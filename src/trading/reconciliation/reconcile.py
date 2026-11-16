@@ -55,6 +55,7 @@ class Mismatch:
     symbol: str
     local_qty: Decimal | None  # None = broker has it, we don't
     broker_qty: Decimal | None  # None = we have it, broker doesn't
+    reason: str = "quantity_mismatch"
 
 
 @dataclass(frozen=True)
@@ -79,13 +80,35 @@ def reconcile(
     missed fill, manual intervention, a bug) and a human must look before
     any new entry is allowed.
     """
-    local_by_key = {(p.market, p.symbol): p.qty for p in local_positions}
-    broker_by_key = {(p.market, p.symbol): p.qty for p in broker_positions}
+    local_by_key: dict[tuple[str, str], Decimal] = {}
+    broker_by_key: dict[tuple[str, str], Decimal] = {}
+    duplicate_local: set[tuple[str, str]] = set()
+    duplicate_broker: set[tuple[str, str]] = set()
+    for position in local_positions:
+        key = (position.market, position.symbol)
+        if key in local_by_key:
+            duplicate_local.add(key)
+        local_by_key[key] = position.qty
+    for position in broker_positions:
+        key = (position.market, position.symbol)
+        if key in broker_by_key:
+            duplicate_broker.add(key)
+        broker_by_key[key] = position.qty
 
     mismatches: list[Mismatch] = []
     for key in sorted(set(local_by_key) | set(broker_by_key)):
         local_qty = local_by_key.get(key)
         broker_qty = broker_by_key.get(key)
+        if key in duplicate_local:
+            mismatches.append(
+                Mismatch(*key, local_qty, broker_qty, reason="duplicate_local_position")
+            )
+            continue
+        if key in duplicate_broker:
+            mismatches.append(
+                Mismatch(*key, local_qty, broker_qty, reason="duplicate_broker_position")
+            )
+            continue
         if local_qty != broker_qty:
             mismatches.append(
                 Mismatch(market=key[0], symbol=key[1], local_qty=local_qty, broker_qty=broker_qty)

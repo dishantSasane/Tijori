@@ -55,6 +55,14 @@ def test_reconcile_flags_position_missing_locally() -> None:
     assert report.mismatches[0].local_qty is None
 
 
+def test_reconcile_flags_duplicate_rows_instead_of_overwriting_them() -> None:
+    local = [FakeLocal("NSE", "RELIANCE", Decimal(10)), FakeLocal("NSE", "RELIANCE", Decimal(10))]
+    broker = [BrokerPosition("NSE", "RELIANCE", Decimal(10))]
+    report = reconcile(local, broker, now=NOW)
+    assert not report.clean
+    assert report.mismatches[0].reason == "duplicate_local_position"
+
+
 def test_run_drill_engages_kill_switch_on_mismatch_and_leaves_it_off_when_clean() -> None:
     conn = connect(":memory:")
     audit = AuditLog(conn)
