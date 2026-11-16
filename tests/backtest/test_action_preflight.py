@@ -107,6 +107,35 @@ def test_share_action_in_window_blocks_until_position_replay_exists(runner, kind
         )
 
 
+@pytest.mark.parametrize("kind", [CorporateActionKind.SPLIT, CorporateActionKind.BONUS])
+def test_share_action_in_window_does_not_block_when_candles_already_adjusted(runner, kind):
+    """Regression for note 0045: a split/bonus notice in-window must not
+    block replay when every candle for that symbol already carries a
+    non-null `adj_factor` -- i.e. the price series already went through
+    `adjust_for_share_actions` (or, like NESTLEIND, the provider's feed
+    already reflects it). This is additive: the unadjusted case above still
+    blocks exactly as before.
+    """
+    candles = [
+        bar(0, "10", "11", "9", "10").model_copy(
+            update={"symbol": "RELIANCE", "source": "upstox", "adj_factor": Decimal("0.5")}
+        ),
+        bar(1, "13", "14", "8", "13").model_copy(
+            update={"symbol": "RELIANCE", "source": "upstox", "adj_factor": Decimal("0.5")}
+        ),
+    ]
+    result = runner(
+        candles,
+        [signal(0).model_copy(update={"id": "preflight-entry", "symbol": "RELIANCE"})],
+        quantity=Decimal("1"),
+        profile=BacktestProfile(),
+        action_register=register(("event-1", kind, date(2026, 1, 2))),
+        candle_snapshot_sha256=TEST_DATASET_SHA256,
+        reviewed_action_keys={"event-1"},
+    )
+    assert len(result.trades) == 1
+
+
 def test_exact_review_permits_complex_event_but_keeps_audit_flag(runner):
     result = replay(
         runner,
