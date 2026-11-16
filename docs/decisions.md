@@ -842,7 +842,7 @@ backtest-runner safety gate (AGENTS.md §5, critical module). #1's hard
 finding should go into the next handoff note so the owner doesn't wait on
 an Upstox fix that isn't coming.
 
-**ADR-0035 · 2026-11-16 · accepted · Share-action bypass requires a specifically reviewed record, not just a non-null adj_factor (Codex blocker)**
+**ADR-0045 · 2026-11-16 · accepted · Share-action bypass requires a specifically reviewed record, not just a non-null adj_factor (Codex blocker)**
 
 Context: Codex's review of PR #64 found that `action_preflight.py`'s
 already-adjusted bypass (ADR-0032 item 4) treated any non-null
