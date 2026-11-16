@@ -226,10 +226,26 @@ def check_fail_closed(
 class ModeGate:
     """docs/specs/RISK_ENGINE_SPEC.md §7."""
 
+    #: P8 hard gate (docs/decisions.md ADR on the memecoin sleeve): no config
+    #: change alone can route a memecoin order live. AGENTS.md §10 keeps this
+    #: sleeve paper-only until a forward paper record justifies more and the
+    #: owner records that decision explicitly in docs/decisions.md -- so the
+    #: override lives in code, not config/risk.yaml, which a future edit
+    #: could silently loosen.
+    PAPER_ONLY_SLEEVES: frozenset[str] = frozenset({"memecoin"})
+
     @staticmethod
-    def route(decision: RiskDecision, sleeve_mode: Mode, human_action: HumanAction | None) -> Route:
+    def route(
+        decision: RiskDecision,
+        sleeve_mode: Mode,
+        human_action: HumanAction | None,
+        *,
+        sleeve: str | None = None,
+    ) -> Route:
         if not decision.allowed:
             return Route.NONE
+        if sleeve is not None and sleeve in ModeGate.PAPER_ONLY_SLEEVES:
+            return Route.PAPER
         if sleeve_mode is Mode.PAPER:
             return Route.PAPER
         if sleeve_mode is Mode.APPROVAL:

@@ -502,6 +502,87 @@ placeholder. Funding data stays a one-line deferral until a derivatives
 sleeve is actually built (`docs/MARKETS.md` §4 already flags "Perp funding
 rates for carry strategies" as future work, not current scope).
 
+**ADR-0034 · 2026-11-16 · accepted · P8 expansion: MCX/currency instances reuse P5's pattern; gold/bond filter is one line; memecoin gate is in code not config; ML ranker scoped to ranking pre-registered candidates only; options deferred**
+
+Context: P8 (`docs/BUILD_ORDER.md`) is "MCX commodities and NSE currencies;
+ML ranker (walk-forward, champion/challenger); options (defined-risk only,
+after dedicated learning); memecoin sleeve (paper-only until forward record
+justifies); gold/bond ETF filter" — every item explicitly gated. The data
+layer for MCX/NSE currency already exists, unmerged, on PR #54
+(`trading.storage.mcx_universe`, `trading.storage.nse_currency_universe`,
+`trading.adapters.upstox_history` reused verbatim, `trading.adapters.mcx_roll`
+for continuous-series stitching). P5 (PR #58) already established the
+pattern for turning a fixed universe into strategy instances.
+
+Decisions, one per sub-item:
+
+1. **MCX/NSE currency sleeves**: `strategies/instances.py` gets
+   `mcx_instances()` / `nse_currency_instances()` that configure the
+   existing `t1_donchian`/`t4_rsi_pullback` rules against the fixed
+   five-commodity / four-tenor universes from PR #54. No new strategy math,
+   no new data adapter — same reuse call as ADR-0033. `market_profile.py`'s
+   `MarketId -> yaml key` map gains `NSE_CURRENCY: "nse_currency"`
+   (`MCX_COMMODITY` was already mapped); `config/markets.example.yaml` gains
+   an `nse_currency` block (09:00-17:00 IST, differs from equity).
+
+2. **Gold/bond ETF filter**: turned out to be exactly what the brief
+   predicted — a near-one-line addition. `GLD` and `BND` were added to
+   `US_TIER_A` in `strategies/instances.py`. No new filter subsystem; P4's
+   `scanner/filters.py` liquidity/staleness filters are a Tier-B stock-
+   scanner concern and don't apply here (this is a fixed Tier-A ETF list,
+   not a scanned universe). Rejected a separate `filters/etf.py` module as
+   speculative (YAGNI, AGENTS.md §6).
+
+3. **ML ranker**: scoped strictly to *ranking candidates P1 already
+   pre-registered and scored*, never to searching for or re-evaluating new
+   candidates. Built in `src/trading/research/ml_ranker.py` as an advisory,
+   non-execution tool (same posture as the Brain, AGENTS.md §4.6): it takes
+   each pre-registered candidate's existing `Scorecard`s across walk-forward
+   folds and only decides champion vs. challenger — a challenger must beat
+   the champion's `expectancy` in every one of the last 3 consecutive folds
+   to take over (a config constant, not tuned on data). It never touches raw
+   candles, never invents a signal, and never runs if a candidate isn't
+   already in the P1b library. This was the single highest-risk item in the
+   phase: a ranker that re-opens free-form search on backtest results is
+   exactly the overfitting failure mode P1 was restructured to prevent
+   (`docs/BUILD_ORDER.md` P1 intro). Rejected: any ranker that scores
+   candidates directly from price data or tunes its own parameters against
+   history — that would duplicate/bypass P1b-d.
+
+4. **Memecoin sleeve**: paper-only is enforced in *code*, not only
+   `config/risk.yaml`. `risk/engine.py`'s `ModeGate` gained
+   `PAPER_ONLY_SLEEVES = frozenset({"memecoin"})` and an optional `sleeve`
+   kwarg on `route()` — when `sleeve == "memecoin"`, the route is forced to
+   `Route.PAPER` regardless of the configured mode or any human approval
+   action. `strategies/instances.py` gets `memecoin_instances()` (DOGE/USDT,
+   SHIB/USDT — two names, per AGENTS.md §10 "a small memecoin sleeve") on
+   the same CCXT-class spot exchange P5's crypto sleeve already uses; no DEX
+   aggregator, no scraping. `tests/strategies/test_instances.py` has a test
+   that proves the gate holds even if `sleeve_mode` is passed as
+   `Mode.AUTO` with `human_action="approve"`. Escalating this sleeve past
+   paper needs a code change plus a fresh ADR, not a config edit — a
+   deliberately higher bar given §10's "paper-only until forward record
+   justifies" language.
+
+5. **Options**: NOT implemented. Per the task brief's own reasoning
+   (defined-risk options still carry asymmetric payoff/margin/assignment
+   risk that an equities risk engine does not model, and
+   `docs/BUILD_ORDER.md` explicitly requires "dedicated learning" before any
+   code), this PR only adds `docs/specs/OPTIONS_LEARNING_PLAN.md` and a
+   `needs-human` handoff note. No options strategy, no options risk model,
+   no Greeks code. Writing a "simple" defined-risk-only options module now
+   would be the single most dangerous thing in this phase to get wrong —
+   treating it as a copy of the equities path is exactly the mistake the
+   brief warned against.
+
+Consequences: four of five P8 items ship in this PR; options is explicitly
+and permanently blocked behind an owner decision recorded in
+`docs/decisions.md` (see the follow-up entry once the owner makes that
+call) plus the learning plan. The ML ranker has no production call site yet
+(same situation P6's Brain A/B harness is in per note 0039) — it is a
+library the activation layer can call once P1e's real regime-gated
+activation runs on real data, which is itself still gated (see STATUS.md).
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**

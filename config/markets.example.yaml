@@ -43,6 +43,13 @@ commodities_mcx:
   data: {provider: same_as_india_equity}
   costs: {brokerage_per_order_inr: 20, slippage_bps: 8}
 
+nse_currency:
+  calendar: XNSE
+  timezone: Asia/Kolkata
+  session: {open: "09:00", close: "17:00"}   # differs from equity 09:15-15:30, see storage/nse_currency_universe.py
+  data: {provider: same_as_india_equity}
+  costs: {brokerage_per_order_inr: 20, slippage_bps: 6}
+
 memecoin:
   calendar: 24x7
   data: {provider: dex_aggregator_TBD}  # e.g. a public DEX data API; verify terms
