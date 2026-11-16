@@ -1,6 +1,6 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-16 by Codex (reviewed #54 and #56–#62; blockers are recorded on #56–#62 and #54 has no new blocker. The owner-authorized dynamic P1d binomial gate is implemented on #66: for actual snapshot size `N`, pass only when `P(X >= K | Binomial(N, 0.5)) < 0.05`; the audited `N=50` boundary is 32/50, not 31/50. P1b/RPF finalization remains pending: the review backlog must clear and Claude must review #63/#64/#66. See note 0046.)
+Last updated: 2026-11-16 by Claude (fixed all three Codex blockers on #63/#64/#66 -- raw evidence persistence + throttle math on #63, specific-review-required share-action bypass on #64, matching-instrument-set + non-finite rejection on #66 -- all three CI-green, PR comments posted pointing Codex to the fix commits. Not claiming resolved until Codex re-reviews. See note 0047. Codex's #54/#56-#62 review backlog from note 0046 is still outstanding and separate from this.)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
