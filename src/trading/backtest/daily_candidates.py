@@ -6,11 +6,13 @@ from collections.abc import Sequence
 from datetime import datetime
 from decimal import Decimal
 
+from trading.backtest.action_preflight import ReviewedActionKey
 from trading.backtest.fills import BacktestProfile
 from trading.backtest.runner import BacktestResult, run_long_only
 from trading.core.models import Candle
 from trading.indicators.moving_averages import ema, sma
 from trading.indicators.technical import bollinger, rsi
+from trading.storage.action_register import ActionRegister
 from trading.strategies.daily_candidates import make_daily_exit_condition
 from trading.strategies.p1_candidates import generate_p1_daily_signals, validate_p1_daily_candles
 from trading.strategies.p1_catalog import get_p1_candidate
@@ -23,12 +25,23 @@ def run_p1_daily_candidate(
     created_ts: datetime,
     quantity: Decimal,
     profile: BacktestProfile,
+    action_register: ActionRegister | None = None,
+    candle_snapshot_sha256: str | None = None,
+    reviewed_action_keys: set[ReviewedActionKey] | frozenset[ReviewedActionKey] = frozenset(),
 ) -> BacktestResult:
     """Run entries, candidate-specific exits, fills, and stops for one candidate.
 
     This is a deterministic single-instrument replay. The caller must provide
     the already-frozen instrument window and valid action/calendar evidence;
     it does not authorize data selection or a pooled portfolio claim.
+
+    `action_register`/`candle_snapshot_sha256`/`reviewed_action_keys` pass
+    straight through to `run_long_only`'s corporate-action preflight
+    (`action_preflight.py`) -- this candidate wrapper previously dropped
+    them, so real (non-test) candles had no way to supply a reviewed
+    register and would simply fail closed with no path forward. Omitting
+    them still fails closed on real candles; it does not silently skip the
+    check.
     """
     candidate = get_p1_candidate(candidate_id)
     if not candles:
@@ -61,4 +74,7 @@ def run_p1_daily_candidate(
         quantity=quantity,
         profile=profile,
         condition_exit=exit_condition,
+        action_register=action_register,
+        candle_snapshot_sha256=candle_snapshot_sha256,
+        reviewed_action_keys=reviewed_action_keys,
     )

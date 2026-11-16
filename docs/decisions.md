@@ -765,6 +765,82 @@ broader universe yet — it is blocked on the owner's new rejection-rule
 threshold, same blocking category as the already-known corporate-action
 ledger and fresh-holdout gaps. This is a deliberate, named blocker, not an
 oversight.
+**ADR-0044 · 2026-11-16 · accepted, needs cross-model review · Real corporate-action fetch run; P1a candidate wiring finished; share-action replay unblocks on already-adjusted candles**
+
+Context: the owner supplied a fresh Upstox access token and asked to (1) run
+the real corporate-actions fetch for Tier A, (2) finish wiring the existing
+demerger/rights screening into the actual backtest runners (built but not
+connected), and (3) finish position handling across corporate actions, with
+an explicit instruction to confirm whether P1a is now real, not synthetic.
+
+Decision and findings, in order:
+
+1. **Real fetch ran successfully** against all five Tier A symbols
+   (`data/p1/corporate_actions/`, archived via the existing
+   `UpstoxCorporateActionsClient`/`save_action_snapshot` pipeline, not a
+   hand-rolled call). **Hard finding, confirmed against Upstox's own
+   published parameter docs:** `GET /v2/fundamentals/{isin}/corporate-actions`
+   takes **no date-range/year query parameter at all** and, empirically,
+   only returned 2025-2026 events for all five symbols — it cannot supply
+   2010-2015 historical coverage for the P1a pilot window by its own
+   documented design, not a bug on this session's end. There is no second
+   Upstox Fundamentals endpoint with historical depth either (checked the
+   full 8-endpoint list). **This means P1a's 2010-2015 corporate-action
+   coverage cannot be completed through Upstox's API at all** — the
+   project's own `ActionRegister` ("bounded, offline human-curated
+   evidence") already anticipated exactly this gap; a complete 2010-2015
+   ledger still requires either a different authorized historical source or
+   manual curation, which is why this ADR does **not** claim P1a's full data
+   foundation is now real end-to-end -- see the explicit confirmation at
+   the end of this entry.
+2. The Nestlé known-answer case (`test_corporate_actions.py`) was
+   re-confirmed passing against the current code, unchanged, alongside the
+   rest of that module's 44 tests.
+3. **`run_p1_daily_candidate` (`daily_candidates.py`) did not expose
+   `action_register`/`candle_snapshot_sha256`/`reviewed_action_keys` at
+   all** — the only entry point the P1 daily-candidate evaluation pipeline
+   actually calls had no way for any caller to ever supply a reviewed
+   register, so real (non-`"test"`) candles could only hard-fail. Fixed:
+   the three parameters now pass straight through to `run_long_only`. Two
+   new regression tests prove this (one confirms real-sourced candles still
+   fail closed by default -- no weakening -- and one confirms a supplied,
+   covering register is actually threaded through, not silently dropped).
+4. **Share-action (split/bonus) replay**: `action_preflight.py` previously
+   blocked *any* split/bonus notice falling inside a replay window,
+   unconditionally, because position-level share-count/cost-basis replay
+   was never implemented. Rather than build that (a materially riskier,
+   unvalidated money-math feature with zero real in-window events to test
+   it against today), this instead completes the *existing* design: every
+   `Candle` already carries an `adj_factor` field, stamped by
+   `corporate_actions.prepare_candles_for_storage`/`adjust_for_share_actions`
+   (or already non-null for a provider-pre-adjusted series, same category
+   as the existing NESTLEIND bypass). The block now only fires when a
+   symbol's in-window candles are **not** all already adjusted — if the
+   whole window already went through the adjustment pipeline, the price
+   series is already internally consistent across the event and replay is
+   safe without any runtime position rescaling. This is additive: the
+   unadjusted case blocks exactly as before (regression tests for both
+   paths pass, 26 tests in `test_action_preflight.py`, up from 22).
+   Position-level rescaling for a split/bonus crossing an *unadjusted*
+   replay window remains unimplemented and still blocks, unchanged.
+
+**Explicit confirmation requested by the owner:** P1a is **not** fully real
+end-to-end yet. What changed today is real: the corporate-actions fetch ran
+for real (producing the hard finding above), the daily-candidate wiring gap
+is fixed, and the share-action bypass is a genuine (if narrower-than-hoped)
+piece of real position-handling progress. What remains synthetic/incomplete:
+the 2010-2015 corporate-action ledger itself (Upstox's API cannot provide
+it — a different source or manual curation is still required, same
+blocker `STATUS.md`'s "Next 3 actions" already named before this session),
+and the fresh unread holdout. Full real-data daily dataset rebuild was not
+attempted this session because zero split/bonus events exist in the real
+Tier A fetch to rebuild against — there is nothing to adjust for these five
+symbols in this specific window, which is itself a real (not synthetic)
+finding, but it does not amount to "P1a data foundation is real."
+Consequences: flagging #4 for cross-model review since it changes a
+backtest-runner safety gate (AGENTS.md §5, critical module). #1's hard
+finding should go into the next handoff note so the owner doesn't wait on
+an Upstox fix that isn't coming.
 
 ---
 <!-- Add new ADRs below. Template:

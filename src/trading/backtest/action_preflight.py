@@ -24,8 +24,15 @@ def action_preflight(
 
     Unit-test candles explicitly tagged ``test`` may omit the register. Real
     candle inputs must be covered for every symbol across the complete replay
-    range. Split/bonus dates inside that range remain blocked because share
-    count and cost-basis replay is not implemented.
+    range. A split/bonus date inside that range still blocks replay for a
+    symbol UNLESS every one of that symbol's candles in the window already
+    carries a non-null `adj_factor` -- i.e. the series already went through
+    `corporate_actions.prepare_candles_for_storage`/`adjust_for_share_actions`
+    (or, like NESTLEIND, the provider's own feed already reflects the split).
+    Share-count/cost-basis replay at the position level inside this runner is
+    still not implemented; what this allows is replaying a window whose price
+    *series* is already internally consistent across the event, same
+    bypass category as the existing NESTLEIND provider-adjusted case.
     """
     if not candles:
         return ()
@@ -50,13 +57,21 @@ def action_preflight(
         )
     symbols = {symbol for symbol, _ in symbol_timeframes}
     notices: list[CorporateActionNotice] = list(action_register.notices())
-    if any(
-        notice.kind in {CorporateActionKind.SPLIT, CorporateActionKind.BONUS}
+    symbols_with_unadjusted_candles = {
+        candle.symbol for candle in candles if candle.adj_factor is None
+    }
+    blocking_share_action_symbols = {
+        notice.symbol
+        for notice in notices
+        if notice.kind in {CorporateActionKind.SPLIT, CorporateActionKind.BONUS}
         and notice.symbol in symbols
         and start <= notice.effective_date <= end
-        for notice in notices
-    ):
-        raise ValueError("share-action replay is not implemented; action-crossing window blocked")
+    } & symbols_with_unadjusted_candles
+    if blocking_share_action_symbols:
+        raise ValueError(
+            "share-action replay is not implemented; action-crossing window blocked for: "
+            + ", ".join(sorted(blocking_share_action_symbols))
+        )
     screen = screen_backtest_symbols(
         notices,
         symbols=symbols,
