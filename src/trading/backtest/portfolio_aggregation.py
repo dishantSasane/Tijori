@@ -86,8 +86,12 @@ def weighted_panel_returns(
     (length,) = lengths
     if length == 0:
         raise ValueError("return series must not be empty")
+    if any(not weight.is_finite() for weight in weights.values()):
+        raise ValueError("weights must be finite (no NaN/Infinity)")
     if any(weight <= 0 for weight in weights.values()):
         raise ValueError("weights must be strictly positive")
+    if any(not value.is_finite() for series in returns_by_instrument.values() for value in series):
+        raise ValueError("returns must be finite (no NaN/Infinity)")
     total_weight = sum(weights.values(), Decimal(0))
     normalized = {instrument: weight / total_weight for instrument, weight in weights.items()}
 
@@ -204,7 +208,26 @@ def aggregate_portfolio(
     can legitimately mean different things (compounded vs. simple, full
     window vs. holdout-only) -- this function does not guess which the
     caller means.
+
+    `returns_by_instrument` and `cumulative_return_by_instrument` must name
+    the exact same instrument set. Without this check, panel returns could
+    be computed for A/B while the profitable-instrument count (which feeds
+    the binomial promotion gate directly) silently reported on an unrelated
+    C, or omitted A/B entirely -- corrupting the gate rather than erroring.
     """
+    if set(returns_by_instrument) != set(cumulative_return_by_instrument):
+        raise ValueError(
+            "returns_by_instrument and cumulative_return_by_instrument must "
+            "name the exact same instrument set"
+        )
+    if any(not value.is_finite() for value in cumulative_return_by_instrument.values()):
+        raise ValueError("cumulative returns must be finite (no NaN/Infinity)")
+    if isinstance(cash_daily_returns, Decimal):
+        if not cash_daily_returns.is_finite():
+            raise ValueError("cash_daily_returns must be finite (no NaN/Infinity)")
+    elif any(not value.is_finite() for value in cash_daily_returns):
+        raise ValueError("cash_daily_returns must be finite (no NaN/Infinity)")
+
     panel = (
         weighted_panel_returns(returns_by_instrument, weights=weights)
         if weights is not None

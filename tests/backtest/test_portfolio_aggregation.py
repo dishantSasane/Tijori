@@ -141,3 +141,88 @@ def test_aggregate_portfolio_accepts_explicit_weights() -> None:
         weights={"A": Decimal(3), "B": Decimal(1)},
     )
     assert result.panel_returns == (Decimal("0.03"),)
+
+
+def test_aggregate_portfolio_rejects_cumulative_return_missing_an_instrument() -> None:
+    """CORRECTED BLOCKER REVIEW: panel returns must never be computed for
+    one instrument set while the profitable-instrument count (which feeds
+    the binomial promotion gate directly) silently reports on a different
+    set. A missing key must error loudly, not compute on a mismatched set.
+    """
+    returns = {"A": [Decimal("0.02")], "B": [Decimal("0.00")]}
+    with pytest.raises(ValueError, match="exact same instrument set"):
+        aggregate_portfolio(
+            returns,
+            cumulative_return_by_instrument={"A": Decimal("0.02")},  # B missing
+            cash_daily_returns=Decimal("0.00"),
+            starting_equity=Decimal(1000),
+        )
+
+
+def test_aggregate_portfolio_rejects_cumulative_return_with_an_extra_instrument() -> None:
+    returns = {"A": [Decimal("0.02")]}
+    with pytest.raises(ValueError, match="exact same instrument set"):
+        aggregate_portfolio(
+            returns,
+            # C is unrelated to the panel being computed (A only).
+            cumulative_return_by_instrument={"A": Decimal("0.02"), "C": Decimal("0.05")},
+            cash_daily_returns=Decimal("0.00"),
+            starting_equity=Decimal(1000),
+        )
+
+
+def test_aggregate_portfolio_rejects_non_finite_returns() -> None:
+    returns = {"A": [Decimal("NaN")], "B": [Decimal("0.00")]}
+    with pytest.raises(ValueError, match="finite"):
+        aggregate_portfolio(
+            returns,
+            cumulative_return_by_instrument={"A": Decimal("0.02"), "B": Decimal("0.00")},
+            cash_daily_returns=Decimal("0.00"),
+            starting_equity=Decimal(1000),
+        )
+
+
+def test_aggregate_portfolio_rejects_non_finite_weights() -> None:
+    returns = {"A": [Decimal("0.02")], "B": [Decimal("0.00")]}
+    with pytest.raises(ValueError, match="finite"):
+        aggregate_portfolio(
+            returns,
+            cumulative_return_by_instrument={"A": Decimal("0.02"), "B": Decimal("0.00")},
+            cash_daily_returns=Decimal("0.00"),
+            starting_equity=Decimal(1000),
+            weights={"A": Decimal("Infinity"), "B": Decimal(1)},
+        )
+
+
+def test_aggregate_portfolio_rejects_non_finite_cumulative_returns() -> None:
+    returns = {"A": [Decimal("0.02")], "B": [Decimal("0.00")]}
+    with pytest.raises(ValueError, match="finite"):
+        aggregate_portfolio(
+            returns,
+            cumulative_return_by_instrument={"A": Decimal("Infinity"), "B": Decimal("0.00")},
+            cash_daily_returns=Decimal("0.00"),
+            starting_equity=Decimal(1000),
+        )
+
+
+def test_aggregate_portfolio_rejects_non_finite_cash_daily_returns() -> None:
+    returns = {"A": [Decimal("0.02")]}
+    with pytest.raises(ValueError, match="finite"):
+        aggregate_portfolio(
+            returns,
+            cumulative_return_by_instrument={"A": Decimal("0.02")},
+            cash_daily_returns=Decimal("NaN"),
+            starting_equity=Decimal(1000),
+        )
+
+
+def test_weighted_panel_rejects_non_finite_returns() -> None:
+    returns = {"A": [Decimal("Infinity")], "B": [Decimal("0.00")]}
+    with pytest.raises(ValueError, match="finite"):
+        weighted_panel_returns(returns, weights={"A": Decimal(1), "B": Decimal(1)})
+
+
+def test_weighted_panel_rejects_non_finite_weights() -> None:
+    returns = {"A": [Decimal("0.02")], "B": [Decimal("0.00")]}
+    with pytest.raises(ValueError, match="finite"):
+        weighted_panel_returns(returns, weights={"A": Decimal("NaN"), "B": Decimal(1)})

@@ -861,6 +861,26 @@ identity `1`) with an unreviewed register entry still blocks replay.
 Consequences: closes the arbitrary-metadata bypass hole. Flagging for
 Codex's re-review -- not claiming resolved until that happens.
 
+**ADR-0047 · 2026-11-16 · accepted · Portfolio aggregation enforces exact instrument-set match and rejects non-finite inputs (Codex blocker)**
+
+Context: Codex's review of PR #66 found that `aggregate_portfolio` validated
+alignment within `returns_by_instrument` but never checked that
+`cumulative_return_by_instrument` named the exact same instrument set --
+panel returns could be computed for A/B while the profitable-instrument
+count (which feeds the binomial promotion gate directly) silently reported
+on an unrelated C, or omitted A/B. Non-finite (NaN/Infinity) returns and
+weights could also propagate into panel metrics uncaught.
+Decision: `aggregate_portfolio` now raises if
+`set(returns_by_instrument) != set(cumulative_return_by_instrument)`,
+before any aggregation runs. Non-finite values are now rejected explicitly
+in `weighted_panel_returns` (returns and weights) and in `aggregate_portfolio`
+(cumulative returns and cash_daily_returns). Nine new tests cover: missing
+key, extra key, non-finite returns, non-finite weights, non-finite
+cumulative returns, non-finite cash (both call paths).
+Consequences: the binomial promotion gate can no longer be corrupted by a
+caller passing mismatched or malformed inputs to the aggregation layer.
+Flagging for Codex's re-review -- not claiming resolved until that happens.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
