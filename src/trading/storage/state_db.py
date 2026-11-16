@@ -114,6 +114,25 @@ CREATE TABLE IF NOT EXISTS telegram_decisions (
     decided_by TEXT,
     decided_ts TEXT
 );
+
+-- Scanner shortlist (P4): a list-membership record, distinct from
+-- `strategy_promotions` above (which promotes a *strategy version* per
+-- docs/STRATEGIES.md §6/§8). This table tracks which *symbols* the daily
+-- scanner currently likes, so a symbol can be promoted onto, or demoted
+-- off, the list over time.
+CREATE TABLE IF NOT EXISTS scanner_shortlist (
+    symbol TEXT NOT NULL,
+    market TEXT NOT NULL,
+    status TEXT NOT NULL,
+    first_added_ts TEXT NOT NULL,
+    last_seen_ts TEXT NOT NULL,
+    removed_ts TEXT,
+    target_price TEXT,
+    reconsider_price TEXT,
+    rank_score TEXT,
+    reasons_json TEXT NOT NULL,
+    PRIMARY KEY (symbol, market)
+);
 """
 
 
