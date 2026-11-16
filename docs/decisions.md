@@ -466,6 +466,42 @@ provider. Consequences: this is a **needs-human** decision — see the P7
 handoff note; nothing in this PR provisions, configures, or connects to
 any VM.
 
+**ADR-0035 · 2026-11-16 · accepted · P5 market profiles extend `MarketId`, don't fork it; strategy instances are configured, not reimplemented**
+
+Context: P5 (`docs/BUILD_ORDER.md`) asks for market profiles for crypto/US
+plus T1/T2/momentum strategy instances against them. `docs/MARKETS.md` §8
+and `config/markets.example.yaml` already define what a market profile
+needs (calendar, timezone, session, costs); `core/enums.py` already has
+`MarketId` as the one sleeve identifier the rest of the system (risk engine,
+paper broker, candle store) keys everything by. T2 and a dedicated
+"momentum" rule are not implemented on `main` — they live in the strategy
+library on open, unmerged PR #53 (`codex/p1-build`).
+
+Decision: `src/trading/core/market_profile.py` adds one `MarketProfile`
+Pydantic model loaded from `config/markets.yaml`, keyed by the existing
+`MarketId` (via an explicit `MarketId -> yaml key` map, since the two
+vocabularies don't line up 1:1 — `MCX_COMMODITY` vs. `commodities_mcx`).
+No parallel market-identity concept. `src/trading/strategies/instances.py`
+configures the two rules that already exist in `phase1.py` (`t1_donchian`,
+`t4_rsi_pullback`) against a small crypto Tier A (BTC/USDT, ETH/USDT) and US
+Tier A (AAPL, MSFT, QQQ) — not new strategy math. T2/true-momentum are
+explicitly deferred to whenever PR #53 merges; `STRATEGY_ID -> callable` in
+that module is the extension point. Funding-rate ingestion (perp carry) is
+deferred outright: the crypto sleeve here is spot paper trading only, and a
+perpetual-funding sleeve doesn't exist yet to consume it (YAGNI — building
+unused plumbing contradicts AGENTS.md §6's "small modules" guidance).
+
+Consequences: crypto/US sleeves get real, typed market-hours knowledge
+(`is_24x7` short-circuits any assumption that the session-based scheduler in
+`candles/scheduler.py` applies to crypto) and two working strategy instances
+each, reusing proven signal math. The alternative — writing new
+momentum/T2 math now — was rejected: it would either duplicate or conflict
+with PR #53's eventual strategy library, and the task brief's own instruction
+was to scope down rather than block, same call P4 made for its ranking
+placeholder. Funding data stays a one-line deferral until a derivatives
+sleeve is actually built (`docs/MARKETS.md` §4 already flags "Perp funding
+rates for carry strategies" as future work, not current scope).
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
