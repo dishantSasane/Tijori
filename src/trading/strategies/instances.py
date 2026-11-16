@@ -22,6 +22,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from trading.core.enums import MarketId, Timeframe
+from trading.storage.mcx_universe import symbols as _mcx_symbols
+from trading.storage.nse_currency_universe import symbols as _currency_symbols
 
 
 @dataclass(frozen=True)
@@ -43,7 +45,11 @@ CRYPTO_TIER_A = ("BTC/USDT", "ETH/USDT")
 
 #: Tier-A US universe per docs/MARKETS.md §3: a handful of Nasdaq-100 names
 #: + key ETFs, not the full 100 — paper-only v1, keep it small and legible.
-US_TIER_A = ("AAPL", "MSFT", "QQQ")
+#: GLD/BND added for P8's "gold/bond ETF filter" item (docs/BUILD_ORDER.md):
+#: that item turned out to be exactly this -- including two ETF tickers in
+#: the universe a strategy already runs against, not a new filter
+#: subsystem (YAGNI; see docs/decisions.md ADR-0034).
+US_TIER_A = ("AAPL", "MSFT", "QQQ", "GLD", "BND")
 
 
 def crypto_instances() -> list[StrategyInstance]:
@@ -71,6 +77,78 @@ def crypto_instances() -> list[StrategyInstance]:
                 sleeve="crypto",
             )
         )
+    return instances
+
+
+def mcx_instances() -> list[StrategyInstance]:
+    """T1 breakout + T4 pullback on daily MCX commodity candles (paper only).
+
+    Uses the fixed five-commodity universe from P8's data layer
+    (``trading.storage.mcx_universe``, PR #54) -- no new universe here.
+    """
+    instances: list[StrategyInstance] = []
+    for symbol in _mcx_symbols():
+        for strategy_id in ("t1_donchian", "t4_rsi_pullback"):
+            instances.append(
+                StrategyInstance(
+                    strategy_id=strategy_id,
+                    market=MarketId.MCX_COMMODITY,
+                    symbol=symbol,
+                    timeframe=Timeframe.D1,
+                    sleeve="commodities",
+                )
+            )
+    return instances
+
+
+def nse_currency_instances() -> list[StrategyInstance]:
+    """T1 breakout + T4 pullback on daily NSE currency-derivative candles
+    (paper only). Fixed four-tenor universe from
+    ``trading.storage.nse_currency_universe`` (PR #54) -- no new universe.
+    """
+    instances: list[StrategyInstance] = []
+    for symbol in _currency_symbols():
+        for strategy_id in ("t1_donchian", "t4_rsi_pullback"):
+            instances.append(
+                StrategyInstance(
+                    strategy_id=strategy_id,
+                    market=MarketId.NSE_CURRENCY,
+                    symbol=symbol,
+                    timeframe=Timeframe.D1,
+                    sleeve="nse_currency",
+                )
+            )
+    return instances
+
+
+#: Memecoin Tier A: deliberately two names only (AGENTS.md §10: "a small
+#: memecoin sleeve"). Spot pairs on a CCXT-supported, ToS-compliant exchange
+#: (same exchange class P5's crypto sleeve already uses) -- no DEX scraping.
+MEMECOIN_TIER_A = ("DOGE/USDT", "SHIB/USDT")
+
+
+def memecoin_instances() -> list[StrategyInstance]:
+    """T1 breakout + T4 pullback on daily memecoin candles. PAPER-ONLY: this
+    sleeve's mode cannot be anything but paper regardless of
+    ``config/risk.yaml`` -- enforced in code by
+    ``trading.risk.engine.ModeGate.PAPER_ONLY_SLEEVES`` /
+    ``ModeGate.route(..., sleeve="memecoin")``, proven by
+    ``tests/strategies/test_instances.py::test_memecoin_sleeve_cannot_go_live``.
+    This function only builds the (strategy, symbol) pairs; it does not
+    itself gate execution.
+    """
+    instances: list[StrategyInstance] = []
+    for symbol in MEMECOIN_TIER_A:
+        for strategy_id in ("t1_donchian", "t4_rsi_pullback"):
+            instances.append(
+                StrategyInstance(
+                    strategy_id=strategy_id,
+                    market=MarketId.MEMECOIN,
+                    symbol=symbol,
+                    timeframe=Timeframe.D1,
+                    sleeve="memecoin",
+                )
+            )
     return instances
 
 

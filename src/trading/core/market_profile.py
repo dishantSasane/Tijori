@@ -28,6 +28,7 @@ _CONFIG_KEY: dict[MarketId, str] = {
     MarketId.US_EQUITY: "us_equity",
     MarketId.CRYPTO: "crypto",
     MarketId.MCX_COMMODITY: "commodities_mcx",
+    MarketId.NSE_CURRENCY: "nse_currency",
     MarketId.MEMECOIN: "memecoin",
 }
 
