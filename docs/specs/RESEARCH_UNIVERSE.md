@@ -57,9 +57,14 @@ The output `MonthlyUniverseSnapshot` records the provenance, `K`, lookback
 dates, as-of/effective dates, exclusions, all ranked eligible candidates, and
 the selected ISINs. Unknown eligibility fails closed. Inactive, ineligible,
 or less-than-60-session-history instruments are excluded with reasons.
-Eligible instruments with a missing observation in the requested 60-session
-window, duplicate instrument identities, duplicate observations, unknown ISINs, or
-fewer than `K` eligible candidates fail the snapshot. The calendar must be
+An otherwise-eligible instrument with any unresolved missing observation in
+the requested 60-session window is excluded with reason
+`unresolved_data_gap_in_lookback_window` -- this excludes only that
+instrument from that month's ranking; it never zeroes the gap and never
+aborts the other eligible instruments' ranking. Duplicate instrument
+identities, duplicate observations, unknown ISINs, or fewer than `K`
+eligible candidates remaining after exclusions still fail the snapshot. The
+calendar must be
 strictly ordered and unique; `effective_date` must be its first session of a
 calendar month and the supplied history must include the preceding session.
 Source rows outside the lookback may be present but cannot affect the ranking.
