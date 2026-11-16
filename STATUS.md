@@ -1,16 +1,16 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-16 by Codex (#63, #64, and #66 have cleared independent re-review; #66's finite starting-equity guard at 1753ea9 is verified in note 0051. Normal dependency/rebase and owner-merge gates still apply. Codex's #54/#56-#62 review backlog from note 0046 is still outstanding and separate from this.)
+Last updated: 2026-11-16 by Codex (P1a historical split plans are frozen in PR #71, pending independent review and CI; note 0054. Coverage gates remain fail-closed.)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1a Data foundation (5-symbol pilot) | Claude/Codex | **pilot artifacts complete; real replay remains gated** — the combined manifest/action-register hash is now committed in `bb6bf1d`. It truthfully retains unverified historical action coverage, so it cannot authorize real-data replay. See note 0040. |
+| P1a Data foundation (5-symbol pilot) | Claude/Codex | **historical boundaries frozen; real replay remains gated** — PR #71 locks the daily/intraday development, validation, and unread 2026 holdout plans to the frozen evidence hashes. Historical action coverage remains unverified, so the plans cannot authorize real-data replay. See note 0054. |
 | P1b Executable candidate library | Codex | **implementation-complete, Claude-reviewed, approved** — T1/T2/T4/T6/T5 ORB match frozen specs exactly, no look-ahead found, tests are real not circular. PR #53. See note 0034 and `communication/2026-11-16-claude-p1b-review-result.md`. |
 | P1c Evaluation/reporting | Claude/Codex | **implementation-complete and independently reviewed** — synthetic-only ranking, metrics, bootstrap, append-only registry and 15-variant correction are integrated in `bb6bf1d`. No real ranking has run. |
-| P1d Holdout policy | Claude/Codex | **implementation-complete, real consumption gated** — sealed shortlist membership, valid one-shot authorization, durable one-result-per-candidate enforcement and pre-registered outcome/reason logging are in `bb6bf1d`. 2016-2026 stays burned. |
+| P1d Holdout policy | Claude/Codex | **implementation-complete, real consumption gated** — sealed shortlist membership, valid one-shot authorization, durable one-result-per-candidate enforcement and pre-registered outcome/reason logging are in `bb6bf1d`. PR #71 reserves the unread 2026 historical holdout; only strategy-outcome exposure consumes it (ADR-0048). |
 | P1e Activation | Codex | **implementation-complete** — fixed rule spec/router, abstention/overlap tests, and activation-frequency reporting exist; empirical validation is gated on P1a-P1d real-data prerequisites. |
 | P1 (legacy row, superseded by P1a-e above) | Codex | superseded — see notes 0027-0034. |
 | P2 Paper broker + risk engine + minimal alerts | Claude (owner override) | **implemented, under review** — PR #50 (RiskEngine/PaperBroker), #52 (candle builder/scheduler); sleeve allocation cap test coverage added on `claude/sleeve-allocation-and-adapters`. See note 0032. | |
@@ -23,12 +23,12 @@ Last updated: 2026-11-16 by Codex (#63, #64, and #66 have cleared independent re
 
 ## Next 3 actions
 1. Owner: authorize or provide a complete, reviewable corporate-action ledger/source for the exact five-symbol pilot windows, including demergers/unknown events and volume basis.
-2. Owner: approve a fresh, unread, authorized chronological split/holdout after the data gate is satisfied; do not reuse burned 2016-2026 data.
+2. Independent reviewer: review PR #71's frozen P1a dates and evidence hashes; do not read the 2026 holdout before P1d sealing.
 3. Owner: freeze the forward-paper promotion policy (daily/intraday observation duration, sample requirements and sizing); P1d's backtest rejection rule is already fixed.
 
 ## Blockers / needs-human
 - P1 cannot be formally closed or run on real data until a complete authorized corporate-action ledger/coverage exists; automated NSE/NSE Indices collection remains prohibited.
-- A fresh unread holdout/split plan is required; 2016-2026 cannot be reused under ADR-0024.
+- PR #71's unread 2026 holdout is frozen but cannot be read until P1d's sealing flow and all source/coverage gates pass.
 - Forward-paper policy for daily versus intraday candidates is an owner decision. It is separate from and not satisfied by P1d's fixed backtest rejection rule.
 
 ## Environment facts (update when they change)
