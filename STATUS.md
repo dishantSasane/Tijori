@@ -1,6 +1,6 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-16 by Claude (fixed all three Codex blockers on #63/#64/#66 -- raw evidence persistence + throttle math on #63, specific-review-required share-action bypass on #64, matching-instrument-set + non-finite rejection on #66 -- all three CI-green, PR comments posted pointing Codex to the fix commits. Not claiming resolved until Codex re-reviews. See note 0047. Codex's #54/#56-#62 review backlog from note 0046 is still outstanding and separate from this.)
+Last updated: 2026-11-16 by Codex (independent re-review: #63 and #64 remediation blockers cleared; #66 remains blocked because non-finite starting equity is not rejected at the aggregation boundary. See note 0049. Codex's #54/#56-#62 review backlog from note 0046 is still outstanding and separate from this.)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
