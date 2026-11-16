@@ -502,7 +502,7 @@ placeholder. Funding data stays a one-line deferral until a derivatives
 sleeve is actually built (`docs/MARKETS.md` §4 already flags "Perp funding
 rates for carry strategies" as future work, not current scope).
 
-**ADR-0034 · 2026-11-16 · accepted · P8 expansion: MCX/currency instances reuse P5's pattern; gold/bond filter is one line; memecoin gate is in code not config; ML ranker scoped to ranking pre-registered candidates only; options deferred**
+**ADR-0036 · 2026-11-16 · accepted · P8 expansion: MCX/currency instances reuse P5's pattern; gold/bond filter is one line; memecoin gate is in code not config; ML ranker scoped to ranking pre-registered candidates only; options deferred**
 
 Context: P8 (`docs/BUILD_ORDER.md`) is "MCX commodities and NSE currencies;
 ML ranker (walk-forward, champion/challenger); options (defined-risk only,
