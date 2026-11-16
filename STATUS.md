@@ -1,6 +1,6 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-16 by Claude (4-stage audit complete, docs/STATUS_AUDIT.md on `main` via PR #62; **PR #53 merged** — first merge of the whole P1-P8 sweep; #54's 3 known review blockers fixed and #58/#61's CI-never-ran issue resolved — all 8 remaining open PRs are now CI-green and cross-model review has been requested from Codex, risk-ordered, in note 0043. None of #54/#56/#57/#58/#59/#60/#61 merged yet — waiting on that review.)
+Last updated: 2026-11-16 by Claude (full-universe turnover selector now runs clean against real data end-to-end — 2,763 real instruments, 50 selected, 238 excluded, 0 errors — and P1's evaluation mechanics switched from the fixed five-symbol pilot to that real output, PR #63/#64/#66; see note 0045. One owner decision still blocks a real broad-universe P1 evaluation: a new, properly pre-registered rejection-rule threshold for ~50 instruments, replacing the five-symbol pilot's locked "3 of 5" rule. PR #53 merged earlier; #54/#56/#57/#58/#59/#60/#61/#62/#63/#64/#66 all open, CI-green, awaiting Codex review per notes 0043/0044/0045.)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
