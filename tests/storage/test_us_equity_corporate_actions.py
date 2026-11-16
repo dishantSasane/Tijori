@@ -94,3 +94,50 @@ def test_duplicate_action_id_fails_closed() -> None:
     bar = candle()
     with pytest.raises(ValueError):
         adjust_for_corporate_actions([bar], [split(), split()], as_of=date(2020, 9, 1))
+
+
+def dividend(
+    *, announced_date: date = date(2020, 8, 1), cash_amount: str = "25"
+) -> USCorporateAction:
+    return USCorporateAction(
+        action_id="aapl-div-1",
+        event_id="aapl-div-2020",
+        revision=1,
+        market=MarketId.US_EQUITY,
+        symbol="AAPL",
+        kind="dividend",
+        announced_date=announced_date,
+        effective_date=date(2020, 8, 10),
+        ratio_or_cash_amount=Decimal(cash_amount),
+        source_ref="alpaca-corporate-actions",
+    )
+
+
+def test_dividend_factor_is_uniform_across_all_pre_ex_date_bars() -> None:
+    # Known answer: $25 cash dividend, ex-date 2020-08-10. The pre-ex-date
+    # reference close is the close on 2020-08-07 (the last session before
+    # the ex-date) = 500 -> factor = 1 - 25/500 = 0.95. Every bar strictly
+    # before the ex-date gets this *same* factor, regardless of its own
+    # close -- a bar closing at 400 must not get a different factor than
+    # the reference-day bar closing at 500 (that was the bug: each bar used
+    # its own close instead of one shared reference close).
+    reference_day = candle(
+        ts_open_utc=datetime(2020, 8, 7, 13, 30, tzinfo=UTC), close=Decimal("500")
+    )
+    earlier_day = candle(ts_open_utc=datetime(2020, 8, 5, 13, 30, tzinfo=UTC), close=Decimal("400"))
+    post_ex_date = candle(
+        ts_open_utc=datetime(2020, 8, 10, 13, 30, tzinfo=UTC), close=Decimal("475")
+    )
+
+    result = adjust_for_corporate_actions(
+        [earlier_day, reference_day, post_ex_date], [dividend()], as_of=date(2020, 8, 11)
+    )
+    by_date = {c.ts_open_utc.date(): c for c in result}
+
+    assert by_date[date(2020, 8, 5)].adj_factor == Decimal("0.95")
+    assert by_date[date(2020, 8, 7)].adj_factor == Decimal("0.95")
+    assert by_date[date(2020, 8, 5)].close == Decimal("400") * Decimal("0.95")
+    assert by_date[date(2020, 8, 7)].close == Decimal("500") * Decimal("0.95")
+    # On/after the ex-date, the bar is untouched.
+    assert by_date[date(2020, 8, 10)].adj_factor is None
+    assert by_date[date(2020, 8, 10)].close == Decimal("475")

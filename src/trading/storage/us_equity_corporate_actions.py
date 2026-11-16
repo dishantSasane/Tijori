@@ -103,6 +103,35 @@ def adjust_for_corporate_actions(
         if known_versions:
             selected_actions.append(known_versions[-1])
 
+    # Pre-ex-date close per (symbol, session_date) so a dividend's price
+    # factor is computed once from the session immediately before its
+    # effective date, not from each adjusted candle's own close (which would
+    # give every pre-dividend bar a different, wrong factor).
+    close_by_symbol_date: dict[tuple[str, date], Decimal] = {}
+    for candle in candle_list:
+        session_date = candle.ts_open_utc.astimezone(US_EQUITY_TIMEZONE).date()
+        close_by_symbol_date[(candle.symbol, session_date)] = candle.close
+
+    def _dividend_factor(action: USCorporateAction) -> Decimal:
+        prior_closes = [
+            (sess_date, close)
+            for (sym, sess_date), close in close_by_symbol_date.items()
+            if sym == action.symbol and sess_date < action.effective_date
+        ]
+        if not prior_closes:
+            raise ValueError(
+                f"no pre-ex-date close available to adjust dividend for {action.symbol} "
+                f"effective {action.effective_date.isoformat()}"
+            )
+        _, reference_close = max(prior_closes, key=lambda item: item[0])
+        return Decimal("1") - (action.ratio_or_cash_amount / reference_close)
+
+    dividend_factor_by_action_id: dict[str, Decimal] = {
+        action.action_id: _dividend_factor(action)
+        for action in selected_actions
+        if action.kind == "dividend"
+    }
+
     adjusted: list[Candle] = []
     for candle in candle_list:
         if candle.timeframe is not Timeframe.D1:
@@ -124,12 +153,10 @@ def adjust_for_corporate_actions(
             if action.kind == "split":
                 price_factor /= action.ratio_or_cash_amount
                 split_factor *= action.ratio_or_cash_amount
-            else:  # dividend: standard ex-div back-adjustment needs the close
-                # on the session before the ex-date; approximate with the
-                # close on the earliest subsequent session we have, i.e. this
-                # candle's own close, which is adequate for this fail-closed
-                # bar-by-bar transform (no look-ahead: only past bars shrink).
-                price_factor *= Decimal("1") - (action.ratio_or_cash_amount / candle.close)
+            else:  # dividend: one fixed factor per action, from the close on
+                # the session immediately before the ex-date (computed above),
+                # applied uniformly to every bar before that date.
+                price_factor *= dividend_factor_by_action_id[action.action_id]
 
         if price_factor == Decimal("1"):
             adjusted.append(candle)

@@ -45,13 +45,20 @@ def load_history(
     timeframe: Timeframe,
     start: datetime,
     end: datetime,
-    adjustment: Adjustment = "raw",
+    adjustment: Adjustment = "all",
     clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     sleep: Callable[[float], None] = time.sleep,
 ) -> int:
     """Backfill `[start, end)` into `store`, resuming from whatever is already
     stored and following Alpaca's `next_page_token` pagination. Returns the
     number of newly inserted candles.
+
+    Defaults to `adjustment="all"` so stored bars are split/dividend-adjusted
+    by Alpaca server-side; this loader does not invoke the independent
+    `us_equity_corporate_actions` layer itself. Passing `adjustment="raw"` is
+    for an explicit, separate cross-check pass only -- bars stored raw are
+    unadjusted and must not be used for backtesting without running them
+    through that layer first.
     """
     if start.tzinfo is None or end.tzinfo is None:
         raise ValueError("start/end must be timezone-aware UTC")
