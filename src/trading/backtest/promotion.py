@@ -3,16 +3,54 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, getcontext, localcontext
+from math import comb
 from typing import Literal
 
 from trading.core.enums import Timeframe
 
 HoldoutStatus = Literal["pass_to_paper", "rejected", "inconclusive"]
 P1_HOLDOUT_FAMILY_SIZE = 15
-P1_PILOT_INSTRUMENT_COUNT = 5
 P1_HOLDOUT_BLOCK_COUNT = 3
 P1_FAMILY_ALPHA = Decimal("0.05")
+P1_INSTRUMENT_PROFITABILITY_ALPHA = Decimal("0.05")
+
+
+def binomial_upper_tail_probability(successes: int, trials: int) -> Decimal:
+    """Return ``P[X >= successes]`` for ``X ~ Binomial(trials, 0.5)``.
+
+    This is the pre-registered one-sided test for cross-instrument
+    profitability. Integer arithmetic makes the probability exact until the
+    final Decimal division, avoiding a floating-point boundary changing a
+    promotion decision.
+    """
+    if trials < 1:
+        raise ValueError("binomial trial count must be positive")
+    if not 0 <= successes <= trials:
+        raise ValueError("binomial success count is out of range")
+    numerator = sum(comb(trials, count) for count in range(successes, trials + 1))
+    denominator = 2**trials
+    with localcontext() as context:
+        context.prec = max(getcontext().prec, len(str(denominator)) + 10)
+        return Decimal(numerator) / Decimal(denominator)
+
+
+def minimum_profitable_instruments_for_significance(
+    instrument_count: int, *, alpha: Decimal = P1_INSTRUMENT_PROFITABILITY_ALPHA
+) -> int | None:
+    """Smallest profitable count whose one-sided binomial tail is below alpha.
+
+    ``None`` means even every instrument being profitable cannot meet the
+    declared threshold at this universe size.
+    """
+    if instrument_count < 1:
+        raise ValueError("instrument count must be positive")
+    if not Decimal(0) < alpha < Decimal(1):
+        raise ValueError("binomial alpha must be strictly between zero and one")
+    for successes in range(0, instrument_count + 1):
+        if binomial_upper_tail_probability(successes, instrument_count) < alpha:
+            return successes
+    return None
 
 
 @dataclass(frozen=True)
@@ -60,8 +98,8 @@ def evaluate_holdout(evidence: HoldoutEvidence) -> HoldoutDecision:
         raise ValueError("completed_trades must be non-negative")
     if evidence.family_size != P1_HOLDOUT_FAMILY_SIZE:
         raise ValueError("holdout correction must cover the frozen 15-variant P1 family")
-    if evidence.instrument_count != P1_PILOT_INSTRUMENT_COUNT:
-        raise ValueError("holdout must cover the fixed five-symbol pilot")
+    if evidence.instrument_count < 1:
+        raise ValueError("holdout must cover at least one instrument")
     if not 0 <= evidence.profitable_instruments <= evidence.instrument_count:
         raise ValueError("profitable instrument count is out of range")
     if evidence.time_block_count != P1_HOLDOUT_BLOCK_COUNT:
@@ -101,8 +139,14 @@ def evaluate_holdout(evidence: HoldoutEvidence) -> HoldoutDecision:
     failures: list[str] = []
     if evidence.mean_daily_excess_return_after_costs <= 0:
         failures.append("mean_daily_excess_return_not_positive")
-    if evidence.profitable_instruments < 3:
-        failures.append("profitable_instruments_below_3_of_5")
+    required_profitable_instruments = minimum_profitable_instruments_for_significance(
+        evidence.instrument_count
+    )
+    if (
+        required_profitable_instruments is None
+        or evidence.profitable_instruments < required_profitable_instruments
+    ):
+        failures.append("profitable_instruments_binomial_p_value_not_below_0.05")
     if evidence.profitable_time_blocks < 2:
         failures.append("profitable_time_blocks_below_2_of_3")
     if failures:
