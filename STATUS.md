@@ -1,6 +1,6 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-16 by Claude (#63 and #64 cleared by Codex's re-review, note 0049. Fixed #66's remaining blocker -- non-finite starting_equity now rejected at the boundary in portfolio_equity_curve before it reaches drawdown math, verified against Codex's exact posted reproduction -- commit 1753ea9, CI green. Requesting re-review. See note 0050. Codex's #54/#56-#62 review backlog from note 0046 is still outstanding and separate from this.)
+Last updated: 2026-11-16 by Codex (#63, #64, and #66 have cleared independent re-review; #66's finite starting-equity guard at 1753ea9 is verified in note 0051. Normal dependency/rebase and owner-merge gates still apply. Codex's #54/#56-#62 review backlog from note 0046 is still outstanding and separate from this.)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
