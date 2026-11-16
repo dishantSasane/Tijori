@@ -53,6 +53,49 @@ def register(*actions: tuple[str, CorporateActionKind, date]) -> ActionRegister:
     )
 
 
+def provider_adjusted_register(
+    *, event_id: str, kind: CorporateActionKind, day: date
+) -> ActionRegister:
+    """A register where the named event is specifically, reviewedly
+    confirmed as provider-adjusted -- the exact evidence tying `adj_factor`
+    to a *specific* reviewed action, not just a non-null field.
+    """
+    return ActionRegister.model_validate(
+        {
+            "events": [
+                {
+                    "event_id": event_id,
+                    "isin": "INE002A01018",
+                    "symbol": "RELIANCE",
+                    "ex_date": day,
+                    "publication_date": date(2025, 12, 1),
+                    "action_type": kind.value,
+                    "original_ratio": "recorded manually",
+                    "source_url": "https://example.test/action",
+                    "reviewer": "fixture-reviewer",
+                    "review_date": date(2025, 12, 15),
+                    "price_basis": "provider_adjusted",
+                    "volume_basis": "provider_adjusted",
+                }
+            ],
+            "coverage": [
+                {
+                    "symbol": "RELIANCE",
+                    "timeframe": "1d",
+                    "candle_snapshot_sha256": TEST_DATASET_SHA256,
+                    "isin": "INE002A01018",
+                    "start": "2025-12-31",
+                    "end": "2026-01-03",
+                    "verified": True,
+                    "source_url": "https://example.test/coverage",
+                    "reviewer": "fixture-reviewer",
+                    "review_date": "2026-01-04",
+                }
+            ],
+        }
+    )
+
+
 def replay(runner, *, source="test", **kwargs):
     candles = [
         bar(0, "10", "11", "9", "10").model_copy(update={"symbol": "RELIANCE", "source": source}),
@@ -108,13 +151,14 @@ def test_share_action_in_window_blocks_until_position_replay_exists(runner, kind
 
 
 @pytest.mark.parametrize("kind", [CorporateActionKind.SPLIT, CorporateActionKind.BONUS])
-def test_share_action_in_window_does_not_block_when_candles_already_adjusted(runner, kind):
-    """Regression for note 0045: a split/bonus notice in-window must not
-    block replay when every candle for that symbol already carries a
-    non-null `adj_factor` -- i.e. the price series already went through
-    `adjust_for_share_actions` (or, like NESTLEIND, the provider's feed
-    already reflects it). This is additive: the unadjusted case above still
-    blocks exactly as before.
+def test_share_action_in_window_does_not_block_when_specifically_reviewed_and_adjusted(
+    runner, kind
+):
+    """A split/bonus notice in-window must not block replay when (1) the
+    register has a reviewed provider-adjusted record tied to this *exact*
+    notice (symbol/ex-date/kind), AND (2) every candle for that symbol
+    carries a non-null `adj_factor`. This is additive: the unadjusted case
+    above still blocks exactly as before.
     """
     candles = [
         bar(0, "10", "11", "9", "10").model_copy(
@@ -129,11 +173,44 @@ def test_share_action_in_window_does_not_block_when_candles_already_adjusted(run
         [signal(0).model_copy(update={"id": "preflight-entry", "symbol": "RELIANCE"})],
         quantity=Decimal("1"),
         profile=BacktestProfile(),
-        action_register=register(("event-1", kind, date(2026, 1, 2))),
+        action_register=provider_adjusted_register(
+            event_id="event-1", kind=kind, day=date(2026, 1, 2)
+        ),
         candle_snapshot_sha256=TEST_DATASET_SHA256,
         reviewed_action_keys={"event-1"},
     )
     assert len(result.trades) == 1
+
+
+@pytest.mark.parametrize("kind", [CorporateActionKind.SPLIT, CorporateActionKind.BONUS])
+def test_present_but_unrelated_adj_factor_is_correctly_rejected(runner, kind):
+    """CORRECTED BLOCKER REVIEW: `Candle.adj_factor` being non-null must
+    never be treated as proof that *this* in-window split/bonus notice was
+    correctly adjusted -- it can be an identity value or an unrelated
+    transform. Without a reviewed provider-adjusted/approved-raw record
+    tied to the exact notice, replay must still block, even though every
+    candle carries a non-null `adj_factor`.
+    """
+    candles = [
+        bar(0, "10", "11", "9", "10").model_copy(
+            update={"symbol": "RELIANCE", "source": "upstox", "adj_factor": Decimal("1")}
+        ),
+        bar(1, "13", "14", "8", "13").model_copy(
+            update={"symbol": "RELIANCE", "source": "upstox", "adj_factor": Decimal("1")}
+        ),
+    ]
+    with pytest.raises(ValueError, match="share-action replay"):
+        runner(
+            candles,
+            [signal(0).model_copy(update={"id": "preflight-entry", "symbol": "RELIANCE"})],
+            quantity=Decimal("1"),
+            profile=BacktestProfile(),
+            # Unreviewed -- the plain `register()` helper, not
+            # `provider_adjusted_register`: no reviewer/review_date/basis.
+            action_register=register(("event-1", kind, date(2026, 1, 2))),
+            candle_snapshot_sha256=TEST_DATASET_SHA256,
+            reviewed_action_keys={"event-1"},
+        )
 
 
 def test_exact_review_permits_complex_event_but_keeps_audit_flag(runner):

@@ -842,6 +842,25 @@ backtest-runner safety gate (AGENTS.md §5, critical module). #1's hard
 finding should go into the next handoff note so the owner doesn't wait on
 an Upstox fix that isn't coming.
 
+**ADR-0035 · 2026-11-16 · accepted · Share-action bypass requires a specifically reviewed record, not just a non-null adj_factor (Codex blocker)**
+
+Context: Codex's review of PR #64 found that `action_preflight.py`'s
+already-adjusted bypass (ADR-0032 item 4) treated any non-null
+`Candle.adj_factor` as proof a specific in-window split/bonus notice was
+correctly adjusted. `adj_factor` is an arbitrary numeric field -- it could
+be an identity value (`1`) or describe an unrelated transform -- and never
+by itself proves a matching reviewed event exists for that exact notice.
+Decision: the bypass now requires **both** conditions: (1) the register has
+a reviewed record tied to the *specific* notice -- matched on symbol,
+effective/ex-date, and kind, via `action_register.provider_adjusted_events`
+or `approved_adjustments` -- and (2) every candle for that symbol still
+carries a non-null `adj_factor` (corroborating, not sufficient, evidence).
+A notice missing either still blocks exactly as before. New regression test
+proves the exact rejected case: a present-but-unrelated `adj_factor` (e.g.
+identity `1`) with an unreviewed register entry still blocks replay.
+Consequences: closes the arbitrary-metadata bypass hole. Flagging for
+Codex's re-review -- not claiming resolved until that happens.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
