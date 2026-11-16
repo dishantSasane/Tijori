@@ -11,18 +11,34 @@ from typing import Literal
 from pydantic import Field, field_validator, model_validator
 
 from trading.core.models import Contract
-from trading.storage.action_register import PilotSymbol
+from trading.storage.action_register import NseEquitySymbol
 
 _SHA256_PATTERN = r"^[0-9a-f]{64}$"
-_PILOT_SYMBOLS = frozenset({"RELIANCE", "INFY", "TCS", "HDFCBANK", "ICICIBANK"})
+#: The original bounded pilot's exact five symbols. No longer the only
+#: allowed `symbols` set (see `universe_reference` below) -- kept only as
+#: the still-valid special case for manifests describing that original
+#: pilot specifically, and so already-produced pilot manifests keep
+#: validating unchanged.
+FIVE_SYMBOL_PILOT = frozenset({"RELIANCE", "INFY", "TCS", "HDFCBANK", "ICICIBANK"})
 
 
 class P1EvaluationManifest(Contract):
-    """Immutable identity of the bounded five-symbol P1 pilot inputs."""
+    """Immutable identity of a P1 evaluation run's candle, calendar and
+    action evidence -- either the original bounded five-symbol pilot, or a
+    broader universe whose membership came from a real point-in-time
+    selector run (`research_universe.MonthlyUniverseSnapshot`), never from
+    an unreferenced ad hoc symbol list.
+    """
 
     schema_version: Literal[1] = 1
     provider: Literal["upstox"]
-    symbols: tuple[PilotSymbol, ...]
+    symbols: tuple[NseEquitySymbol, ...]
+    #: Required when `symbols` is not exactly the original five-symbol
+    #: pilot: identifies which universe-selector run produced this exact
+    #: symbol set, so a broader-universe manifest is still reproducible and
+    #: auditable, not an arbitrary list. `None` only for the five-symbol
+    #: pilot case (schema_version 1 compatibility).
+    universe_reference: str | None = Field(default=None, min_length=1)
     windows: dict[str, tuple[date, date]]
     candle_snapshot_sha256: dict[str, str]
     action_register_sha256: str = Field(pattern=_SHA256_PATTERN)
@@ -35,15 +51,20 @@ class P1EvaluationManifest(Contract):
 
     @field_validator("symbols")
     @classmethod
-    def sort_symbols(cls, value: tuple[PilotSymbol, ...]) -> tuple[PilotSymbol, ...]:
+    def sort_symbols(cls, value: tuple[NseEquitySymbol, ...]) -> tuple[NseEquitySymbol, ...]:
+        if not value:
+            raise ValueError("manifest must identify at least one symbol")
         if len(set(value)) != len(value):
             raise ValueError("manifest symbols must be unique")
         return tuple(sorted(value))
 
     @model_validator(mode="after")
     def validate_scope_and_hashes(self) -> P1EvaluationManifest:
-        if set(self.symbols) != _PILOT_SYMBOLS:
-            raise ValueError("manifest must identify the exact five-symbol P1 pilot")
+        if set(self.symbols) != FIVE_SYMBOL_PILOT and self.universe_reference is None:
+            raise ValueError(
+                "a broader-than-pilot symbol set requires universe_reference "
+                "identifying the selector run that produced it"
+            )
         if set(self.windows) != {"1d", "1m", "5m"}:
             raise ValueError("manifest windows must cover 1d, 1m, and 5m")
         if set(self.candle_snapshot_sha256) != {"1d", "1m", "5m"}:

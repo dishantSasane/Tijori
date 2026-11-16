@@ -445,6 +445,63 @@ new test (`test_instrument_with_unresolved_gap_is_excluded_not_a_whole_
 snapshot_failure`) proves a gapped instrument is excluded while an
 unaffected instrument in the same pool still ranks.
 
+**ADR-0034 · 2026-11-16 · accepted, owner-directed · Switch P1's evaluation universe from the fixed five-symbol pilot to the real selector output; promotion threshold explicitly NOT touched**
+
+Context: owner directed switching P1's backtest/discovery pipeline from the
+bounded five-symbol pilot to the now-verified full-universe selector (ADR
+0030/0033) — "the pilot was only ever an interim stand-in for this." Before
+making the change, audited exactly how deep the five-symbol constraint
+runs: the actual backtest/ranking core (`daily_candidates.py`, `scorecard.py`,
+`ranking_report.py`, `experiment_registry.py`, `holdout.py`) was already
+symbol-agnostic — it replays whatever candles it's handed per instrument
+and has no hard-coded count. The fixed-five constraint lived in exactly
+three places: `action_register.PilotSymbol` (a `Literal` of the five
+names), `evaluation_manifest.P1EvaluationManifest` (an exact-set-match
+check), and `promotion.P1_PILOT_INSTRUMENT_COUNT`/the "3 of 5 profitable
+instruments" rejection threshold.
+Decision:
+1. `action_register.PilotSymbol` → `NseEquitySymbol`, broadened from a
+   5-name `Literal` to any validly-shaped NSE trading symbol
+   (`^[A-Z0-9&-]{1,20}$`). Per-record review discipline (reviewer/
+   review_date required for an approved factor) is completely unchanged —
+   this only widens which symbols may be *named*, never who may approve
+   what. `PilotSymbol` kept as a compatibility alias.
+2. `evaluation_manifest.P1EvaluationManifest` no longer requires `symbols`
+   to be exactly the original five. A broader set now requires a new
+   `universe_reference` field identifying which selector run
+   (`MonthlyUniverseSnapshot`) produced it, so a broader-universe manifest
+   stays reproducible/auditable rather than an arbitrary list — the
+   original five-symbol pilot still validates with no reference needed
+   (backward compatible).
+3. New `trading.backtest.universe_evaluation.run_p1_daily_candidate_across_
+   universe`: replays a candidate against every ISIN a real
+   `MonthlyUniverseSnapshot.selected_isins` names for its `effective_date`,
+   not a fixed symbol list. An ISIN the snapshot selected but whose candles
+   weren't supplied is reported in `missing_isins`, never silently dropped
+   or treated as zero — same fail-closed discipline as the selector and
+   preflight it builds on.
+4. **`promotion.py`'s rejection-rule threshold is explicitly NOT changed.**
+   `docs/specs/P1_REJECTION_RULE.md` states plainly: "Do not change the
+   candidate, costs, universe, or boundaries after this result" — this is
+   the pre-registered-before-any-holdout-result P1d decision rule, written
+   specifically so a result can't be renegotiated after the fact. Since no
+   real holdout has ever actually been read (2016-2026 stays burned;
+   P1d's evaluator has never run on real data), changing the evaluation
+   universe now is procedurally fine — but scaling "3 of 5" into some new
+   fraction for a ~50-instrument universe is a *numeric methodology
+   choice*, not a mechanical rescale, and the agent did not make it. This
+   needs the owner to pick and pre-register a new majority threshold
+   (and, for consistency, the time-block count/size) for the broader
+   universe as a properly versioned successor to `P1_REJECTION_RULE.md`
+   — written and frozen before any broader-universe holdout is read,
+   same discipline as the original rule.
+Consequences: the mechanics of running P1 against the real full universe
+are now in place and tested. P1 cannot be formally evaluated against that
+broader universe yet — it is blocked on the owner's new rejection-rule
+threshold, same blocking category as the already-known corporate-action
+ledger and fresh-holdout gaps. This is a deliberate, named blocker, not an
+oversight.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
