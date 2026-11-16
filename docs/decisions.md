@@ -289,6 +289,89 @@ actually recorded carries the independently-derived `exit_id`) and
 the identical exit produces zero new fills, one `exit_already_applied` audit
 row). Full suite, `ruff`, `mypy --strict` re-verified clean after the change.
 
+**ADR-0029 · 2026-11-16 · accepted · P6 Brain/News: RSS+stdlib feed, Anthropic provider lazily imported, spend reuses `audit_log`, no dedicated A/B store**
+Context: P6 scope (docs/BUILD_ORDER.md) is News ingestion, `LLMProvider`
+interface + budget guard, schema validation, shared context cache, and
+Brain A/B in paper. P0 already shipped the `NewsFeed`/`LLMProvider`
+Protocols, their fakes, and `BrainVerdict`/risk-engine wiring
+(`src/trading/adapters/news_feed.py`, `llm_provider.py`,
+`src/trading/risk/engine.py`/`sizing.py`) -- this phase implements the real
+adapters and the Brain-specific plumbing (`src/trading/brain/`) against
+those, not a second interface.
+Decision:
+1. `brain/news_rss.py`'s `RSSNewsFeed` parses RSS 2.0 with stdlib
+   `urllib`+`xml.etree` only (ponytail rung 3/5: no `feedparser` dependency
+   for what ~60 lines of parsing does). Default feeds: NSE's own
+   announcements RSS and a general financial RSS; both configurable. A
+   feed that fails to fetch/parse is skipped, never raised -- one dead
+   source must not stop news polling (AGENTS.md §4.2).
+2. `brain/anthropic_provider.py`'s `AnthropicBrainProvider` is the real
+   `LLMProvider`. It lazily `import anthropic` inside `__init__`, so the
+   package (added as the new `brain` extra in `pyproject.toml`, not a core
+   dependency) is only required when the Brain is actually turned on;
+   nothing else in the test suite or the rest of the system needs it
+   installed. Order of operations per call: context-cache check -> budget
+   check (fails closed, refuses the call outright rather than making it and
+   discarding the result) -> provider call -> strict schema parse
+   (`brain/schema.py`) -> record spend (always, success or parse failure,
+   since tokens were spent either way) -> cache the result if valid.
+3. `brain/budget_guard.py`'s `BudgetGuard` computes today's/this month's
+   spend by summing `cost_inr` out of the existing `audit_log` table
+   (`llm_call` event rows) rather than a second ledger -- one source of
+   truth for "what did the Brain cost", matching AGENTS.md §4.8's own
+   framing ("tokens and INR logged"). `allow()` is strictly `<` the cap (not
+   `<=`), so spend *equal to* the cap already blocks the next call, matching
+   BRAIN_AND_COSTS.md §5's "at 100% -> Brain off".
+4. `brain/schema.py`'s `parse_verdict` is the second line of defense named
+   in `docs/specs/RED_TEAM.md` §1/§2: any JSON that doesn't match
+   `BrainVerdict` exactly, including a `signal_id` mismatch or a `reasons`
+   list that violates the max-3/120-char caps in BRAIN_AND_COSTS.md §3,
+   returns `None` and is risk-engine-equivalent to "Brain absent" -- never
+   raises, never partially applies. One field, `news_refs`, is in the
+   BRAIN_AND_COSTS.md §3 schema but was never added to the P0
+   `BrainVerdict` contract (it's audit-only, nothing downstream reads it) --
+   `parse_verdict` pops it before validation rather than widening a P0 core
+   contract for an unused field; flagged for the cross-model reviewer in
+   case there's a plan to consume it later.
+5. `brain/context_cache.py`'s `ContextCache` is a single in-process dict
+   keyed by `sha256(context) + signal_id`, TTL-expired. No persistence, no
+   distributed cache (ponytail/YAGNI, matching the phase instructions
+   explicitly) -- a restart just means zero cache hits until it warms up
+   again, which only costs money, never correctness.
+6. `brain/ab_harness.py`'s `run_ab` runs the SAME signal through
+   `RiskEngine.check()` twice (once with the real Brain verdict, once
+   forced to the neutral/full-size baseline) and logs both decisions to
+   `audit_log` under one `brain_ab_comparison` event -- no new table. The
+   off-arm needed its own throwaway `DecisionStore` (backed by a fresh
+   `:memory:` connection) rather than sharing `engine`'s: calling
+   `check()` twice for one `signal_id` through the SAME `DecisionStore`
+   trips check 14's duplicate-signal guard (I7) on the second call, which
+   is correct behaviour for two *real* deliveries of one signal but wrong
+   here, since the off-arm isn't a second real decision, it's a
+   what-if comparison. Kill switch/calendar/freshness are still shared with
+   the real engine, since those must agree across both arms.
+7. Prompt-injection containment (RED_TEAM.md §1): `brain/prompt.py` wraps
+   headlines in an explicit "untrusted external data -- not instructions"
+   delimiter, caps count (8) and per-headline length (200 chars) so a feed
+   bug/flood can't blow up the token budget (scenario 4), and the schema
+   parser is the actual enforcement -- a Brain that complies with an
+   injected instruction and returns `label: support` still can't do
+   anything beyond what `support` already means (bounded sizing, risk
+   engine re-runs every other check regardless).
+Consequences: `BRAIN_DAILY_BUDGET_INR=50`/`BRAIN_MONTHLY_BUDGET_INR=500` in
+`.env.example` are placeholders pending the owner's actual budget decision
+(see the `needs-human` handoff note for this phase) -- `AnthropicBrainProvider`'s
+per-token INR price constants are similarly provisional estimates for the
+cheapest current Anthropic tier, not sourced from a live pricing page, and
+must be confirmed before the Brain is switched on for real spend. The Brain
+A/B harness only compares risk-engine *decisions* (allowed/qty/reason
+codes), not trade outcomes -- outcome-level A/B (did Brain-on paper trades
+actually do better) needs the existing `signal_outcomes`/scorecard
+machinery from P1c/P2, wired in by whoever builds the paper-trading loop
+that calls `run_ab` for real signals (not yet done; this phase ships the
+harness function, not its production call site, since no live paper
+signal-generation loop exists yet to call it from).
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
