@@ -20,13 +20,55 @@ class Scorecard:
     avg_win: Decimal
     avg_loss: Decimal
     expectancy: Decimal
+    activation_opportunities: int | None = None
+    activation_eligible: int | None = None
+    activation_frequency: Decimal | None = None
 
 
-def scorecard(trades: list[Trade]) -> Scorecard:
+def scorecard(
+    trades: list[Trade],
+    *,
+    activation_opportunities: int | None = None,
+    activation_eligible: int | None = None,
+) -> Scorecard:
     """Summarize completed trades; unfilled/open trades are excluded upstream."""
+    activation_frequency: Decimal | None = None
+    if activation_opportunities is None or activation_eligible is None:
+        if activation_opportunities is not None or activation_eligible is not None:
+            raise ValueError(
+                "activation opportunities and eligible counts must be supplied together"
+            )
+    else:
+        if (
+            isinstance(activation_opportunities, bool)
+            or not isinstance(activation_opportunities, int)
+            or isinstance(activation_eligible, bool)
+            or not isinstance(activation_eligible, int)
+            or activation_opportunities < 0
+            or not 0 <= activation_eligible <= activation_opportunities
+        ):
+            raise ValueError(
+                "activation counts must be integers with 0 <= eligible <= opportunities"
+            )
+        if activation_opportunities:
+            activation_frequency = Decimal(activation_eligible) / Decimal(activation_opportunities)
     if not trades:
         zero = Decimal("0")
-        return Scorecard(0, 0, 0, zero, zero, zero, zero, zero, zero, zero)
+        return Scorecard(
+            0,
+            0,
+            0,
+            zero,
+            zero,
+            zero,
+            zero,
+            zero,
+            zero,
+            zero,
+            activation_opportunities,
+            activation_eligible,
+            activation_frequency,
+        )
     wins = sum(trade.pnl > 0 for trade in trades)
     losses = sum(trade.pnl < 0 for trade in trades)
     total = sum((trade.pnl for trade in trades), Decimal("0"))
@@ -53,4 +95,7 @@ def scorecard(trades: list[Trade]) -> Scorecard:
         avg_win=avg_win,
         avg_loss=avg_loss,
         expectancy=total / Decimal(len(trades)),
+        activation_opportunities=activation_opportunities,
+        activation_eligible=activation_eligible,
+        activation_frequency=activation_frequency,
     )

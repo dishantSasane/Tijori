@@ -139,9 +139,12 @@ spec where silence never means "something broke." Full detail:
 `BUILD_ORDER.md` P1a-P1e, `RISK_SPEC.md` §2A.
 Consequences: strategy-discovery work (beyond T1/T4) does not start until
 P1a's data gaps (point-in-time universe, corporate actions) are resolved or
-explicitly waived by the owner; the untouched holdout from the current
-2016-2026 sample is no longer valid once inspected, so a new, genuinely
-unread holdout range must be committed in P1a config before P1b/P1c runs.
+explicitly waived by the owner. Source-independent candidate definitions,
+metric implementations, registry contracts, and synthetic validation may be
+built before that gate; no real-data discovery/ranking may run. The untouched
+holdout from the current 2016-2026 sample is no longer valid once inspected,
+so a new, genuinely unread holdout range must be committed in P1a config
+before P1b/P1c runs.
 
 **ADR-0025 · 2026-11-15 · superseded by ADR-0026 (membership branch) · P1 data and evaluation assumptions requiring owner decision**
 Context: P1a-P1c cannot be made reproducible by implementation choices alone.
@@ -162,37 +165,39 @@ Consequences: P1 can continue on source research, data-contract design, and
 synthetic/known-answer validation that does not consume the holdout. Real-data
 discovery and P1a completion remain blocked on the relevant decisions.
 
-**ADR-0026 · 2026-11-15 · accepted · Point-in-time universe resolved without a paid NSE Indices licence; research sizing set**
-Context: ADR-0025 gated P1a on either a purchased NSE Indices licence for
-point-in-time Nifty 50/Next 50 membership, or an explicit survivorship-bias
-waiver. NSE Indices licensing is priced for institutional buyers (asset
-managers/ETF issuers), not a free or low-cost option, and an agent emailing a
-vendor on the owner's behalf is a bad pattern regardless of price. The data
-actually needed is already public.
-Decision: (1) the **research universe** is rule-based and computed from free
-NSE bhavcopy data (`sec_bhavdata_full`), not from any index membership
-source: top 50 (and, for later Tier B-adjacent work, top 100) by rolling
-60-day median turnover, recomputed monthly, keyed on ISIN rather than symbol.
-This is survivorship-free by construction — no manifest, no vendor, no
-licence. (2) A **Nifty 50 point-in-time manifest is still built, but only as
-a benchmark/scorecard tool**, not the research universe: reconstructed by
-anchoring on today's known membership and walking NSE Indices' own public,
-dated replacement press releases (`niftyindices.com/Press_Release/`)
-backward, with the source press-release URL cited per row. Wikipedia's
-replacements-since-2005 table is a cross-check only, never the source of
-record; disagreements between the two are flagged, not silently resolved.
-(3) No NSE Indices quote/licence inquiry will be sent. (4) Research-comparison
-sizing is set at 1% per-trade risk on a ₹1,00,000 placeholder capital — not
-the owner's real trading capital, used only so every P1b/P1c candidate is
-sized identically and results are comparable.
-Consequences: `trading.storage.membership`'s manifest contract/validator
-(built against the "authorized vendor" design) is repointed at the
-reconstructed press-release manifest for benchmarking, not at a purchased
-feed. P1a's membership blocker from ADR-0025 is closed; its sizing blocker is
-closed. Still open: the holding-horizon confirmation, Upstox's raw/adjusted
-price basis (verify empirically, e.g. against Infosys's 2018 bonus issue,
-before trusting any "adjusted" Upstox candle), and the untouched holdout
-range (the 2016-2026 sample remains burned per ADR-0024).
+**ADR-0026 · 2026-11-15 · accepted · Research universe rule and comparison sizing**
+Context: ADR-0025 gated P1a on historical membership/licensing, sizing, and
+horizon decisions. The owner selected a turnover-ranked universe and declined
+an NSE Indices licence inquiry. That resolves the selection method, but does
+not itself verify source rights or historical completeness.
+Decision: (1) The **research universe rule** is monthly, ISIN-keyed ranking of
+NSE cash equities by trailing 60-session median turnover: top 50 for primary
+research, with top 100 reserved for later research. NSE
+`sec_bhavdata_full` is the proposed turnover source. Public availability does
+not establish permission for systematic collection, storage, derived data, or
+backtesting. The archived schema, stable identifiers, eligible-security
+coverage, and treatment of missing/no-trade rows remain unverified. A
+survivorship-free claim requires evidence that authorized dated inputs include
+eligible securities later delisted and resolve coverage gaps. (2) A **Nifty
+50 point-in-time manifest remains benchmark-only**, not the research universe.
+The proposed reconstruction uses dated official replacement notices and
+records their URLs. The notices' completeness, corrections, and permitted use
+remain to be established; unresolved events or identities prevent a
+completeness claim, and a constituent manifest alone does not calculate index
+returns. (3) No NSE Indices quote/licence inquiry will be sent. (4)
+Research-comparison sizing is set at 1% per-trade risk on ₹1,00,000 placeholder
+capital, not the owner's real trading capital, so candidates use a common
+comparison assumption.
+Consequences: `trading.storage.membership` remains a validator for a
+benchmark-membership manifest, not evidence that a complete manifest has been
+assembled. Pure selector and manifest contracts may be developed with
+synthetic data. Real source collection/use and P1a completion remain gated on
+documented rights, schema, and coverage. Sizing is resolved. Still open: the
+holding horizon and untouched holdout range (the 2016-2026 sample remains
+burned per ADR-0024). A later empirical probe found Upstox's NESTLEIND daily
+candles already adjusted for its 10:1 split effective 2024-01-05; do not
+double-adjust this event. Adjustment basis for other event types/symbols and
+corporate-action position replay remain to be verified.
 
 ---
 
@@ -229,6 +234,31 @@ machine-readable source yet) and the daily report's content/format (§3.4,
 deferred to a future spec if P3 proves one is needed).
 
 ---
+**ADR-0029 · 2026-11-15 · accepted · P1 corporate-action source and NSE collection boundary**
+Context: NSE/NSE Indices website terms prohibit systematic or automated
+collection for the intended P1 workflow, and the project must not build an NSE
+site scraper. P1 also needs corporate-action events so split/bonus price
+history and open positions are handled without silently ignoring demergers or
+rights issues.
+Decision: use Upstox's documented authenticated per-ISIN Corporate Actions API
+as the P1 action-source candidate. Preserve the response and raw ratio/details;
+do not infer factor direction from text. Do not automate downloads from
+NSE/NSE Indices. The research-universe selector and index-membership validator
+remain source-independent contracts only; no NSE bhavcopy collector, Nifty
+press-release scraper, or populated historical membership manifest exists.
+The Upstox API docs list dividends, bonuses, splits, and rights but do not
+explicitly promise demerger coverage or exhaustive historical completeness;
+demergers and unknown/missing events require a manually reviewed permitted
+supplement or another authorized source. A live request on 2026-11-15 received
+Cloudflare HTTP 403 `browser_signature_banned` and said not to retry, so no
+response ledger was acquired. Keep P1a data rebuild, backtest runner screening,
+position replay, and split freeze blocked until API access and coverage are
+verified and event records are persisted.
+Consequences: an Upstox API client may be tested from documented fixtures, but
+must not treat an empty result as proof of no actions. Data-source rights and
+technical access are separate gates; this decision selects the intended
+provider but does not claim successful acquisition or full event coverage.
+
 
 **ADR-0028 · 2026-11-15 · accepted · P2 implemented out of role-split order, by owner's direct instruction**
 Context: `MODEL_ROLES.md` assigns P2 implementation (risk engine, paper broker,

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime
 from decimal import Decimal
+from math import isfinite
 
 from trading.core.enums import OrderSide
 from trading.core.models import Candle, Signal
@@ -25,10 +26,12 @@ def t1_donchian(
     created_ts: datetime,
 ) -> list[Signal]:
     """Emit T1 entries when close exceeds the previous ``lookback`` highs."""
-    if lookback <= 0 or exit_lookback <= 0 or atr_multiple <= 0:
+    if lookback <= 0 or exit_lookback <= 0 or not isfinite(atr_multiple) or atr_multiple <= 0:
         raise ValueError("lookbacks and atr_multiple must be positive")
     if len(candles) != len(atr_values):
         raise ValueError("candles and atr_values must have equal lengths")
+    if any(value is not None and not isfinite(value) for value in atr_values):
+        raise ValueError("ATR values must be finite or None")
     signals: list[Signal] = []
     for index, candle in enumerate(candles):
         if index < lookback:
@@ -41,6 +44,8 @@ def t1_donchian(
             continue
         entry = candle.close
         stop = entry - _decimal(atr_multiple) * _decimal(atr_value)
+        if stop <= 0:
+            continue
         signals.append(
             Signal(
                 market=candle.market,
@@ -58,6 +63,19 @@ def t1_donchian(
     return signals
 
 
+def t1_exit_trigger(
+    *, close: Decimal, prior_lows: Sequence[Decimal], exit_lookback: int = 10
+) -> bool:
+    """Return T1's strict close below the preceding exit-channel low."""
+    if exit_lookback <= 0:
+        raise ValueError("exit_lookback must be positive")
+    if len(prior_lows) != exit_lookback:
+        raise ValueError("prior_lows must contain the complete exit lookback")
+    if any(not value.is_finite() or value <= 0 for value in prior_lows):
+        raise ValueError("prior lows must be positive")
+    return close < min(prior_lows)
+
+
 def t4_rsi_pullback(
     candles: Sequence[Candle],
     sma_values: Sequence[float | None],
@@ -70,10 +88,21 @@ def t4_rsi_pullback(
     created_ts: datetime,
 ) -> list[Signal]:
     """Emit T4 entries when price is above SMA and RSI is oversold."""
-    if rsi_threshold <= 0 or atr_multiple <= 0:
+    if (
+        not isfinite(rsi_threshold)
+        or not isfinite(atr_multiple)
+        or rsi_threshold <= 0
+        or atr_multiple <= 0
+    ):
         raise ValueError("rsi_threshold and atr_multiple must be positive")
     if not (len(candles) == len(sma_values) == len(rsi_values) == len(atr_values)):
         raise ValueError("candles and indicator values must have equal lengths")
+    if any(
+        value is not None and not isfinite(value)
+        for values in (sma_values, rsi_values, atr_values)
+        for value in values
+    ):
+        raise ValueError("indicator values must be finite or None")
     signals: list[Signal] = []
     for candle, sma_value, rsi_value, atr_value in zip(
         candles, sma_values, rsi_values, atr_values, strict=True
@@ -84,6 +113,8 @@ def t4_rsi_pullback(
             continue
         entry = candle.close
         stop = entry - _decimal(atr_multiple) * _decimal(atr_value)
+        if stop <= 0:
+            continue
         signals.append(
             Signal(
                 market=candle.market,

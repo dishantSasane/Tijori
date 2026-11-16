@@ -59,6 +59,15 @@ def test_final_signal_and_open_position_match() -> None:
     )
 
 
+def test_reference_rejects_mixed_instruments() -> None:
+    bars = [
+        bar(0, "10", "11", "9", "10", symbol="AAA"),
+        bar(1, "20", "21", "19", "20", symbol="BBB"),
+    ]
+    with pytest.raises(ValueError, match="exactly one instrument"):
+        run_reference(bars, [], quantity=Decimal("1"), profile=BacktestProfile())
+
+
 def test_reference_handles_gap_below_stop_on_fill_bar() -> None:
     bars = [bar(0, "2500", "2510", "2490", "2500"), bar(1, "2400", "2420", "2390", "2410")]
     entry = signal(0).model_copy(update={"entry_ref": Decimal("2500"), "stop": Decimal("2450")})

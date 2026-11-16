@@ -1,24 +1,206 @@
-"""Point-in-time split and bonus adjustment for raw daily candles.
+"""Adjust verified raw daily and intraday candles for splits and bonuses.
 
-The caller must establish that input candles are raw, unadjusted prices. The
-Upstox historical API documentation currently does not state its adjustment
-basis; never apply this transform to Upstox data until that is verified.
+The caller must establish the provider's adjustment basis. Upstox data already
+reflects the observed NESTLEIND split, so that event must bypass this transform.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import date
-from decimal import Decimal
+from datetime import date, datetime
+from decimal import ROUND_HALF_EVEN, Decimal, localcontext
+from enum import StrEnum
+from hashlib import sha256
 from typing import Literal
 from zoneinfo import ZoneInfo
 
 from pydantic import Field, model_validator
 
-from trading.core.enums import MarketId, Timeframe
+from trading.core.enums import MarketId
 from trading.core.models import Candle, Contract
 
 INDIA_TIMEZONE = ZoneInfo("Asia/Kolkata")
+
+
+class CorporateActionKind(StrEnum):
+    SPLIT = "split"
+    BONUS = "bonus"
+    DEMERGER = "demerger"
+    RIGHTS = "rights"
+    DIVIDEND = "dividend"
+    OTHER = "other"
+
+
+class CorporateActionNotice(Contract):
+    """Normalized NSE action row; it carries no inferred adjustment factor."""
+
+    symbol: str = Field(min_length=1)
+    kind: CorporateActionKind
+    purpose: str = Field(min_length=1)
+    effective_date: date
+    source_ref: str = Field(min_length=1)
+    event_id: str | None = None
+
+    @property
+    def event_key(self) -> str:
+        if self.event_id:
+            return self.event_id
+        identity = "|".join(
+            (
+                self.source_ref,
+                self.symbol,
+                self.effective_date.isoformat(),
+                self.kind.value,
+                self.purpose,
+            )
+        )
+        return sha256(identity.encode()).hexdigest()
+
+
+class UnhandledCorporateAction(Contract):
+    """A dated action in the test window that is not proven adjusted."""
+
+    symbol: str
+    kind: CorporateActionKind
+    effective_date: date
+    purpose: str
+    source_ref: str
+    event_key: str
+    requires_review: bool = True
+    reason: str = "unhandled corporate action; no automatic adjustment is applied"
+
+
+class BacktestActionScreening(Contract):
+    """Universe screen output; blocked symbols need event-level review."""
+
+    eligible_symbols: tuple[str, ...]
+    blocked_symbols: tuple[str, ...]
+    flags: tuple[UnhandledCorporateAction, ...]
+
+
+def _row_value(row: dict[str, object], *names: str) -> object | None:
+    normalized = {
+        str(key).strip().casefold().replace("_", "-"): value for key, value in row.items()
+    }
+    for name in names:
+        value = normalized.get(name.casefold().replace("_", "-"))
+        if value is not None and str(value).strip():
+            return value
+    return None
+
+
+def _nse_date(value: object) -> date:
+    text = str(value).strip()
+    for pattern in ("%d-%b-%Y", "%d-%B-%Y", "%d-%m-%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(text, pattern).date()
+        except ValueError:
+            continue
+    raise ValueError(f"unsupported NSE corporate-action date: {text}")
+
+
+def classify_corporate_action(purpose: str) -> CorporateActionKind:
+    """Classify common NSE purpose text without interpreting action ratios."""
+    normalized = " ".join(purpose.casefold().replace("-", " ").split())
+    if "demerger" in normalized or "de merger" in normalized:
+        return CorporateActionKind.DEMERGER
+    if "right" in normalized:
+        return CorporateActionKind.RIGHTS
+    if "bonus" in normalized:
+        return CorporateActionKind.BONUS
+    if "split" in normalized or "sub division" in normalized or "subdivision" in normalized:
+        return CorporateActionKind.SPLIT
+    if "dividend" in normalized:
+        return CorporateActionKind.DIVIDEND
+    return CorporateActionKind.OTHER
+
+
+def parse_nse_corporate_action_row(
+    row: dict[str, object], *, source_ref: str
+) -> CorporateActionNotice:
+    """Normalize the relevant fields from a downloaded NSE corporate-action row."""
+    symbol = _row_value(row, "symbol", "scrip code")
+    purpose = _row_value(row, "purpose", "corporate action")
+    effective_date = _row_value(row, "ex-date", "ex date", "effective date")
+    if symbol is None or purpose is None or effective_date is None:
+        raise ValueError("NSE action row requires symbol, purpose, and ex-date")
+    purpose_text = str(purpose).strip()
+    return CorporateActionNotice(
+        symbol=str(symbol).strip().upper(),
+        kind=classify_corporate_action(purpose_text),
+        purpose=purpose_text,
+        effective_date=_nse_date(effective_date),
+        source_ref=source_ref,
+    )
+
+
+def inspect_unhandled_actions(
+    notices: Iterable[CorporateActionNotice],
+    *,
+    symbols: set[str] | frozenset[str],
+    start: date,
+    end: date,
+    handled_action_keys: set[str] | frozenset[str] = frozenset(),
+) -> list[UnhandledCorporateAction]:
+    """Flag in-window actions absent from the verified adjusted-action ledger.
+
+    A split/bonus is considered handled only when its unique event key is
+    explicitly present in ``handled_action_keys`` because either the input
+    price history already includes the adjustment or the approved transform
+    was applied. Demergers, rights issues,
+    dividends, and unknown action descriptions remain review flags; no factor
+    is inferred or applied.
+    """
+    if end < start:
+        raise ValueError("backtest end must be on or after start")
+    target_symbols = {symbol.strip().upper() for symbol in symbols}
+    flags: list[UnhandledCorporateAction] = []
+    for notice in notices:
+        if notice.symbol not in target_symbols or not start <= notice.effective_date <= end:
+            continue
+        supported_action = notice.kind in {
+            CorporateActionKind.SPLIT,
+            CorporateActionKind.BONUS,
+        }
+        if supported_action and notice.event_key in handled_action_keys:
+            continue
+        flags.append(
+            UnhandledCorporateAction(
+                symbol=notice.symbol,
+                kind=notice.kind,
+                effective_date=notice.effective_date,
+                purpose=notice.purpose,
+                source_ref=notice.source_ref,
+                event_key=notice.event_key,
+            )
+        )
+    return sorted(flags, key=lambda item: (item.symbol, item.effective_date, item.kind.value))
+
+
+def screen_backtest_symbols(
+    notices: Iterable[CorporateActionNotice],
+    *,
+    symbols: set[str] | frozenset[str],
+    start: date,
+    end: date,
+    handled_action_keys: set[str] | frozenset[str] = frozenset(),
+    reviewed_action_keys: set[str] | frozenset[str] = frozenset(),
+) -> BacktestActionScreening:
+    """Exclude symbols with an unadjusted event unless that exact event was reviewed."""
+    normalized_symbols = {symbol.strip().upper() for symbol in symbols}
+    flags = inspect_unhandled_actions(
+        notices,
+        symbols=normalized_symbols,
+        start=start,
+        end=end,
+        handled_action_keys=handled_action_keys,
+    )
+    blocked = {flag.symbol for flag in flags if flag.event_key not in reviewed_action_keys}
+    return BacktestActionScreening(
+        eligible_symbols=tuple(sorted(normalized_symbols - blocked)),
+        blocked_symbols=tuple(sorted(blocked)),
+        flags=tuple(flags),
+    )
 
 
 class ShareAdjustment(Contract):
@@ -61,8 +243,10 @@ def adjust_for_share_actions(
     this with its own as-of date.
 
     The original immutable candles are retained. Adjusted bars carry the
-    cumulative price multiplier in ``adj_factor``. Input must be unadjusted
-    daily candles; a marked candle or another timeframe fails closed.
+    cumulative price multiplier in ``adj_factor``. Input must be verified raw
+    candles; already-adjusted input fails closed. Daily and intraday bars are
+    assigned to a session using India local time, so bars on an ex-date are
+    never adjusted, including the first intraday bar of that session.
     Dividends, rights issues, mergers, and other events are intentionally not
     inferred or handled here.
     """
@@ -94,36 +278,67 @@ def adjust_for_share_actions(
 
     adjusted: list[Candle] = []
     for candle in candle_list:
-        if candle.timeframe is not Timeframe.D1:
-            raise ValueError("P1 corporate-action adjustment supports daily candles only")
         if candle.adj_factor is not None:
             raise ValueError(
                 f"candle {candle.symbol} at {candle.ts_open_utc.isoformat()} is already adjusted"
             )
         session_date = candle.ts_open_utc.astimezone(INDIA_TIMEZONE).date()
-        price_factor = Decimal("1")
-        for action in selected_actions:
-            if (
-                action.market == candle.market
-                and action.symbol == candle.symbol
-                and session_date < action.effective_date <= as_of
-            ):
-                price_factor /= action.new_shares_per_old_share
+        with localcontext() as context:
+            context.prec = 50
+            context.rounding = ROUND_HALF_EVEN
+            price_factor = Decimal("1")
+            for action in selected_actions:
+                if (
+                    action.market == candle.market
+                    and action.symbol == candle.symbol
+                    and session_date < action.effective_date <= as_of
+                ):
+                    price_factor /= action.new_shares_per_old_share
 
-        if price_factor == Decimal("1"):
-            adjusted.append(candle)
-            continue
-        adjusted.append(
-            Candle.model_validate(
-                {
-                    **candle.model_dump(),
-                    "open": candle.open * price_factor,
-                    "high": candle.high * price_factor,
-                    "low": candle.low * price_factor,
-                    "close": candle.close * price_factor,
-                    "volume": candle.volume / price_factor,
-                    "adj_factor": price_factor,
-                }
+            if price_factor == Decimal("1"):
+                adjusted.append(candle)
+                continue
+            adjusted.append(
+                Candle.model_validate(
+                    {
+                        **candle.model_dump(),
+                        "open": candle.open * price_factor,
+                        "high": candle.high * price_factor,
+                        "low": candle.low * price_factor,
+                        "close": candle.close * price_factor,
+                        "volume": candle.volume / price_factor,
+                        "adj_factor": price_factor,
+                    }
+                )
             )
-        )
     return adjusted
+
+
+def prepare_candles_for_storage(
+    candles: Iterable[Candle],
+    actions: Iterable[ShareAdjustment],
+    *,
+    as_of: date,
+    provider_adjusted_action_keys: set[tuple[str, date]]
+    | frozenset[tuple[str, date]] = frozenset(),
+) -> list[Candle]:
+    """Adjust verified raw candles before storage, omitting provider-adjusted events.
+
+    ``provider_adjusted_action_keys`` must contain exact `(symbol, ex_date)`
+    keys proven to already be reflected in the fetched series. The caller must
+    still run ``inspect_unhandled_actions`` on the full action feed; this helper
+    intentionally does not treat missing actions as proof of a clean window.
+    """
+    skipped = {
+        (symbol.strip().upper(), effective_date)
+        for symbol, effective_date in provider_adjusted_action_keys
+    }
+    applicable = [
+        action
+        for action in actions
+        if (action.symbol.upper(), action.effective_date) not in skipped
+    ]
+    candle_list = list(candles)
+    if any(candle.ts_open_utc.astimezone(INDIA_TIMEZONE).date() > as_of for candle in candle_list):
+        raise ValueError("adjustment_as_of must cover the latest candle session")
+    return adjust_for_share_actions(candle_list, applicable, as_of=as_of)

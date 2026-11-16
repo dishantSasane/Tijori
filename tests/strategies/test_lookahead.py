@@ -7,6 +7,7 @@ from trading.core.enums import MarketId, Timeframe
 from trading.core.models import Candle, Signal
 from trading.indicators.moving_averages import sma
 from trading.indicators.technical import atr, rsi
+from trading.strategies.p1_candidates import generate_p1_daily_signals
 from trading.strategies.phase1 import t1_donchian, t4_rsi_pullback
 
 
@@ -55,3 +56,28 @@ def test_future_bars_do_not_change_t1_or_t4_past_signals() -> None:
             assert [s.model_dump(exclude={"id"}) for s in prefix_signals] == [
                 s.model_dump(exclude={"id"}) for s in expected
             ], (strategy, end)
+
+
+def test_future_bars_do_not_change_t2_or_t6_past_signals() -> None:
+    start = datetime(2020, 1, 1, tzinfo=UTC)
+    fixtures = {
+        "t2-ema20-50-adx25-v1": [200 - index for index in range(60)]
+        + [140 + 3 * index for index in range(80)],
+        "t6-bollinger20-2-v1": [100] * 205 + [99],
+    }
+    for candidate_id, closes in fixtures.items():
+        bars = candles(closes)
+        full_signals = generate_p1_daily_signals(candidate_id, bars, created_ts=start)
+        assert full_signals, f"{candidate_id} fixture must produce signals"
+        for end in range(1, len(bars) + 1):
+            prefix_signals = generate_p1_daily_signals(
+                candidate_id,
+                bars[:end],
+                created_ts=start,
+            )
+            expected = [
+                signal for signal in full_signals if signal.bar_ts_utc <= bars[end - 1].ts_open_utc
+            ]
+            assert [signal.model_dump(exclude={"id"}) for signal in prefix_signals] == [
+                signal.model_dump(exclude={"id"}) for signal in expected
+            ], (candidate_id, end)

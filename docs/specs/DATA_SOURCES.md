@@ -70,6 +70,37 @@ anti-bot challenges.
 
 ## Corporate actions and historical membership
 
+### Upstox corporate-actions endpoint (selected P1 source)
+
+Upstox documents the authenticated
+[`GET /v2/fundamentals/{isin}/corporate-actions` endpoint](https://upstox.com/developer/api-documentation/get-corporate-actions/).
+It returns event names, effective/ex-dates, amounts, ratios, and details for
+dividends, bonuses, splits, and rights issues. The owner selected this
+documented API as P1's action-source candidate; before bulk retention/use,
+verify the account's applicable API terms and entitlement cover local storage
+and research/backtesting. The API reference alone does not establish those
+rights. Do not automate requests to NSE/NSE Indices websites. Fetch by ISIN from
+the pinned Tier A instrument list, retain the unmodified response bytes,
+retrieval time, ISIN, response checksum, and parser version. Refresh
+periodically and retain revisions rather than replacing old evidence.
+
+The API documentation does not state that its event list is exhaustive over a
+given history range, and does not explicitly list demergers. A successful empty
+response is therefore not proof of no actions. Demergers and unknown action
+types need human-reviewed records from a permitted source; rights issues are
+detected but remain unadjusted. Preserve API ratios as reported until an event
+specific test establishes their direction and meaning. Do not use them to
+adjust prices or quantities by guessing.
+
+An authenticated live probe on 2026-11-15 succeeded after setting a browser-
+like User-Agent. Five pilot ISIN responses were archived with exact response
+bytes, retrieval time, checksum, and parser version. Their reported events
+were dividends only. This confirms endpoint access, not historical action
+completeness; an empty or partial response cannot certify adjusted candles.
+The collector requires a freshly supplied token and does not save it. The
+account's applicable API terms and research/backtesting entitlement still need
+confirmation before treating these data as licensed research inputs.
+
 ### Point-in-time Nifty 50 / Next 50 membership
 
 The official [NSE Indices data-subscription page](https://www.niftyindices.com/offerings/data-subscription)
@@ -138,11 +169,17 @@ P1 corporate-action adjustment requirements:
   preserve the original file, provider, acquisition time, and adjustment version.
 - Specify treatment of dividends and rights separately. Do not infer factors from
   free-text corporate-action descriptions without validated, known-answer cases.
-- The synthetic split/bonus transformer and known-answer tests are specified in
-  [`CORPORATE_ACTIONS.md`](CORPORATE_ACTIONS.md). It must not be applied to
-  Upstox candles until the provider confirms whether those prices are already
-  adjusted; P1 backtests must also account for share-count changes on held
-  positions before adjusted data can support promotion.
+- Detect demerger, rights, dividend, and unrecognized corporate-action purposes
+  in each backtest window. Exclude affected symbols or require event-level human
+  review; never silently leave the event in returns, and do not auto-adjust
+  demergers or rights issues.
+- The split/bonus transformer and known-answer tests are specified in
+  [`CORPORATE_ACTIONS.md`](CORPORATE_ACTIONS.md). A real NESTLEIND 10:1 event
+  indicates Upstox's daily candles are already adjusted across that split;
+  never apply the transform again to those candles. Treat other symbols and
+  action types as unverified until checked. P1 backtests must also account for
+  share-count changes on held positions before adjusted data can support
+  promotion.
 - Obtain historical instrument identifiers, symbol changes, delistings, and
   point-in-time index membership. Today's Nifty 50 list cannot prove a
   survivorship-free historical Nifty 50 result.

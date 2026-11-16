@@ -1,0 +1,71 @@
+{
+  "source": "upstox",
+  "source_raw_sha256": "58190c7532bda8a61cfe829bb4b9a8f31dfa726bf3f781f7b5c3ca1dd998ce02",
+  "instrument_key": "NSE_EQ|INE002A01018",
+  "event": {
+    "kind": "bonus",
+    "ex_date": "2024-10-28",
+    "new_shares_per_old_share": "2",
+    "source_url": "https://upstox.com/news/market-news/stocks/reliance-industries-shares-turn-ex-bonus-today-after-bonus-issue-of-1-1-check-key-details/article-125012/"
+  },
+  "data": {
+    "candles": [
+      [
+        "2024-10-30T00:00:00+05:30",
+        1335.0,
+        1350.0,
+        1325.35,
+        1343.9,
+        11984423,
+        0
+      ],
+      [
+        "2024-10-29T00:00:00+05:30",
+        1328.1,
+        1343.2,
+        1320.3,
+        1340.0,
+        12008361,
+        0
+      ],
+      [
+        "2024-10-28T00:00:00+05:30",
+        1337.0,
+        1353.0,
+        1322.1,
+        1334.35,
+        10824350,
+        0
+      ],
+      [
+        "2024-10-25T00:00:00+05:30",
+        1343.5,
+        1344.35,
+        1322.0,
+        1327.85,
+        18597496,
+        0
+      ],
+      [
+        "2024-10-24T00:00:00+05:30",
+        1335.3,
+        1343.7,
+        1323.1,
+        1339.8,
+        22155934,
+        0
+      ],
+      [
+        "2024-10-23T00:00:00+05:30",
+        1337.5,
+        1357.5,
+        1335.0,
+        1338.5,
+        17214742,
+        0
+      ]
+    ]
+  },
+  "status": "success",
+  "limitations": "Price continuity only; volume adjustment and historical event coverage remain unverified."
+}

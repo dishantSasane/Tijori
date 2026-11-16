@@ -1,0 +1,65 @@
+{
+  "evaluation_manifest_sha256": "aa1c0a786f78cf321c2fb4f042413d0c47c276e74063b45dfb8944ce58e60e55",
+  "manifest": {
+    "action_coverage_status": "unverified",
+    "action_register_sha256": "f0abc42ed748a87d444431193a3a9c9322ca5b263ae082b580ba031a1949256b",
+    "adjustment_basis": {
+      "daily_price": "provider-adjusted empirically for split/bonus price continuity",
+      "daily_volume": "unverified",
+      "intraday_price_volume": "not independently verified"
+    },
+    "calendar_snapshot_sha256": {
+      "daily": "37017e9c34e111279500921e472359d9ce1d1edb92e696c076d0ce68d1fe261f",
+      "intraday": "3879c1e8a2887c2d1310431048da1d929277ff78db0ca8dc0bf240b835d6cda7"
+    },
+    "calendar_summary": {
+      "HDFCBANK_1m_sessions": 1207,
+      "HDFCBANK_5m_sessions": 1207,
+      "HDFCBANK_daily_sessions": 4172,
+      "ICICIBANK_1m_sessions": 1207,
+      "ICICIBANK_5m_sessions": 1207,
+      "ICICIBANK_daily_sessions": 4172,
+      "INFY_1m_sessions": 1207,
+      "INFY_5m_sessions": 1207,
+      "INFY_daily_sessions": 4172,
+      "RELIANCE_1m_sessions": 1207,
+      "RELIANCE_5m_sessions": 1207,
+      "RELIANCE_daily_sessions": 4185,
+      "TCS_1m_sessions": 1207,
+      "TCS_5m_sessions": 1207,
+      "TCS_daily_sessions": 4172,
+      "daily_common_sessions": 4172,
+      "intraday_common_sessions": 1207
+    },
+    "candle_snapshot_sha256": {
+      "1d": "74d334595083e445c1c1301293abc03884d27bc5d91604d8bb7514b87cf80942",
+      "1m": "42bb1b2a3481d9a996ba1c9bb1718dcbb6316ce96d3dc324de2b4e7aa069213f",
+      "5m": "634a74d90c9bf89d6d822f31bfec33cb77c8335dadd9e056bb0451c801e0b090"
+    },
+    "cost_model_version": "BacktestProfile-implementation-v1; profile values are per-run inputs",
+    "provider": "upstox",
+    "schema_version": 1,
+    "symbols": [
+      "HDFCBANK",
+      "ICICIBANK",
+      "INFY",
+      "RELIANCE",
+      "TCS"
+    ],
+    "transform_version": "upstox-v3-provider-adjustment-evidence-v1",
+    "windows": {
+      "1d": [
+        "2010-01-01",
+        "2026-11-14"
+      ],
+      "1m": [
+        "2022-01-01",
+        "2026-11-14"
+      ],
+      "5m": [
+        "2022-01-01",
+        "2026-11-14"
+      ]
+    }
+  }
+}

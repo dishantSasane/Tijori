@@ -9,11 +9,19 @@ from trading.core.enums import MarketId, OrderSide, Timeframe
 from trading.core.models import Candle, Signal
 
 
-def bar(index: int, open_price: str, high: str, low: str, close: str) -> Candle:
+def bar(
+    index: int,
+    open_price: str,
+    high: str,
+    low: str,
+    close: str,
+    *,
+    symbol: str = "TEST",
+) -> Candle:
     timestamp = datetime(2026, 1, 1, tzinfo=UTC) + timedelta(days=index)
     return Candle(
         market=MarketId.IN_EQUITY,
-        symbol="TEST",
+        symbol=symbol,
         timeframe=Timeframe.D1,
         ts_open_utc=timestamp,
         open=Decimal(open_price),
@@ -66,6 +74,30 @@ def test_final_bar_signal_is_logged_but_not_counted() -> None:
     assert isinstance(result, BacktestResult)
     assert result.trades == []
     assert result.unfilled_signals == [pending.id]
+
+
+@pytest.mark.parametrize("duplicate", [False, True])
+def test_runner_rejects_nonincreasing_candle_timestamps(duplicate: bool) -> None:
+    candles = [bar(0, "10", "11", "9", "10"), bar(1, "10", "11", "9", "10")]
+    if duplicate:
+        candles[1] = candles[1].model_copy(update={"ts_open_utc": candles[0].ts_open_utc})
+    else:
+        candles.reverse()
+
+    with pytest.raises(ValueError, match="strictly increasing and unique"):
+        run_long_only(candles, [], quantity=Decimal("1"), profile=BacktestProfile())
+
+
+def test_runner_rejects_mixed_instruments_before_global_index_can_cross_symbols() -> None:
+    candles = [
+        bar(0, "10", "11", "9", "10", symbol="AAA"),
+        bar(1, "20", "21", "19", "20", symbol="BBB"),
+        bar(2, "11", "12", "10", "11", symbol="AAA"),
+        bar(3, "21", "22", "20", "21", symbol="BBB"),
+    ]
+
+    with pytest.raises(ValueError, match="exactly one instrument"):
+        run_long_only(candles, [], quantity=Decimal("1"), profile=BacktestProfile())
 
 
 def test_long_only_runner_rejects_sell_signals() -> None:
@@ -154,6 +186,33 @@ def test_condition_exit_fill_bar_stop_precedes_condition() -> None:
     )
     assert result.trades[0].exit_reason == "stop"
     assert result.trades[0].exit_price == Decimal("7.9960")
+
+
+@pytest.mark.parametrize("next_bar_low", ["104", "95"])
+def test_condition_exit_uses_next_open_without_looking_at_later_bar_range(
+    next_bar_low: str,
+) -> None:
+    candles = [
+        bar(0, "100", "101", "99", "100"),
+        bar(1, "99", "100", "98", "99"),
+        bar(2, "100", "101", "99", "100"),
+        bar(3, "105", "110", next_bar_low, "105"),
+    ]
+    result = run_long_only(
+        candles,
+        [signal(0).model_copy(update={"entry_ref": Decimal("100"), "stop": Decimal("96")})],
+        quantity=Decimal("1"),
+        profile=BacktestProfile(
+            brokerage=Decimal("1"),
+            entry_brokerage=Decimal("2"),
+            exit_brokerage=Decimal("7"),
+        ),
+        condition_exit=lambda current_signal, index, candle: index == 2,
+    )
+    assert result.trades[0].exit_reason == "condition"
+    assert result.trades[0].exit_price == Decimal("105")
+    assert result.trades[0].fees == Decimal("9")
+    assert result.trades[0].pnl == Decimal("-3")
 
 
 def test_entry_gap_through_stop_is_realized_at_actual_fill() -> None:
