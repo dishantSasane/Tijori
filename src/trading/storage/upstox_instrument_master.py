@@ -16,7 +16,11 @@ from __future__ import annotations
 
 import gzip
 import json
+import os
+import tempfile
 from collections.abc import Callable
+from hashlib import sha256
+from pathlib import Path
 from typing import cast
 from urllib.request import Request, urlopen
 
@@ -52,6 +56,35 @@ def fetch_raw_master(
 ) -> bytes:
     """Download the gzipped complete instrument master, unparsed."""
     return fetcher(url)
+
+
+def _atomic_write(path: Path, payload: bytes) -> None:
+    descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix=".master-")
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
+def save_raw_master(raw_gzip_json: bytes, directory: Path) -> tuple[Path, str]:
+    """Persist the exact fetched master bytes, content-addressed by their
+    real SHA-256 -- so a later snapshot can be bound to, and reproduced
+    from, the literal bytes it was built against, not just a trusted claim.
+    Idempotent: re-saving identical bytes is a no-op; a path collision with
+    different bytes (same hash claimed, different content) fails closed.
+    """
+    checksum = sha256(raw_gzip_json).hexdigest()
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"complete-master-{checksum}.json.gz"
+    if path.exists() and path.read_bytes() != raw_gzip_json:
+        raise ValueError("existing instrument-master archive is corrupt")
+    if not path.exists():
+        _atomic_write(path, raw_gzip_json)
+    return path, checksum
 
 
 def parse_nse_equity_master(raw_gzip_json: bytes) -> list[EquityMasterEntry]:

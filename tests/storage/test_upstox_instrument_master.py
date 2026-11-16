@@ -1,11 +1,14 @@
 import gzip
 import json
+from hashlib import sha256
+from pathlib import Path
 
 import pytest
 
 from trading.storage.upstox_instrument_master import (
     fetch_raw_master,
     parse_nse_equity_master,
+    save_raw_master,
 )
 
 
@@ -97,3 +100,27 @@ def test_fetch_raw_master_uses_injected_fetcher() -> None:
     result = fetch_raw_master(fetcher=fake_fetcher)
     assert result == b"fake-bytes"
     assert calls == ["https://assets.upstox.com/market-quote/instruments/exchange/complete.json.gz"]
+
+
+def test_save_raw_master_persists_exact_bytes_under_real_sha256(tmp_path: Path) -> None:
+    raw = _gzip_json([{"fake": "row"}])
+    path, checksum = save_raw_master(raw, tmp_path)
+    assert checksum == sha256(raw).hexdigest()
+    assert path.read_bytes() == raw
+    assert path.name == f"complete-master-{checksum}.json.gz"
+
+
+def test_save_raw_master_is_idempotent_for_identical_bytes(tmp_path: Path) -> None:
+    raw = _gzip_json([{"fake": "row"}])
+    first_path, first_checksum = save_raw_master(raw, tmp_path)
+    second_path, second_checksum = save_raw_master(raw, tmp_path)
+    assert first_path == second_path
+    assert first_checksum == second_checksum
+
+
+def test_save_raw_master_fails_closed_on_path_corruption(tmp_path: Path) -> None:
+    raw = _gzip_json([{"fake": "row"}])
+    path, checksum = save_raw_master(raw, tmp_path)
+    path.write_bytes(b"corrupted")
+    with pytest.raises(ValueError, match="corrupt"):
+        save_raw_master(raw, tmp_path)

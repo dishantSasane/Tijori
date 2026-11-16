@@ -35,6 +35,12 @@ def main() -> None:
     )
     parser.add_argument("--k", type=int, default=50)
     parser.add_argument("--output", type=Path, default=Path("data/p1/full_universe_snapshot.json"))
+    parser.add_argument(
+        "--archive",
+        type=Path,
+        default=Path("data/p1/full_universe_raw"),
+        help="directory to persist the exact raw master/candle evidence this snapshot is bound to",
+    )
     args = parser.parse_args()
 
     sessions = tuple(
@@ -44,7 +50,8 @@ def main() -> None:
 
     token = getpass.getpass("Fresh Upstox access token (not saved): ")
     print("Fetching Upstox instrument master...")
-    master_entries = parse_nse_equity_master(fetch_raw_master())
+    master_raw_bytes = fetch_raw_master()
+    master_entries = parse_nse_equity_master(master_raw_bytes)
     print(f"{len(master_entries)} NSE cash-equity instruments found. Fetching daily history...")
 
     def report(done: int, total: int, symbol: str) -> None:
@@ -55,6 +62,8 @@ def main() -> None:
         client=UpstoxHistoryClient(user_agent="tijori-research/1.0"),
         access_token=token,
         master_entries=master_entries,
+        master_raw_bytes=master_raw_bytes,
+        archive_directory=args.archive,
         sessions=sessions,
         effective_date=effective_date,
         k=args.k,
