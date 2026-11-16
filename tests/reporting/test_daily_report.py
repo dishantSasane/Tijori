@@ -24,7 +24,7 @@ def _seed(conn):
     conn.commit()
 
 
-def test_daily_report_scopes_to_the_given_date_and_sums_correctly():
+def test_daily_report_scopes_to_the_given_date_without_claiming_pnl():
     conn = connect(":memory:")
     _seed(conn)
 
@@ -34,7 +34,8 @@ def test_daily_report_scopes_to_the_given_date_and_sums_correctly():
     assert report.signals_rejected == 1
     assert report.rejection_reasons == {"kill_switch_engaged": 1}
     assert report.signal_outcomes == {"win": 1}
-    assert str(report.realized_pnl) == "2.5"
+    assert "realized_pnl" not in report.to_dict()
+    assert "Realized P&L" not in report.to_markdown()
     assert "kill_switch_engaged" in report.to_markdown()
 
 

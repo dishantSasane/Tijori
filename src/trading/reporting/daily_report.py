@@ -1,4 +1,4 @@
-"""End-of-day summary: signals, trades, P&L, risk rejections (BUILD_ORDER.md P3
+"""End-of-day summary: signals, trades, and risk rejections (BUILD_ORDER.md P3
 item 5). Reads the shared SQLite state DB only -- no broker/exchange calls, so
 this is safe to run anytime, including in CI, against a fixture DB.
 
@@ -14,7 +14,6 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass, field
-from decimal import Decimal
 
 
 @dataclass
@@ -24,7 +23,6 @@ class DailyReport:
     signals_rejected: int
     rejection_reasons: dict[str, int] = field(default_factory=dict)
     signal_outcomes: dict[str, int] = field(default_factory=dict)  # result -> count
-    realized_pnl: Decimal = Decimal(0)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -33,7 +31,6 @@ class DailyReport:
             "signals_rejected": self.signals_rejected,
             "rejection_reasons": self.rejection_reasons,
             "signal_outcomes": self.signal_outcomes,
-            "realized_pnl": str(self.realized_pnl),
         }
 
     def to_markdown(self) -> str:
@@ -42,7 +39,6 @@ class DailyReport:
             "",
             f"- Fills: {self.fills}",
             f"- Signals rejected by risk engine: {self.signals_rejected}",
-            f"- Realized P&L (closed positions, after costs): {self.realized_pnl}",
             "",
             "## Rejection reasons",
         ]
@@ -82,14 +78,11 @@ def build_daily_report(conn: sqlite3.Connection, date: str) -> DailyReport:
                 rejection_reasons[reason] = rejection_reasons.get(reason, 0) + 1
 
     signal_outcomes: dict[str, int] = {}
-    realized_pnl = Decimal(0)
-    for result, pct_after_costs in conn.execute(
+    for result, _pct_after_costs in conn.execute(
         "SELECT result, pct_after_costs FROM signal_outcomes WHERE closed_ts LIKE ?",
         (f"{date}%",),
     ):
         signal_outcomes[result] = signal_outcomes.get(result, 0) + 1
-        if pct_after_costs is not None:
-            realized_pnl += Decimal(pct_after_costs)
 
     return DailyReport(
         date=date,
@@ -97,7 +90,6 @@ def build_daily_report(conn: sqlite3.Connection, date: str) -> DailyReport:
         signals_rejected=signals_rejected,
         rejection_reasons=rejection_reasons,
         signal_outcomes=signal_outcomes,
-        realized_pnl=realized_pnl,
     )
 
 
