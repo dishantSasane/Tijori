@@ -25,6 +25,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from datetime import UTC, date, datetime
+from decimal import Decimal
 
 from trading.adapters.upstox_history import UpstoxHistoryClient
 from trading.core.enums import MarketId, Timeframe
@@ -53,11 +54,33 @@ def fetch_turnover_observations_for_instrument(
     sessions: tuple[date, ...],
     access_token: str,
     clock: Callable[[], datetime],
-) -> tuple[ResearchInstrument, list[TurnoverObservation]]:
+) -> tuple[ResearchInstrument, list[TurnoverObservation], tuple[date, ...]]:
     """Fetch one instrument's daily candles for the exact lookback window and
-    derive its turnover observations. `sessions` must be the verified
-    calendar slice this instrument is being scored against -- a missing
-    session in the response fails closed in `build_snapshot`, not here.
+    derive its turnover observations.
+
+    `sessions` is the caller-verified trading-day calendar (per
+    `research_universe.build_snapshot`'s own contract: "the caller is
+    responsible for its completeness") -- every date in it is already a
+    confirmed genuine trading day, so a session missing from this
+    instrument's response is never a calendar question, only an instrument
+    question.
+
+    Upstox omits the row entirely for an illiquid instrument's no-trade day
+    (confirmed empirically: e.g. SONAL/INE321M01017 has no row at all for
+    2026-08-12, an ordinary trading day) rather than returning an explicit
+    zero-volume candle. A missing session is decoded as a confirmed
+    no-trade day -- recorded as an explicit, labeled zero-turnover
+    observation, auditable via the returned `decoded_no_trade_days` -- only
+    when it is *sandwiched*: this exact instrument has a real candle on
+    both the nearest earlier and the nearest later session in `sessions`.
+    That pattern (isolated single-session gaps between real activity) is
+    Upstox's confirmed no-trade-day convention, not a data outage or a
+    listing/delisting boundary. A leading/trailing gap, or a multi-session
+    run of missing dates, is never decoded this way -- it remains a hard
+    error in `build_snapshot`, same as before this change: those shapes
+    could mean the instrument wasn't listed yet, was delisted, was
+    suspended, or the provider had an outage, and none of those may be
+    silently assumed to mean zero turnover.
     """
     from_date, to_date = _daily_window_strings(sessions)
     candles = client.fetch(
@@ -77,17 +100,43 @@ def fetch_turnover_observations_for_instrument(
         eligible=True,
         verified_history_start=min(candles_by_date, default=sessions[-1]),
     )
-    observations = [
-        TurnoverObservation(
-            session_date=session,
-            isin=entry.isin,
-            turnover_inr=(candle := candles_by_date[session]).close * candle.volume,
-            explicit_zero=candle.volume == 0,
+
+    decoded_no_trade_days: list[date] = []
+    observations: list[TurnoverObservation] = []
+    for index, session in enumerate(sessions):
+        if session in candles_by_date:
+            candle = candles_by_date[session]
+            observations.append(
+                TurnoverObservation(
+                    session_date=session,
+                    isin=entry.isin,
+                    turnover_inr=candle.close * candle.volume,
+                    explicit_zero=candle.volume == 0,
+                )
+            )
+            continue
+        # Immediate neighbors only -- an isolated single-session gap, not a
+        # multi-session run (a run means every day in it would otherwise
+        # pass an "any earlier/any later" test too, wrongly decoding a
+        # suspension as a string of no-trade days).
+        immediate_earlier_present = index > 0 and sessions[index - 1] in candles_by_date
+        immediate_later_present = (
+            index + 1 < len(sessions) and sessions[index + 1] in candles_by_date
         )
-        for session in sessions
-        if session in candles_by_date
-    ]
-    return instrument, observations
+        if immediate_earlier_present and immediate_later_present:
+            decoded_no_trade_days.append(session)
+            observations.append(
+                TurnoverObservation(
+                    session_date=session,
+                    isin=entry.isin,
+                    turnover_inr=Decimal(0),
+                    explicit_zero=True,
+                )
+            )
+        # else: leading/trailing or multi-session gap -- leave unobserved,
+        # letting build_snapshot's existing hard-error-on-missing fire.
+
+    return instrument, observations, tuple(decoded_no_trade_days)
 
 
 def build_full_universe_snapshot(
@@ -102,6 +151,7 @@ def build_full_universe_snapshot(
     sleeper: Callable[[float], None] = time.sleep,
     clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     on_progress: Callable[[int, int, str], None] | None = None,
+    on_decoded_no_trade_day: Callable[[str, date], None] | None = None,
 ) -> MonthlyUniverseSnapshot:
     """Fetch real Upstox daily candles for every instrument in
     `master_entries` over `sessions`' 60-session lookback and rank them with
@@ -110,17 +160,29 @@ def build_full_universe_snapshot(
     restarts; callers running this unattended should persist partial results
     themselves (same pattern as `intraday_loader`'s `CandleStore`-backed
     resumability) if a run is interrupted.
+
+    `on_decoded_no_trade_day(isin, session_date)` fires once per isolated
+    missing-session gap decoded as a confirmed no-trade day (see
+    `fetch_turnover_observations_for_instrument`'s docstring) -- an audit
+    trail of exactly which (isin, date) pairs were filled this way, since
+    that decoding is a real assumption about provider behavior, not a
+    directly observed fact, and must stay inspectable.
     """
     instruments: list[ResearchInstrument] = []
     observations: list[TurnoverObservation] = []
     for index, entry in enumerate(master_entries):
         if index:
             sleeper(minimum_request_interval_seconds)
-        instrument, entry_observations = fetch_turnover_observations_for_instrument(
-            client, entry, sessions=sessions, access_token=access_token, clock=clock
+        instrument, entry_observations, decoded_no_trade_days = (
+            fetch_turnover_observations_for_instrument(
+                client, entry, sessions=sessions, access_token=access_token, clock=clock
+            )
         )
         instruments.append(instrument)
         observations.extend(entry_observations)
+        if on_decoded_no_trade_day is not None:
+            for session in decoded_no_trade_days:
+                on_decoded_no_trade_day(entry.isin, session)
         if on_progress is not None:
             on_progress(index + 1, len(master_entries), entry.trading_symbol)
 
