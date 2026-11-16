@@ -15,14 +15,20 @@ from datetime import datetime
 from trading.scanner.models import ScannerIdea
 
 
-def apply_scan(conn: sqlite3.Connection, ideas: Sequence[ScannerIdea], run_ts: datetime) -> None:
+def apply_scan(
+    conn: sqlite3.Connection, ideas: Sequence[ScannerIdea], run_ts: datetime, *, complete: bool
+) -> None:
     """Promote every idea onto the shortlist and demote everything else active.
 
-    One call = one day's scanner run. Symbols in ``ideas`` are inserted or
+    A caller must explicitly attest that input coverage was complete. An
+    incomplete scan fails closed and cannot remove existing shortlist rows.
+    One complete call = one day's scanner run. Symbols in ``ideas`` are inserted or
     refreshed as 'active'; symbols currently 'active' but absent from
     ``ideas`` are demoted to 'removed'. This is the only write path for the
     table, so shortlist history always reflects actual scan outcomes.
     """
+    if not complete:
+        raise ValueError("incomplete scan cannot update the shortlist")
     run_ts_iso = run_ts.isoformat()
     seen = {(idea.symbol, idea.market.value) for idea in ideas}
     for idea in ideas:
