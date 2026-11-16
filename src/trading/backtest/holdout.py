@@ -27,14 +27,17 @@ class HoldoutPlan(Contract):
     data_window_id: str = Field(min_length=1)
     holdout_start: date
     holdout_end: date
+    dataset_manifest_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    cost_model_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    split_plan_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_snapshot_id: str = Field(min_length=1)
     universe_version: str = Field(min_length=1)
     calendar_version: str = Field(min_length=1)
     corporate_action_version: str = Field(min_length=1)
-    shortlist_hash: str = Field(min_length=1)
-    rejection_rule_hash: str = Field(min_length=1)
-    metrics_hash: str = Field(min_length=1)
-    family_hash: str = Field(min_length=1)
+    shortlist_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    rejection_rule_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    metrics_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    family_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
 
     @model_validator(mode="after")
     def _validate_data_window_id(self) -> HoldoutPlan:
@@ -43,6 +46,7 @@ class HoldoutPlan(Contract):
         expected = holdout_window_id(
             holdout_start=self.holdout_start,
             holdout_end=self.holdout_end,
+            dataset_manifest_hash=self.dataset_manifest_hash,
             source_snapshot_id=self.source_snapshot_id,
             universe_version=self.universe_version,
             calendar_version=self.calendar_version,
@@ -57,6 +61,7 @@ def holdout_window_id(
     *,
     holdout_start: date,
     holdout_end: date,
+    dataset_manifest_hash: str,
     source_snapshot_id: str,
     universe_version: str,
     calendar_version: str,
@@ -65,6 +70,7 @@ def holdout_window_id(
     identity = {
         "holdout_start": holdout_start.isoformat(),
         "holdout_end": holdout_end.isoformat(),
+        "dataset_manifest_hash": dataset_manifest_hash,
         "source_snapshot_id": source_snapshot_id,
         "universe_version": universe_version,
         "calendar_version": calendar_version,
@@ -81,22 +87,43 @@ def holdout_plan_from_split(
     rejection_rule_hash: str,
     metrics_hash: str,
     family_hash: str,
+    dataset_manifest_hash: str,
+    cost_model_hash: str,
 ) -> HoldoutPlan:
     """Derive holdout identity and plan IDs from a frozen split contract."""
     data_window = holdout_window_id(
         holdout_start=split.holdout.start,
         holdout_end=split.holdout.end,
+        dataset_manifest_hash=dataset_manifest_hash,
         source_snapshot_id=split.source_snapshot_id,
         universe_version=split.universe_version,
         calendar_version=split.calendar_version,
         corporate_action_version=split.corporate_action_version,
     )
-    frozen_id = sha256(f"{split.plan_id}:{split.content_hash}".encode()).hexdigest()
+    frozen_id = sha256(
+        json.dumps(
+            {
+                "split_plan_id": split.plan_id,
+                "split_plan_hash": split.content_hash,
+                "shortlist_hash": shortlist_hash,
+                "rejection_rule_hash": rejection_rule_hash,
+                "metrics_hash": metrics_hash,
+                "family_hash": family_hash,
+                "dataset_manifest_hash": dataset_manifest_hash,
+                "cost_model_hash": cost_model_hash,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
     return HoldoutPlan(
         plan_id=frozen_id,
         data_window_id=data_window,
         holdout_start=split.holdout.start,
         holdout_end=split.holdout.end,
+        dataset_manifest_hash=dataset_manifest_hash,
+        cost_model_hash=cost_model_hash,
+        split_plan_hash=split.content_hash,
         source_snapshot_id=split.source_snapshot_id,
         universe_version=split.universe_version,
         calendar_version=split.calendar_version,
@@ -125,10 +152,13 @@ class ConsumedHoldout(Contract):
 
     plan_id: str
     data_window_id: str
-    shortlist_hash: str
-    rejection_rule_hash: str
-    metrics_hash: str
-    family_hash: str
+    dataset_manifest_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    cost_model_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    split_plan_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    shortlist_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    rejection_rule_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    metrics_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    family_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     authorization_token: str = Field(min_length=1)
 
 
@@ -146,6 +176,9 @@ class HoldoutEvaluator:
                 data_window_id VARCHAR NOT NULL UNIQUE,
                 holdout_start DATE NOT NULL,
                 holdout_end DATE NOT NULL,
+                dataset_manifest_hash VARCHAR NOT NULL,
+                cost_model_hash VARCHAR NOT NULL,
+                split_plan_hash VARCHAR NOT NULL,
                 source_snapshot_id VARCHAR NOT NULL,
                 universe_version VARCHAR NOT NULL,
                 calendar_version VARCHAR NOT NULL,
@@ -176,9 +209,15 @@ class HoldoutEvaluator:
                 "SELECT column_name FROM duckdb_columns() WHERE table_name = 'consumed_holdouts'"
             ).fetchall()
         }
-        if "authorization_token" not in columns:
+        required_columns = {
+            "authorization_token",
+            "dataset_manifest_hash",
+            "cost_model_hash",
+            "split_plan_hash",
+        }
+        if not required_columns.issubset(columns):
             raise RuntimeError(
-                f"{self.path} predates the authorization_token fix (holdout.py's one-shot "
+                f"{self.path} predates the current holdout seal schema (holdout.py's one-shot "
                 "guard forgery fix) and has no safe migration path. Delete this file and "
                 "re-run -- it can only hold pre-launch development data."
             )
@@ -198,6 +237,9 @@ class HoldoutEvaluator:
         return ConsumedHoldout(
             plan_id=plan.plan_id,
             data_window_id=plan.data_window_id,
+            dataset_manifest_hash=plan.dataset_manifest_hash,
+            cost_model_hash=plan.cost_model_hash,
+            split_plan_hash=plan.split_plan_hash,
             shortlist_hash=plan.shortlist_hash,
             rejection_rule_hash=plan.rejection_rule_hash,
             metrics_hash=plan.metrics_hash,
@@ -229,16 +271,20 @@ class HoldoutEvaluator:
                     """
                     INSERT INTO consumed_holdouts (
                         plan_id, data_window_id, holdout_start, holdout_end,
+                        dataset_manifest_hash, cost_model_hash, split_plan_hash,
                         source_snapshot_id, universe_version, calendar_version,
                         corporate_action_version, shortlist_hash, rejection_rule_hash,
                         metrics_hash, family_hash, authorization_token
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     [
                         plan.plan_id,
                         plan.data_window_id,
                         plan.holdout_start,
                         plan.holdout_end,
+                        plan.dataset_manifest_hash,
+                        plan.cost_model_hash,
+                        plan.split_plan_hash,
                         plan.source_snapshot_id,
                         plan.universe_version,
                         plan.calendar_version,
@@ -319,13 +365,17 @@ class HoldoutEvaluator:
             row = self._connection.execute(
                 """
                 SELECT 1 FROM consumed_holdouts
-                WHERE plan_id = ? AND data_window_id = ? AND shortlist_hash = ?
+                WHERE plan_id = ? AND data_window_id = ? AND dataset_manifest_hash = ?
+                  AND cost_model_hash = ? AND split_plan_hash = ? AND shortlist_hash = ?
                   AND rejection_rule_hash = ? AND metrics_hash = ? AND family_hash = ?
                   AND authorization_token = ?
                 """,
                 [
                     authorization.plan_id,
                     authorization.data_window_id,
+                    authorization.dataset_manifest_hash,
+                    authorization.cost_model_hash,
+                    authorization.split_plan_hash,
                     authorization.shortlist_hash,
                     authorization.rejection_rule_hash,
                     authorization.metrics_hash,

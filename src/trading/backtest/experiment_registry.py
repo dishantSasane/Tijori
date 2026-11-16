@@ -13,7 +13,9 @@ import duckdb
 from pydantic import Field, field_validator, model_validator
 
 from trading.backtest.holdout import ConsumedHoldout, HoldoutEvaluator
+from trading.backtest.holdout_seals import SealedShortlist
 from trading.backtest.multiple_testing import P1_FAMILY_SIZE
+from trading.backtest.promotion import HoldoutDecision
 from trading.core.models import Contract
 
 
@@ -165,9 +167,99 @@ class ExperimentRegistry:
             )
             """
         )
+        self._connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS holdout_candidate_decisions (
+                plan_id VARCHAR NOT NULL,
+                candidate_id VARCHAR NOT NULL,
+                candidate_version VARCHAR NOT NULL,
+                experiment_id VARCHAR NOT NULL UNIQUE,
+                PRIMARY KEY (plan_id, candidate_id, candidate_version)
+            )
+            """
+        )
 
     def append(self, record: ExperimentRecord) -> None:
         """Insert a run once; never update/delete prior evidence."""
+        if record.partition == "holdout":
+            raise PermissionError(
+                "holdout records require append_holdout_decision with consumed authorization"
+            )
+        self._append(record)
+
+    def append_holdout_decision(
+        self,
+        record: ExperimentRecord,
+        *,
+        decision: HoldoutDecision,
+        authorization: ConsumedHoldout,
+        holdout_guard: HoldoutEvaluator,
+        shortlist: SealedShortlist,
+    ) -> ExperimentRecord:
+        """Durably record one authorized P1d decision without exposing holdout rows.
+
+        The supplied record is already the complete candidate evaluation. This
+        method binds its final status and machine-readable reasons to the
+        append-only registry only after the one-shot ledger confirms the caller
+        holds the minted authorization token.
+        """
+        self._require_holdout_authorization(authorization, holdout_guard)
+        if shortlist.shortlist_hash != authorization.shortlist_hash:
+            raise ValueError("sealed shortlist does not match the holdout authorization")
+        if record.partition != "holdout":
+            raise ValueError("holdout decision records must use the holdout partition")
+        if (
+            record.split_plan_id != authorization.plan_id
+            or record.data_window_id != authorization.data_window_id
+        ):
+            raise ValueError("holdout decision record does not match the authorization plan")
+        if record.status != "completed":
+            raise ValueError("holdout decision requires complete metric evidence")
+        if not shortlist.contains(
+            candidate_id=record.candidate_id,
+            candidate_version=record.candidate_version,
+            parameters_json=record.parameters_json,
+            catalog_hash=record.catalog_hash,
+        ):
+            raise ValueError("holdout decision candidate is not in the sealed shortlist")
+        stored = record.model_copy(
+            update={
+                "status": decision.status,
+                "error": json.dumps(
+                    {"holdout_reasons": list(decision.reasons)},
+                    separators=(",", ":"),
+                ),
+            }
+        )
+        self._append_holdout(stored)
+        return stored
+
+    def _append_holdout(self, record: ExperimentRecord) -> None:
+        """Append a P1d result once per plan/candidate in one DB transaction."""
+        with self._lock:
+            try:
+                self._connection.execute("BEGIN TRANSACTION")
+                self._connection.execute(
+                    """
+                    INSERT INTO holdout_candidate_decisions
+                    (plan_id, candidate_id, candidate_version, experiment_id)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    [
+                        record.split_plan_id,
+                        record.candidate_id,
+                        record.candidate_version,
+                        record.experiment_id,
+                    ],
+                )
+                self._append(record)
+                self._connection.execute("COMMIT")
+            except Exception:
+                self._connection.execute("ROLLBACK")
+                raise
+
+    def _append(self, record: ExperimentRecord) -> None:
+        """Insert a validated record; callers enforce partition-specific gates."""
         payload = record.model_dump(mode="python")
         payload["recorded_at_utc"] = record.recorded_at_utc.isoformat()
         columns = list(payload)
@@ -190,6 +282,18 @@ class ExperimentRegistry:
         holdout_guard: HoldoutEvaluator,
     ) -> list[ExperimentRecord]:
         """Retrieve holdout rows after a consumed plan has been confirmed."""
+        self._require_holdout_authorization(authorization, holdout_guard)
+        return self._records(
+            "partition = 'holdout'",
+            split_plan_id=authorization.plan_id,
+            data_window_id=authorization.data_window_id,
+        )
+
+    def _require_holdout_authorization(
+        self,
+        authorization: ConsumedHoldout,
+        holdout_guard: HoldoutEvaluator,
+    ) -> None:
         if holdout_guard.path != self.path:
             raise PermissionError("holdout authorization must use the same authoritative database")
         if not holdout_guard.validate_authorization(authorization):
@@ -203,11 +307,6 @@ class ExperimentRegistry:
             family_hash=authorization.family_hash,
         ):
             raise PermissionError("holdout authorization is not in the authoritative ledger")
-        return self._records(
-            "partition = 'holdout'",
-            split_plan_id=authorization.plan_id,
-            data_window_id=authorization.data_window_id,
-        )
 
     def _records(
         self,

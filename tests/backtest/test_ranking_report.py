@@ -93,23 +93,21 @@ def test_sharpe_sortino_are_none_when_daily_series_not_supplied() -> None:
     assert row.sortino is None
 
 
-def test_row_uses_the_caller_supplied_family_size_not_a_hardcoded_one() -> None:
-    row = build_ranking_report_row(
-        candidate_id="t5-orb-m1-v1",
-        timeframe="intraday",
-        dataset_manifest_hash=VALID_HASH,
-        trades=[trade("a", "10")],
-        starting_equity=Decimal(100_000),
-        daily_excess_returns=synthetic_series(),
-        daily_returns=synthetic_series(),
-        periods_per_year=252,
-        years=Decimal(1),
-        bootstrap_seed=3,
-        family_size=18,
-    )
-    assert row.family_size == 18
-    expected = min(Decimal(1), Decimal(18) * row.raw_p_value)
-    assert abs(row.adjusted_p_value - expected) < Decimal("1e-20")
+def test_report_rejects_stale_family_size() -> None:
+    with pytest.raises(ValueError, match="frozen P1 family size of 15"):
+        build_ranking_report_row(
+            candidate_id="t5-orb-m1-v1",
+            timeframe="intraday",
+            dataset_manifest_hash=VALID_HASH,
+            trades=[trade("a", "10")],
+            starting_equity=Decimal(100_000),
+            daily_excess_returns=synthetic_series(),
+            daily_returns=synthetic_series(),
+            periods_per_year=252,
+            years=Decimal(1),
+            bootstrap_seed=3,
+            family_size=18,
+        )
 
 
 def test_optional_fields_are_none_when_not_supplied() -> None:
@@ -150,6 +148,26 @@ def test_optional_fields_populate_when_supplied() -> None:
     assert row.pct_profitable_instruments == Decimal(50)
     assert row.pct_profitable_time_windows == Decimal(50)
     assert row.vs_buy_and_hold_pct is not None
+
+
+def test_activation_frequency_is_part_of_the_candidate_scorecard() -> None:
+    row = build_ranking_report_row(
+        candidate_id="t1-donchian-v1",
+        timeframe="daily",
+        dataset_manifest_hash=VALID_HASH,
+        trades=[],
+        starting_equity=Decimal(100_000),
+        daily_excess_returns=synthetic_series(),
+        daily_returns=synthetic_series(),
+        periods_per_year=252,
+        years=Decimal(1),
+        bootstrap_seed=2,
+        activation_opportunities=100,
+        activation_eligible=15,
+    )
+    assert row.scorecard.activation_opportunities == 100
+    assert row.scorecard.activation_eligible == 15
+    assert row.scorecard.activation_frequency == Decimal("0.15")
 
 
 def test_rejects_nonpositive_starting_equity() -> None:

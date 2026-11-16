@@ -115,10 +115,11 @@ and conflicts are handled.
 No single composite score will hide trade-offs. Produce a Pareto table over
 net return, max drawdown, Calmar, Sharpe/Sortino, cost drag, positive-instrument
 fraction, and uncertainty. First eliminate candidates that fail pre-written
-minimum viability criteria; then compare non-dominated candidates. The exact
-numeric viability thresholds and minimum sample size are still owner/spec
-inputs and must be frozen before any data result is viewed. Rejection always
-includes failure reason; no candidate is dropped merely because it ranks low.
+minimum viability criteria; then compare non-dominated candidates. For P1d
+holdout evaluation, `P1_REJECTION_RULE.md` is the authoritative pre-registered
+source for the minimum sample sizes, coverage requirements, decision thresholds
+and failure reasons. Rejection always includes a reason; no candidate is
+dropped merely because it ranks low.
 
 ## Promotion bar by frequency
 

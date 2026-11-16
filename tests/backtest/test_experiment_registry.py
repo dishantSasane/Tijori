@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, date, datetime, timedelta
+from hashlib import sha256
 from pathlib import Path
 
 import duckdb
@@ -7,6 +8,8 @@ import pytest
 
 from trading.backtest.experiment_registry import ExperimentRecord, ExperimentRegistry
 from trading.backtest.holdout import ConsumedHoldout, HoldoutEvaluator, HoldoutPlan
+from trading.backtest.holdout_seals import SealedShortlist
+from trading.backtest.promotion import HoldoutDecision
 
 
 def record(**overrides: object) -> ExperimentRecord:
@@ -45,30 +48,69 @@ def record(**overrides: object) -> ExperimentRecord:
     return ExperimentRecord.model_validate(values)
 
 
-def holdout_plan() -> HoldoutPlan:
+def sealed_shortlist() -> SealedShortlist:
+    return SealedShortlist(
+        candidates=(
+            {
+                "candidate_id": "candidate-a",
+                "candidate_version": "1.0.0",
+                "parameters": {"lookback": 20},
+            },
+        ),
+        catalog_hash=sha256(b"catalog").hexdigest(),
+        rejection_rule_hash=sha256(b"rejection").hexdigest(),
+        metrics_hash=sha256(b"metrics").hexdigest(),
+        family_hash=sha256(b"family").hexdigest(),
+        dataset_manifest_hash=sha256(b"dataset").hexdigest(),
+    )
+
+
+def holdout_plan(shortlist: SealedShortlist | None = None) -> HoldoutPlan:
     from trading.backtest.holdout import holdout_window_id
 
     window = {
         "holdout_start": date(2023, 1, 1),
         "holdout_end": date(2024, 1, 1),
+        "dataset_manifest_hash": sha256(b"dataset").hexdigest(),
         "source_snapshot_id": "synthetic-source",
         "universe_version": "synthetic-universe",
         "calendar_version": "synthetic-calendar",
         "corporate_action_version": "synthetic-actions",
     }
+    sealed = shortlist or sealed_shortlist()
     return HoldoutPlan(
         plan_id="synthetic-split",
         **window,
         data_window_id=holdout_window_id(**window),
-        shortlist_hash="sha-shortlist",
-        rejection_rule_hash="sha-rejection",
-        metrics_hash="sha-metrics",
-        family_hash="sha-family",
+        cost_model_hash=sha256(b"costs").hexdigest(),
+        split_plan_hash=sha256(b"split").hexdigest(),
+        shortlist_hash=sealed.shortlist_hash,
+        rejection_rule_hash=sealed.rejection_rule_hash,
+        metrics_hash=sealed.metrics_hash,
+        family_hash=sealed.family_hash,
+    )
+
+
+def completed_holdout_record(plan: HoldoutPlan) -> ExperimentRecord:
+    return record(
+        status="completed",
+        error=None,
+        partition="holdout",
+        split_plan_id=plan.plan_id,
+        data_window_id=plan.data_window_id,
+        catalog_hash=sealed_shortlist().catalog_hash,
+        metrics_json=(
+            '{"trade_count":30,"net_return":0.1,"max_drawdown":0.05,'
+            '"cost_drag":0.01,"positive_instrument_fraction":0.6,'
+            '"uncertainty":null,"uncertainty_reason":"synthetic fixture"}'
+        ),
     )
 
 
 def test_registry_selection_read_hides_holdout_rows(tmp_path: Path) -> None:
-    with ExperimentRegistry(tmp_path / "runs.duckdb") as registry:
+    database = tmp_path / "runs.duckdb"
+    plan = holdout_plan()
+    with ExperimentRegistry(database) as registry, HoldoutEvaluator(database) as guard:
         failed = record(partition="development")
         succeeded = record(
             status="completed",
@@ -80,10 +122,15 @@ def test_registry_selection_read_hides_holdout_rows(tmp_path: Path) -> None:
                 '"uncertainty":null,"uncertainty_reason":"synthetic fixture"}'
             ),
         )
-        holdout = record(partition="holdout")
         registry.append(failed)
         registry.append(succeeded)
-        registry.append(holdout)
+        registry.append_holdout_decision(
+            completed_holdout_record(plan),
+            decision=HoldoutDecision("inconclusive", ("incomplete_data",)),
+            authorization=guard.reserve_once(plan),
+            holdout_guard=guard,
+            shortlist=sealed_shortlist(),
+        )
 
         assert registry.records_for_selection() == [failed, succeeded]
         with pytest.raises(PermissionError):
@@ -97,17 +144,14 @@ def test_holdout_access_requires_sealed_authorization_and_consumed_plan(tmp_path
     database = tmp_path / "runs.duckdb"
     plan = holdout_plan()
     with ExperimentRegistry(database) as registry, HoldoutEvaluator(database) as guard:
-        holdout = record(
-            partition="holdout",
-            split_plan_id=plan.plan_id,
-            data_window_id=plan.data_window_id,
-        )
-        registry.append(holdout)
         with pytest.raises(PermissionError):
             registry.holdout_records(
                 authorization=ConsumedHoldout(
                     plan_id=plan.plan_id,
                     data_window_id=plan.data_window_id,
+                    dataset_manifest_hash=plan.dataset_manifest_hash,
+                    cost_model_hash=plan.cost_model_hash,
+                    split_plan_hash=plan.split_plan_hash,
                     shortlist_hash=plan.shortlist_hash,
                     rejection_rule_hash=plan.rejection_rule_hash,
                     metrics_hash=plan.metrics_hash,
@@ -117,9 +161,117 @@ def test_holdout_access_requires_sealed_authorization_and_consumed_plan(tmp_path
                 holdout_guard=guard,
             )
         authorization = guard.reserve_once(plan)
+        stored = registry.append_holdout_decision(
+            completed_holdout_record(plan),
+            decision=HoldoutDecision("inconclusive", ("incomplete_data",)),
+            authorization=authorization,
+            holdout_guard=guard,
+            shortlist=sealed_shortlist(),
+        )
         assert registry.holdout_records(authorization=authorization, holdout_guard=guard) == [
-            holdout
+            stored
         ]
+
+
+def test_holdout_decision_is_append_only_audit_evidence_with_valid_authorization(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "runs.duckdb"
+    plan = holdout_plan()
+    prepared = completed_holdout_record(plan)
+    decision = HoldoutDecision("rejected", ("profitable_instruments_below_3_of_5",))
+    with ExperimentRegistry(database) as registry, HoldoutEvaluator(database) as guard:
+        with pytest.raises(PermissionError, match="authorization"):
+            registry.append_holdout_decision(
+                prepared,
+                decision=decision,
+                authorization=ConsumedHoldout(
+                    plan_id=plan.plan_id,
+                    data_window_id=plan.data_window_id,
+                    dataset_manifest_hash=plan.dataset_manifest_hash,
+                    cost_model_hash=plan.cost_model_hash,
+                    split_plan_hash=plan.split_plan_hash,
+                    shortlist_hash=plan.shortlist_hash,
+                    rejection_rule_hash=plan.rejection_rule_hash,
+                    metrics_hash=plan.metrics_hash,
+                    family_hash=plan.family_hash,
+                    authorization_token="forged",
+                ),
+                holdout_guard=guard,
+                shortlist=sealed_shortlist(),
+            )
+
+        authorization = guard.reserve_once(plan)
+        stored = registry.append_holdout_decision(
+            prepared,
+            decision=decision,
+            authorization=authorization,
+            holdout_guard=guard,
+            shortlist=sealed_shortlist(),
+        )
+
+        assert stored.status == "rejected"
+        assert stored.error == '{"holdout_reasons":["profitable_instruments_below_3_of_5"]}'
+        assert registry.holdout_records(authorization=authorization, holdout_guard=guard) == [
+            stored
+        ]
+
+
+def test_registry_refuses_direct_holdout_append(tmp_path: Path) -> None:
+    with ExperimentRegistry(tmp_path / "runs.duckdb") as registry:
+        with pytest.raises(PermissionError, match="append_holdout_decision"):
+            registry.append(record(partition="holdout"))
+
+
+@pytest.mark.parametrize(
+    "record_changes",
+    [
+        {"parameters_json": '{"lookback":21}'},
+        {"catalog_hash": "f" * 64},
+        {"candidate_id": "candidate-not-shortlisted"},
+    ],
+)
+def test_holdout_decision_requires_exact_candidate_from_sealed_shortlist(
+    tmp_path: Path, record_changes: dict[str, str]
+) -> None:
+    database = tmp_path / "runs.duckdb"
+    shortlist = sealed_shortlist()
+    plan = holdout_plan(shortlist)
+    with ExperimentRegistry(database) as registry, HoldoutEvaluator(database) as guard:
+        authorization = guard.reserve_once(plan)
+        with pytest.raises(ValueError, match="sealed shortlist"):
+            registry.append_holdout_decision(
+                completed_holdout_record(plan).model_copy(update=record_changes),
+                decision=HoldoutDecision("rejected", ("incomplete_data",)),
+                authorization=authorization,
+                holdout_guard=guard,
+                shortlist=shortlist,
+            )
+
+
+def test_holdout_decision_can_only_be_recorded_once_per_sealed_candidate(tmp_path: Path) -> None:
+    database = tmp_path / "runs.duckdb"
+    shortlist = sealed_shortlist()
+    plan = holdout_plan(shortlist)
+    with ExperimentRegistry(database) as registry, HoldoutEvaluator(database) as guard:
+        authorization = guard.reserve_once(plan)
+        record = completed_holdout_record(plan)
+        registry.append_holdout_decision(
+            record,
+            decision=HoldoutDecision("inconclusive", ("incomplete_data",)),
+            authorization=authorization,
+            holdout_guard=guard,
+            shortlist=shortlist,
+        )
+    with ExperimentRegistry(database) as registry, HoldoutEvaluator(database) as guard:
+        with pytest.raises(duckdb.ConstraintException):
+            registry.append_holdout_decision(
+                record.model_copy(update={"experiment_id": "second-attempt"}),
+                decision=HoldoutDecision("rejected", ("incomplete_data",)),
+                authorization=authorization,
+                holdout_guard=guard,
+                shortlist=shortlist,
+            )
 
 
 def test_holdout_authorization_cannot_be_self_minted_from_public_plan_fields(
@@ -134,18 +286,14 @@ def test_holdout_authorization_cannot_be_self_minted_from_public_plan_fields(
     database = tmp_path / "runs.duckdb"
     plan = holdout_plan()
     with ExperimentRegistry(database) as registry, HoldoutEvaluator(database) as guard:
-        registry.append(
-            record(
-                partition="holdout",
-                split_plan_id=plan.plan_id,
-                data_window_id=plan.data_window_id,
-            )
-        )
         real_authorization = guard.reserve_once(plan)  # legitimate consumption happens
 
         self_minted = ConsumedHoldout(
             plan_id=plan.plan_id,
             data_window_id=plan.data_window_id,
+            dataset_manifest_hash=plan.dataset_manifest_hash,
+            cost_model_hash=plan.cost_model_hash,
+            split_plan_hash=plan.split_plan_hash,
             shortlist_hash=plan.shortlist_hash,
             rejection_rule_hash=plan.rejection_rule_hash,
             metrics_hash=plan.metrics_hash,
@@ -167,13 +315,6 @@ def test_holdout_authorization_must_come_from_registry_database(tmp_path: Path) 
         HoldoutEvaluator(tmp_path / "runs.duckdb") as authoritative_guard,
         HoldoutEvaluator(tmp_path / "attacker.duckdb") as unrelated_guard,
     ):
-        registry.append(
-            record(
-                partition="holdout",
-                split_plan_id=plan.plan_id,
-                data_window_id=plan.data_window_id,
-            )
-        )
         forged_authorization = unrelated_guard.reserve_once(plan)
         with pytest.raises(PermissionError, match="same authoritative database"):
             registry.holdout_records(

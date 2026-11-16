@@ -96,6 +96,8 @@ def build_ranking_report_row(
     symbol_by_signal_id: Mapping[str, str] | None = None,
     window_by_signal_id: Mapping[str, str] | None = None,
     buy_and_hold_return_pct: Decimal | None = None,
+    activation_opportunities: int | None = None,
+    activation_eligible: int | None = None,
 ) -> RankingReportRow:
     """One row, raw and Bonferroni-adjusted side by side -- never only the
     adjusted figure, so a reader can see what the correction actually did.
@@ -111,12 +113,22 @@ def build_ranking_report_row(
     """
     if starting_equity <= 0:
         raise ValueError("starting_equity must be positive")
+    if (
+        isinstance(family_size, bool)
+        or not isinstance(family_size, int)
+        or family_size != P1_FAMILY_SIZE
+    ):
+        raise ValueError("family_size must match the frozen P1 family size of 15")
     if not dataset_manifest_hash or not _SHA256_HEX.match(dataset_manifest_hash):
         raise ValueError(
             "dataset_manifest_hash must be a 64-character lowercase hex SHA-256 -- "
             "a row not tied to a real frozen data snapshot is not a comparable result"
         )
-    card = scorecard(list(trades))
+    card = scorecard(
+        list(trades),
+        activation_opportunities=activation_opportunities,
+        activation_eligible=activation_eligible,
+    )
     max_drawdown_pct = card.max_drawdown / starting_equity * Decimal(100)
     total_return_pct = card.total_pnl / starting_equity * Decimal(100)
 

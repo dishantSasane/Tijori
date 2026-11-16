@@ -1,0 +1,44 @@
+# Illustrative review windows only. NO real actions or coverage are asserted.
+# Copy for a specific dataset/interval, replace windows, and review permitted
+# source evidence before setting verified: true. Include the exact frozen
+# candle snapshot SHA-256. Null ISINs need verification.
+# An empty events list does NOT mean no actions occurred.
+schema_version: 2
+events: []
+coverage:
+  - symbol: RELIANCE
+    timeframe: 1d
+    isin: null
+    start: 2022-01-01
+    end: 2026-11-15
+    verified: false
+  - symbol: INFY
+    timeframe: 1d
+    isin: null
+    start: 2022-01-01
+    end: 2026-11-15
+    verified: false
+  - symbol: TCS
+    timeframe: 1d
+    isin: null
+    start: 2022-01-01
+    end: 2026-11-15
+    verified: false
+  - symbol: HDFCBANK
+    timeframe: 1d
+    isin: null
+    start: 2022-01-01
+    end: 2026-11-15
+    verified: false
+  - symbol: ICICIBANK
+    timeframe: 1d
+    isin: null
+    start: 2022-01-01
+    end: 2026-11-15
+    verified: false
+# Event fields (not an actual event):
+# event_id, isin, symbol, ex_date, publication_date (null when unknown),
+# action_type (split/bonus/demerger/rights/dividend/other), original_ratio,
+# verified_factor (quoted Decimal: NEW TOTAL shares per OLD share, or null),
+# source_url (http/https), reviewer, review_date,
+# price_basis and volume_basis (each unknown/raw/provider_adjusted).

@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
+from hashlib import sha256
 from pathlib import Path
 from threading import Barrier
 
@@ -15,10 +16,15 @@ from trading.backtest.holdout import (
 from trading.backtest.splits import create_split_plan
 
 
+def digest(label: str) -> str:
+    return sha256(label.encode()).hexdigest()
+
+
 def plan(**overrides: object) -> HoldoutPlan:
     window_fields = {
         "holdout_start": date(2023, 1, 1),
         "holdout_end": date(2024, 1, 1),
+        "dataset_manifest_hash": digest("dataset"),
         "source_snapshot_id": "synthetic-source",
         "universe_version": "synthetic-universe",
         "calendar_version": "synthetic-calendar",
@@ -28,10 +34,12 @@ def plan(**overrides: object) -> HoldoutPlan:
         "plan_id": "synthetic-plan-v1",
         **window_fields,
         "data_window_id": holdout_window_id(**window_fields),
-        "shortlist_hash": "sha-shortlist",
-        "rejection_rule_hash": "sha-rejection",
-        "metrics_hash": "sha-metrics",
-        "family_hash": "sha-family",
+        "cost_model_hash": digest("costs"),
+        "split_plan_hash": digest("split"),
+        "shortlist_hash": digest("shortlist"),
+        "rejection_rule_hash": digest("rejection"),
+        "metrics_hash": digest("metrics"),
+        "family_hash": digest("family"),
     }
     values.update(overrides)
     identity_fields = {
@@ -39,6 +47,7 @@ def plan(**overrides: object) -> HoldoutPlan:
         for key in (
             "holdout_start",
             "holdout_end",
+            "dataset_manifest_hash",
             "source_snapshot_id",
             "universe_version",
             "calendar_version",
@@ -83,6 +92,11 @@ def test_plan_id_is_required() -> None:
         plan(plan_id="")
 
 
+def test_holdout_plan_requires_sha256_seals() -> None:
+    with pytest.raises(ValueError, match="shortlist_hash"):
+        plan(shortlist_hash="human-label-is-not-a-seal")
+
+
 def frozen_split(**overrides: object):
     values: dict[str, object] = {
         "plan_id": "p1a-v1",
@@ -105,17 +119,21 @@ def frozen_split(**overrides: object):
 def test_holdout_plan_is_derived_from_frozen_split_contents() -> None:
     derived = holdout_plan_from_split(
         frozen_split(),
-        shortlist_hash="shortlist",
-        rejection_rule_hash="rejection",
-        metrics_hash="metrics",
-        family_hash="family",
+        shortlist_hash=digest("shortlist"),
+        rejection_rule_hash=digest("rejection"),
+        metrics_hash=digest("metrics"),
+        family_hash=digest("family"),
+        dataset_manifest_hash=digest("dataset"),
+        cost_model_hash=digest("costs"),
     )
     changed_plan_label = holdout_plan_from_split(
         frozen_split(plan_id="renamed"),
-        shortlist_hash="shortlist",
-        rejection_rule_hash="rejection",
-        metrics_hash="metrics",
-        family_hash="family",
+        shortlist_hash=digest("shortlist"),
+        rejection_rule_hash=digest("rejection"),
+        metrics_hash=digest("metrics"),
+        family_hash=digest("family"),
+        dataset_manifest_hash=digest("dataset"),
+        cost_model_hash=digest("costs"),
     )
     assert derived.plan_id != changed_plan_label.plan_id
     assert derived.data_window_id == changed_plan_label.data_window_id
@@ -126,19 +144,23 @@ def test_overlapping_holdout_range_cannot_be_reintroduced_by_new_split_id(tmp_pa
         original_split = frozen_split()
         original = holdout_plan_from_split(
             original_split,
-            shortlist_hash="shortlist",
-            rejection_rule_hash="rejection",
-            metrics_hash="metrics",
-            family_hash="family",
+            shortlist_hash=digest("shortlist"),
+            rejection_rule_hash=digest("rejection"),
+            metrics_hash=digest("metrics"),
+            family_hash=digest("family"),
+            dataset_manifest_hash=digest("dataset"),
+            cost_model_hash=digest("costs"),
         )
         guard.reserve_once(original)
         overlapping_split = frozen_split(plan_id="different-split", version="2")
         overlapping = holdout_plan_from_split(
             overlapping_split,
-            shortlist_hash="new-shortlist",
-            rejection_rule_hash="new-rejection",
-            metrics_hash="new-metrics",
-            family_hash="new-family",
+            shortlist_hash=digest("new-shortlist"),
+            rejection_rule_hash=digest("new-rejection"),
+            metrics_hash=digest("new-metrics"),
+            family_hash=digest("new-family"),
+            dataset_manifest_hash=digest("dataset"),
+            cost_model_hash=digest("costs"),
         )
         with pytest.raises(HoldoutAlreadyConsumedError):
             guard.reserve_once(overlapping)

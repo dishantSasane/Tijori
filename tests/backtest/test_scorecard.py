@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+import pytest
+
 from trading.backtest.runner import Trade
 from trading.backtest.scorecard import scorecard
 
@@ -38,3 +40,30 @@ def test_empty_scorecard_is_zeroed() -> None:
     assert result.avg_win == Decimal("0")
     assert result.avg_loss == Decimal("0")
     assert result.expectancy == Decimal("0")
+
+
+def test_scorecard_includes_activation_frequency_when_supplied() -> None:
+    result = scorecard([], activation_opportunities=20, activation_eligible=5)
+    assert result.activation_opportunities == 20
+    assert result.activation_eligible == 5
+    assert result.activation_frequency == Decimal("0.25")
+
+
+def test_activation_frequency_is_undefined_when_there_are_no_opportunities() -> None:
+    result = scorecard([], activation_opportunities=0, activation_eligible=0)
+    assert result.activation_frequency is None
+
+
+@pytest.mark.parametrize(
+    ("opportunities", "eligible"),
+    [(None, 0), (10, None), (-1, 0), (10, 11), (True, 0)],
+)
+def test_scorecard_rejects_invalid_activation_counts(
+    opportunities: int | None, eligible: int | None
+) -> None:
+    with pytest.raises(ValueError, match="activation"):
+        scorecard(
+            [],
+            activation_opportunities=opportunities,
+            activation_eligible=eligible,
+        )
