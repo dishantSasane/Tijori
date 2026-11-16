@@ -35,12 +35,12 @@ from trading.core.enums import MarketId
 from trading.core.market_profile import load_market_profile
 
 crypto = load_market_profile(MarketId.CRYPTO, Path("config"))
-print(crypto.is_24x7)        # True
-print(crypto.session_open)   # None -- there isn't one
+print(crypto.is_24x7)  # True
+print(crypto.session_open)  # None -- there isn't one
 
 us = load_market_profile(MarketId.US_EQUITY, Path("config"))
-print(us.is_24x7)            # False
-print(us.calendar)           # "XNYS" -- an exchange-calendar id
+print(us.is_24x7)  # False
+print(us.calendar)  # "XNYS" -- an exchange-calendar id
 ```
 
 ## How to run it in this repo
