@@ -89,3 +89,25 @@ def test_evaluation_manifest_rejects_incomplete_or_malformed_evidence(
 ) -> None:
     with pytest.raises(ValidationError):
         manifest(**changes)
+
+
+def test_broader_than_pilot_universe_requires_a_universe_reference() -> None:
+    with pytest.raises(ValueError, match="universe_reference"):
+        manifest(symbols=["INFY", "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "SONAL"])
+
+
+def test_broader_universe_manifest_valid_with_a_universe_reference() -> None:
+    result = manifest(
+        symbols=["INFY", "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "SONAL"],
+        universe_reference="full-nse-eq-v1:2026-11-01",
+    )
+    assert "SONAL" in result.symbols
+    assert result.universe_reference == "full-nse-eq-v1:2026-11-01"
+
+
+def test_single_symbol_manifest_allowed_without_universe_reference_only_if_not_pilot() -> None:
+    # A non-pilot symbol set, even a single symbol, still needs a reference --
+    # "fewer than five, so skip the check" would be a silent scope-widening
+    # loophole, not a relaxation anyone asked for.
+    with pytest.raises(ValueError, match="universe_reference"):
+        manifest(symbols=["SONAL"])

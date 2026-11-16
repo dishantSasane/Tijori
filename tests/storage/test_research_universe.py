@@ -123,6 +123,23 @@ def test_missing_observation_is_an_error_not_a_zero() -> None:
         snapshot([instrument(1)], rows(1)[:-1])
 
 
+def test_instrument_with_unresolved_gap_is_excluded_not_a_whole_snapshot_failure() -> None:
+    """A gap on one otherwise-eligible instrument must exclude only that
+    instrument -- not abort every other instrument's ranking. This is the
+    real-world case (an illiquid name's genuine multi-session trading halt)
+    that made a full ~2,763-instrument run impossible before this fix.
+    """
+    result = snapshot(
+        [instrument(1), instrument(2)],
+        rows(1)[:-1] + rows(2),  # instrument 1 is missing its last session
+    )
+    assert isin(1) not in result["selected_isins"]
+    assert isin(2) in result["selected_isins"]
+    gap_exclusions = [item for item in result["exclusions"] if item["isin"] == isin(1)]
+    assert len(gap_exclusions) == 1
+    assert gap_exclusions[0]["reason"] == "unresolved_data_gap_in_lookback_window"
+
+
 def test_verified_short_history_is_excluded_with_reason() -> None:
     result = snapshot(
         [instrument(1, verified_history_start=LOOKBACK[1]), instrument(2)],

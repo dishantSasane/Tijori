@@ -7,7 +7,6 @@ import json
 from datetime import date, datetime
 from hashlib import sha256
 from pathlib import Path
-from typing import cast
 from urllib.parse import urldefrag
 
 import yaml
@@ -19,7 +18,6 @@ from trading.storage.action_register import (
     ActionRecord,
     ActionRegister,
     CoverageRecord,
-    PilotSymbol,
     action_register_sha256,
 )
 from trading.storage.candle_snapshot import candle_snapshot_sha256
@@ -34,8 +32,7 @@ from trading.storage.evaluation_manifest import (
 DAILY_WINDOW = ("2010-01-01", "2026-11-14")
 INTRADAY_WINDOW = ("2022-01-01", "2026-11-14")
 _PILOT_ISINS = {
-    instrument_key.split("|")[-1]: cast(PilotSymbol, symbol)
-    for symbol, instrument_key in PILOT_INSTRUMENTS.items()
+    instrument_key.split("|")[-1]: symbol for symbol, instrument_key in PILOT_INSTRUMENTS.items()
 }
 _HTTP_URL = TypeAdapter(HttpUrl)
 
@@ -223,7 +220,7 @@ def freeze_p1a_manifest(
     }
     manifest = P1EvaluationManifest(
         provider="upstox",
-        symbols=tuple(cast(PilotSymbol, symbol) for symbol in PILOT_INSTRUMENTS),
+        symbols=tuple(PILOT_INSTRUMENTS),
         windows={
             timeframe: (date.fromisoformat(bounds[0]), date.fromisoformat(bounds[1]))
             for timeframe, bounds in windows.items()

@@ -319,7 +319,7 @@ actually recorded carries the independently-derived `exit_id`) and
 the identical exit produces zero new fills, one `exit_already_applied` audit
 row). Full suite, `ruff`, `mypy --strict` re-verified clean after the change.
 
-**ADR-0029 · 2026-11-16 · accepted · P3 daily report reads the state DB directly, scoped by UTC date-prefix match**
+**ADR-0043 · 2026-11-16 · accepted · P3 daily report reads the state DB directly, scoped by UTC date-prefix match**
 Context: BUILD_ORDER.md P3 item 5 needs an end-of-day summary (signals, fills,
 P&L, rejection reasons). The state DB (`state_db.py`) already carries
 `fills`, `decisions`, and `signal_outcomes` tables with `TEXT` UTC timestamp
@@ -429,7 +429,7 @@ no functional change, just removing the now-redundant duplicate.
 
 ---
 
-**ADR-0029 · 2026-11-16 · accepted · Reconciliation mismatch has no tolerance
+**ADR-0041 · 2026-11-16 · accepted · Reconciliation mismatch has no tolerance
 band; any difference engages the kill switch.** Context: P7 go-live
 readiness needs a rule for what counts as a reconciliation mismatch between
 our SQLite-recorded positions and a broker's reported positions, and what
@@ -448,7 +448,7 @@ not weaken a check to make something pass) both rule out. If a specific
 broker's benign quirk causes repeated false halts, record that broker's
 exact behaviour here and adjust with evidence, not a guessed number.
 
-**ADR-0030 · 2026-11-16 · proposed · Cloud VM provider for the static IP
+**ADR-0042 · 2026-11-16 · proposed · Cloud VM provider for the static IP
 requirement.** Context: Indian brokers require IP whitelisting for API
 access, which needs a cloud VM with a provider-guaranteed static/reserved
 IP, not a laptop's changing home IP. Low budget is a hard constraint
@@ -582,6 +582,189 @@ call) plus the learning plan. The ML ranker has no production call site yet
 (same situation P6's Brain A/B harness is in per note 0039) — it is a
 library the activation layer can call once P1e's real regime-gated
 activation runs on real data, which is itself still gated (see STATUS.md).
+
+**ADR-0037 · 2026-11-16 · accepted · Full-universe turnover selector built against Upstox's own historical-candle API, not NSE's site**
+
+Context: ADR-0026's turnover-ranking rule had no permitted real data source —
+`docs/specs/RESEARCH_UNIVERSE.md`'s "Source gate" blocks NSE's own site/
+bhavcopy pending unresolved ToU questions, and `research_universe.py`'s pure
+`build_snapshot` had only synthetic tests. The owner directed building the
+real selector against Upstox's own official historical-candle API instead —
+the same licensed endpoint Tier A already uses under ADR-0023, just looped
+across the full NSE cash-equity list from Upstox's own published instrument
+master (`https://assets.upstox.com/.../complete.json.gz`), not NSE's site.
+Decision: `trading.storage.upstox_instrument_master` fetches/parses that
+master, filtered to `segment=NSE_EQ, instrument_type=EQ`; `trading.storage.
+full_universe_loader` loops the existing `UpstoxHistoryClient` across every
+entry for the verified session window, self-throttled well under Upstox's
+documented rate limits, and feeds the unchanged pure `build_snapshot`
+selector. **Methodology choice, stated explicitly because it is not free of
+assumptions:** Upstox's basic candle payload has no official "value traded"
+field, only OHLCV, so turnover is proxied as `close * volume` per session —
+the standard approximation, but not identical to NSE's own reported traded
+value. Smoke-tested against real live Upstox data during review: 2,763 real
+NSE_EQ/EQ instruments parsed from the live master; a real 5-symbol run
+(RELIANCE/INFY/TCS/HDFCBANK/ICICIBANK) over a real 61-session window
+correctly ranked and selected the top-3 by real turnover. This does not
+change ADR-0023 (Upstox stays the P1 candle source) or waive any P1a gate —
+it only unblocks the *mechanism*; running it at K=50 over the full ~2,763-
+instrument universe for a real monthly snapshot is a separate, longer
+execution the owner should run deliberately (see `collect_full_universe_
+snapshot.py`), not something to run inline.
+Consequences: the Top-50 point-in-time universe (`docs/BUILD_ORDER.md` P1a)
+can now be computed from real data without touching NSE's site at all. The
+turnover-proxy assumption should be named wherever this universe feeds a
+decision, same discipline as any other research assumption in this project.
+
+**ADR-0038 · 2026-11-16 · accepted, needs live verification · Angel One + Fyers as a second live-data source for cross-validation**
+
+Context: `MASTER_PLAN.md` §13.2's primary live-India-data-source decision
+was still open. The owner decided to integrate both Angel One SmartAPI and
+Fyers (both free) as a *second* source alongside whatever primary feed is
+eventually chosen for live trading, specifically to cross-check and flag
+discrepancies rather than trust a single feed silently.
+Decision: `trading.adapters.angelone_history` and `trading.adapters.
+fyers_history` are thin historical-candle clients (same raw-urllib pattern
+as `upstox_history.py`, no SDK dependency), and `trading.adapters.
+cross_validated_feed.detect_discrepancies` is a pure, source-agnostic
+comparator: given any two candle lists, it flags a close-price divergence
+beyond a tolerance (default 50 bps) only on timestamps both feeds report —
+a candle present on only one side is not itself a discrepancy. This never
+feeds the risk engine or sizing; it is an audit/data-integrity signal only.
+**Flagged, not silently assumed correct:** both brokers' API docs are
+JS-rendered apps this environment could not crawl to a byte-for-byte
+confirmed REST endpoint/header spec during this session (SmartAPI's
+`getCandleData` request-parameter names and Fyers' v3 history parameter
+names are independently confirmed from their own published references;
+the exact base URL/header names are the best-documented, stable, widely-
+used shape for each API but have **not** been exercised against a live
+sandbox call with real credentials). Before either adapter is trusted in a
+live cross-validation role: run one real authenticated call against each
+and confirm the response shape matches, since these are financial data
+paths. Which of the two eventual feeds is "primary" is still the open
+`MASTER_PLAN.md` §13.2 decision — this ADR only settles that both Angel One
+and Fyers are the chosen *secondary* cross-check sources, free of cost
+either way.
+Consequences: P3's live-data wiring can plug either adapter in as the
+cross-check leg once a primary is chosen and real credentials exist; no
+live order or sizing path depends on this yet.
+
+**ADR-0039 · 2026-11-16 · accepted, owner-directed · Isolated single-session gaps decoded as confirmed no-trade days in the full-universe selector**
+
+Context: running `full_universe_loader.build_full_universe_snapshot` against
+all 2,763 real NSE_EQ/EQ instruments (ADR-0030) failed outright: Upstox omits
+the candle row entirely for an illiquid instrument's no-trade day rather than
+returning an explicit zero-volume row (confirmed empirically: SONAL/
+INE321M01017 has no row at all for 2026-08-12, an ordinary trading day —
+RELIANCE and every other liquid name has a row that day). `research_
+universe.build_snapshot` correctly treats any missing session as a hard
+error for the *entire* monthly snapshot, by design, since missing data must
+never be silently converted to zero. That design is right at five-symbol
+pilot scale (never triggers on liquid blue chips) but makes a full-universe
+run effectively impossible as-is, since at least one illiquid name having a
+no-trade day somewhere in a 60-session window is near-certain.
+Decision (owner-directed, not the agent's default call): a missing session
+is decoded as a confirmed zero-turnover observation **only** when (1) the
+session is already a verified trading day — satisfied automatically, since
+`sessions` is the caller-supplied verified calendar `build_snapshot` already
+requires — and (2) the gap is *isolated*: this exact instrument has a real
+candle on both the **immediately adjacent** sessions (not merely "some
+earlier/later candle in the whole window", which would also wrongly catch a
+multi-day suspension run). A leading/trailing gap or any run of 2+
+consecutive missing sessions is never decoded this way and still fails
+closed exactly as before — those shapes could mean not-yet-listed, delisted,
+suspended, or a provider outage, none of which may be assumed to mean zero
+turnover. Every decoded (isin, date) pair is reported via a new
+`on_decoded_no_trade_day` callback on `build_full_universe_snapshot`, so the
+assumption stays auditable rather than silent. Three new tests cover the
+decode case, the multi-session-gap non-decode case, and the leading-gap
+non-decode case.
+Consequences: this is an assumption about Upstox's API behavior (an omitted
+row on a known-open session means zero trades, not missing data), not a
+directly observed fact from Upstox's own docs — flagged as such, same
+discipline as the turnover-proxy assumption in ADR-0030. The underlying
+`build_snapshot` selector itself is unchanged; this only changes what the
+*loader* feeds into it.
+
+**Addendum (same day, same ADR number — owner-directed):** the rerun with
+the above fix still failed, on the *same* instrument (SONAL), for a
+*different* reason: it has a genuine 4-consecutive-session trading gap
+(2026-08-19 through 2026-08-22) later in the same window, correctly refused
+decoding by the isolated-gap rule above — that part worked exactly as
+intended. The real problem was one level up: `build_snapshot` had no way to
+exclude *only* an instrument with an unresolved gap; any single eligible
+instrument's unresolved gap aborted the *entire* monthly snapshot, for every
+other instrument too. Fixed in `research_universe.build_snapshot`: a new
+exclusion reason, `unresolved_data_gap_in_lookback_window`, alongside the
+existing `inactive_as_of`/`ineligible_instrument_class`/
+`less_than_60_sessions_verified_history` reasons — excludes only the
+affected instrument from that month's ranking; the rest of the universe
+still ranks normally. The existing `missing turnover observation` hard
+error is preserved in spirit, now surfacing as "fewer than K eligible
+candidates" if exclusions leave too few candidates to fill K, rather than
+an immediate raise regardless of pool size — the explicit invariant this
+is built to protect (missing data is never silently a zero) is unchanged;
+only the blast radius of one instrument's unresolved gap is narrowed. One
+new test (`test_instrument_with_unresolved_gap_is_excluded_not_a_whole_
+snapshot_failure`) proves a gapped instrument is excluded while an
+unaffected instrument in the same pool still ranks.
+
+**ADR-0040 · 2026-11-16 · accepted, owner-directed · Switch P1's evaluation universe from the fixed five-symbol pilot to the real selector output; promotion threshold explicitly NOT touched**
+
+Context: owner directed switching P1's backtest/discovery pipeline from the
+bounded five-symbol pilot to the now-verified full-universe selector (ADR
+0030/0033) — "the pilot was only ever an interim stand-in for this." Before
+making the change, audited exactly how deep the five-symbol constraint
+runs: the actual backtest/ranking core (`daily_candidates.py`, `scorecard.py`,
+`ranking_report.py`, `experiment_registry.py`, `holdout.py`) was already
+symbol-agnostic — it replays whatever candles it's handed per instrument
+and has no hard-coded count. The fixed-five constraint lived in exactly
+three places: `action_register.PilotSymbol` (a `Literal` of the five
+names), `evaluation_manifest.P1EvaluationManifest` (an exact-set-match
+check), and `promotion.P1_PILOT_INSTRUMENT_COUNT`/the "3 of 5 profitable
+instruments" rejection threshold.
+Decision:
+1. `action_register.PilotSymbol` → `NseEquitySymbol`, broadened from a
+   5-name `Literal` to any validly-shaped NSE trading symbol
+   (`^[A-Z0-9&-]{1,20}$`). Per-record review discipline (reviewer/
+   review_date required for an approved factor) is completely unchanged —
+   this only widens which symbols may be *named*, never who may approve
+   what. `PilotSymbol` kept as a compatibility alias.
+2. `evaluation_manifest.P1EvaluationManifest` no longer requires `symbols`
+   to be exactly the original five. A broader set now requires a new
+   `universe_reference` field identifying which selector run
+   (`MonthlyUniverseSnapshot`) produced it, so a broader-universe manifest
+   stays reproducible/auditable rather than an arbitrary list — the
+   original five-symbol pilot still validates with no reference needed
+   (backward compatible).
+3. New `trading.backtest.universe_evaluation.run_p1_daily_candidate_across_
+   universe`: replays a candidate against every ISIN a real
+   `MonthlyUniverseSnapshot.selected_isins` names for its `effective_date`,
+   not a fixed symbol list. An ISIN the snapshot selected but whose candles
+   weren't supplied is reported in `missing_isins`, never silently dropped
+   or treated as zero — same fail-closed discipline as the selector and
+   preflight it builds on.
+4. **`promotion.py`'s rejection-rule threshold is explicitly NOT changed.**
+   `docs/specs/P1_REJECTION_RULE.md` states plainly: "Do not change the
+   candidate, costs, universe, or boundaries after this result" — this is
+   the pre-registered-before-any-holdout-result P1d decision rule, written
+   specifically so a result can't be renegotiated after the fact. Since no
+   real holdout has ever actually been read (2016-2026 stays burned;
+   P1d's evaluator has never run on real data), changing the evaluation
+   universe now is procedurally fine — but scaling "3 of 5" into some new
+   fraction for a ~50-instrument universe is a *numeric methodology
+   choice*, not a mechanical rescale, and the agent did not make it. This
+   needs the owner to pick and pre-register a new majority threshold
+   (and, for consistency, the time-block count/size) for the broader
+   universe as a properly versioned successor to `P1_REJECTION_RULE.md`
+   — written and frozen before any broader-universe holdout is read,
+   same discipline as the original rule.
+Consequences: the mechanics of running P1 against the real full universe
+are now in place and tested. P1 cannot be formally evaluated against that
+broader universe yet — it is blocked on the owner's new rejection-rule
+threshold, same blocking category as the already-known corporate-action
+ledger and fresh-holdout gaps. This is a deliberate, named blocker, not an
+oversight.
 
 ---
 <!-- Add new ADRs below. Template:

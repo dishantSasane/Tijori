@@ -96,13 +96,24 @@ def test_provider_adjusted_records_are_separate() -> None:
         {"review_date": "2024-01-01"},
         {"source_url": "file:///tmp/source"},
         {"reviewer": " "},
-        {"symbol": "UNSUPPORTED"},
+        {"symbol": "reliance"},  # lowercase -- not a valid NSE trading symbol shape
+        {"symbol": "THIS-SYMBOL-IS-WAY-TOO-LONG-FOR-NSE"},
         {"typo": True},
     ],
 )
 def test_invalid_records_fail_closed(changes: dict[str, object]) -> None:
     with pytest.raises(ValidationError):
         register(**changes)
+
+
+def test_symbol_is_no_longer_restricted_to_the_original_five_symbol_pilot() -> None:
+    """`PilotSymbol`/`NseEquitySymbol` was broadened (full-universe selector
+    switch) to any validly-shaped NSE symbol, not just the original five --
+    this does not weaken per-record review discipline, only which symbols
+    may be named at all.
+    """
+    result = register(symbol="SONAL")
+    assert result.events[0].symbol == "SONAL"
 
 
 def test_duplicate_events_and_conflicting_identity_rejected() -> None:
