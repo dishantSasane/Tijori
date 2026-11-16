@@ -84,16 +84,16 @@ def reconcile(
     broker_by_key: dict[tuple[str, str], Decimal] = {}
     duplicate_local: set[tuple[str, str]] = set()
     duplicate_broker: set[tuple[str, str]] = set()
-    for position in local_positions:
-        key = (position.market, position.symbol)
+    for local_position in local_positions:
+        key = (local_position.market, local_position.symbol)
         if key in local_by_key:
             duplicate_local.add(key)
-        local_by_key[key] = position.qty
-    for position in broker_positions:
-        key = (position.market, position.symbol)
+        local_by_key[key] = local_position.qty
+    for broker_position in broker_positions:
+        key = (broker_position.market, broker_position.symbol)
         if key in broker_by_key:
             duplicate_broker.add(key)
-        broker_by_key[key] = position.qty
+        broker_by_key[key] = broker_position.qty
 
     mismatches: list[Mismatch] = []
     for key in sorted(set(local_by_key) | set(broker_by_key)):
