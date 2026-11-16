@@ -2,13 +2,11 @@
 
 Produced per the owner's 4-stage audit request. Covers Stage 3 (phase-by-phase
 completion audit) and Stage 4 (owner-decision inventory). Stages 1 and 2
-(PR review and merge) were reported in chat; summary: of 8 open PRs, only
+(PR review and merge) were reported in chat; this document is a point-in-time
+snapshot, not a live PR dashboard. At publication, of 8 open PRs, only
 **#53** was both CI-green and independently (cross-model) reviewed, and it has
-been merged to `main`. **#54** carries 3 unresolved HIGH-severity review
-blockers (dividend-factor bug, unadjusted-write bug, risk-cap post-trade check
-bug) and is not mergeable as-is. **#56, #57, #58, #59, #60, #61** have zero
-independent review and cannot be self-approved by the agent that authored
-them. #58 and #61 have also never had CI run (stacked on non-`main` branches).
+been merged to `main`. Later updates may change review/CI status and must be
+checked on the pull requests themselves before making a merge decision.
 
 Phase list below is the real, current one from `docs/BUILD_ORDER.md` as of
 this audit: **P0 through P8**, with P1 split into **P1a–P1e**. This is not a
@@ -99,8 +97,8 @@ second.
 
 ### P5 — Crypto and US sleeves (paper)
 **Partial.** Data adapters are done; market profiles, T1/T4 strategy
-instances, and an Accounts page v1 are on PR #58 (**CI has never run** — the
-branch is stacked on PR #54, not `main`, and the workflow didn't trigger).
+instances, and an Accounts page v1 are on PR #58. The branch is stacked on
+PR #54, not `main`; check its current CI and review state before merging.
 T2/momentum deferred (needs P1's unmerged strategy library). Funding data is
 deferred (spot-only sleeve, nothing consumes it). Live-paper execution wiring
 (candle feed → signal → risk → broker) is **not built yet**. Open owner
@@ -135,8 +133,8 @@ added to US Tier A, an experimental advisory-only walk-forward ML ranker
 (scoped to never search raw candles, only re-rank P1's pre-registered
 candidates), and a memecoin sleeve with a hard code-level paper-only gate
 (`ModeGate.PAPER_ONLY_SLEEVES`, tested across every Mode × human-action
-combination) are built on PR #61 (**CI has never run** — stacked on PR #58,
-which is stacked on PR #54, neither on `main`). **Options trading code was
+combination) are built on PR #61, stacked on PR #58 and then #54. **Options
+trading code was
 deliberately NOT written** — gated behind `docs/specs/OPTIONS_LEARNING_
 PLAN.md` and a future owner-authored ADR, exactly per BUILD_ORDER's "after
 dedicated learning" instruction. This is correct scoping, not a gap.
