@@ -583,6 +583,72 @@ call) plus the learning plan. The ML ranker has no production call site yet
 library the activation layer can call once P1e's real regime-gated
 activation runs on real data, which is itself still gated (see STATUS.md).
 
+**ADR-0037 · 2026-11-16 · accepted · Full-universe turnover selector built against Upstox's own historical-candle API, not NSE's site**
+
+Context: ADR-0026's turnover-ranking rule had no permitted real data source —
+`docs/specs/RESEARCH_UNIVERSE.md`'s "Source gate" blocks NSE's own site/
+bhavcopy pending unresolved ToU questions, and `research_universe.py`'s pure
+`build_snapshot` had only synthetic tests. The owner directed building the
+real selector against Upstox's own official historical-candle API instead —
+the same licensed endpoint Tier A already uses under ADR-0023, just looped
+across the full NSE cash-equity list from Upstox's own published instrument
+master (`https://assets.upstox.com/.../complete.json.gz`), not NSE's site.
+Decision: `trading.storage.upstox_instrument_master` fetches/parses that
+master, filtered to `segment=NSE_EQ, instrument_type=EQ`; `trading.storage.
+full_universe_loader` loops the existing `UpstoxHistoryClient` across every
+entry for the verified session window, self-throttled well under Upstox's
+documented rate limits, and feeds the unchanged pure `build_snapshot`
+selector. **Methodology choice, stated explicitly because it is not free of
+assumptions:** Upstox's basic candle payload has no official "value traded"
+field, only OHLCV, so turnover is proxied as `close * volume` per session —
+the standard approximation, but not identical to NSE's own reported traded
+value. Smoke-tested against real live Upstox data during review: 2,763 real
+NSE_EQ/EQ instruments parsed from the live master; a real 5-symbol run
+(RELIANCE/INFY/TCS/HDFCBANK/ICICIBANK) over a real 61-session window
+correctly ranked and selected the top-3 by real turnover. This does not
+change ADR-0023 (Upstox stays the P1 candle source) or waive any P1a gate —
+it only unblocks the *mechanism*; running it at K=50 over the full ~2,763-
+instrument universe for a real monthly snapshot is a separate, longer
+execution the owner should run deliberately (see `collect_full_universe_
+snapshot.py`), not something to run inline.
+Consequences: the Top-50 point-in-time universe (`docs/BUILD_ORDER.md` P1a)
+can now be computed from real data without touching NSE's site at all. The
+turnover-proxy assumption should be named wherever this universe feeds a
+decision, same discipline as any other research assumption in this project.
+
+**ADR-0038 · 2026-11-16 · accepted, needs live verification · Angel One + Fyers as a second live-data source for cross-validation**
+
+Context: `MASTER_PLAN.md` §13.2's primary live-India-data-source decision
+was still open. The owner decided to integrate both Angel One SmartAPI and
+Fyers (both free) as a *second* source alongside whatever primary feed is
+eventually chosen for live trading, specifically to cross-check and flag
+discrepancies rather than trust a single feed silently.
+Decision: `trading.adapters.angelone_history` and `trading.adapters.
+fyers_history` are thin historical-candle clients (same raw-urllib pattern
+as `upstox_history.py`, no SDK dependency), and `trading.adapters.
+cross_validated_feed.detect_discrepancies` is a pure, source-agnostic
+comparator: given any two candle lists, it flags a close-price divergence
+beyond a tolerance (default 50 bps) only on timestamps both feeds report —
+a candle present on only one side is not itself a discrepancy. This never
+feeds the risk engine or sizing; it is an audit/data-integrity signal only.
+**Flagged, not silently assumed correct:** both brokers' API docs are
+JS-rendered apps this environment could not crawl to a byte-for-byte
+confirmed REST endpoint/header spec during this session (SmartAPI's
+`getCandleData` request-parameter names and Fyers' v3 history parameter
+names are independently confirmed from their own published references;
+the exact base URL/header names are the best-documented, stable, widely-
+used shape for each API but have **not** been exercised against a live
+sandbox call with real credentials). Before either adapter is trusted in a
+live cross-validation role: run one real authenticated call against each
+and confirm the response shape matches, since these are financial data
+paths. Which of the two eventual feeds is "primary" is still the open
+`MASTER_PLAN.md` §13.2 decision — this ADR only settles that both Angel One
+and Fyers are the chosen *secondary* cross-check sources, free of cost
+either way.
+Consequences: P3's live-data wiring can plug either adapter in as the
+cross-check leg once a primary is chosen and real credentials exist; no
+live order or sizing path depends on this yet.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
