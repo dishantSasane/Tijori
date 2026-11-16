@@ -1,17 +1,17 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-16 by Claude (P1a pilot data foundation closed — see note 0034; P2 re-assignment collided with already-merged PR #50, duplicate PR #55 closed without merge — see note 0035, needs-human on whether PR #50 has had its required cross-model review; P3 daily report + dashboard shipped PR #56, live adapter/ORB-wiring blocked on owner decision — see note 0036; P4 scanner + Stocks page shipped PR #57, placeholder ranking pending PR #53, dashboard/_data.py duplicate pending PR #56 — see note 0037; P5 market profiles + crypto/US strategy instances + Accounts page v1 shipped PR #58 on top of PR #54, T2/funding-data deferred, needs-human on crypto exchange/account choice — see note 0038; P6 Brain/News real NewsFeed/LLMProvider/budget-guard/schema-validation/A-B-harness shipped PR #59, cross-model review mandatory before merge (risk-adjacent), needs-human on Anthropic model/pricing/budget cap — see note 0039)
+Last updated: 2026-11-16 by Codex (P1 implementation closeout pushed as `bb6bf1d`; source-independent P1c/P1d seals, registry enforcement and P1e reporting complete; real-data evaluation remains fail-closed — see note 0040)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
 | Phase | Owner | State | Notes |
 |---|---|---|---|
 | P0 Foundation sprint | Claude Code | **DONE** | all BUILD_ORDER items 1-9 merged to `main`; `pytest`/`ruff`/`mypy` all clean on current `main` (41 tests). See note 0009 for the full list and known gaps. |
-| P1a Data foundation (5-symbol pilot) | Claude (owner-redirected) | **pilot-complete, pending one cross-model item** — full daily (2010-2026) + intraday M1/M5 (Jan 2022-2026) collection for the 5 pilot symbols, candle-snapshot hashes computed, session-coverage audit fully resolved (no unexplained dates), price adjustment basis empirically confirmed provider-adjusted. Only item 6 (combined manifest needing Codex's action-register hash) remains open. See `docs/specs/P1A_EVIDENCE_CHECKLIST.md` and note 0034. |
+| P1a Data foundation (5-symbol pilot) | Claude/Codex | **pilot artifacts complete; real replay remains gated** — the combined manifest/action-register hash is now committed in `bb6bf1d`. It truthfully retains unverified historical action coverage, so it cannot authorize real-data replay. See note 0040. |
 | P1b Executable candidate library | Codex | **implementation-complete, Claude-reviewed, approved** — T1/T2/T4/T6/T5 ORB match frozen specs exactly, no look-ahead found, tests are real not circular. PR #53. See note 0034 and `communication/2026-11-16-claude-p1b-review-result.md`. |
-| P1c Evaluation/reporting | Claude built, Codex integrating | **ranking report/metrics/registry/bootstrap complete against synthetic data**, 15-variant family (12 daily + 3 intraday, T3 deferred for pilot) reconciled. Pending Codex's integration onto `codex/p1-build`. |
-| P1d Holdout policy | both | **source-independent safeguards (one-shot guard, rejection rule) can proceed; holdout consumption remains gated** until P1a/P1b/P1c are jointly sealed. 2016-2026 window stays burned. |
-| P1e Activation | Codex | waiting on P1b/P1c closure per sequencing. |
+| P1c Evaluation/reporting | Claude/Codex | **implementation-complete and independently reviewed** — synthetic-only ranking, metrics, bootstrap, append-only registry and 15-variant correction are integrated in `bb6bf1d`. No real ranking has run. |
+| P1d Holdout policy | Claude/Codex | **implementation-complete, real consumption gated** — sealed shortlist membership, valid one-shot authorization, durable one-result-per-candidate enforcement and pre-registered outcome/reason logging are in `bb6bf1d`. 2016-2026 stays burned. |
+| P1e Activation | Codex | **implementation-complete** — fixed rule spec/router, abstention/overlap tests, and activation-frequency reporting exist; empirical validation is gated on P1a-P1d real-data prerequisites. |
 | P1 (legacy row, superseded by P1a-e above) | Codex | superseded — see notes 0027-0034. |
 | P2 Paper broker + risk engine + minimal alerts | Claude (owner override) | **implemented, under review** — PR #50 (RiskEngine/PaperBroker), #52 (candle builder/scheduler); sleeve allocation cap test coverage added on `claude/sleeve-allocation-and-adapters`. See note 0032. | |
 | P3 India Tier A paper end-to-end + dashboard | Claude (picked up; author=Claude) | **partial** — daily report + read-only Streamlit dashboard (Home/India/Paper ledger/Strategies) shipped, PR #56; cross-model review still needed per AGENTS.md §5. Auto-paper-shadow confirmed already done (PR #50's `Mode.PAPER`/`ModeGate`). Live NSE data adapter and ORB/breakout live-paper wiring **blocked on owner decisions** (no live data source selected yet; PR #53 strategies not merged) — see note 0036. | |
@@ -22,15 +22,14 @@ Last updated: 2026-11-16 by Claude (P1a pilot data foundation closed — see not
 | P8 Expansion (MCX, NSE currency) | Claude (data layer only) | **data verified, data-only** — MCX found a free source after all (Upstox's own MCX_FO segment); NSE currency confirmed to need no new adapter. Roll-adjustment logic built for MCX, reusable for NSE currency later. On `claude/sleeve-allocation-and-adapters`, not merged. See note 0032. | |
 
 ## Next 3 actions
-1. Codex: resume Upstox action API acquisition only after Cloudflare access is restored externally; do not retry or bypass the current block.
-2. Codex: persist per-ISIN action responses/provenance and establish coverage, including a reviewed source for demergers/unknown events.
-3. Codex: after source gates pass, wire screening into both runners, implement position replay, rebuild datasets, and freeze splits; do not read the holdout before P1d.
+1. Owner: authorize or provide a complete, reviewable corporate-action ledger/source for the exact five-symbol pilot windows, including demergers/unknown events and volume basis.
+2. Owner: approve a fresh, unread, authorized chronological split/holdout after the data gate is satisfied; do not reuse burned 2016-2026 data.
+3. Owner: freeze the forward-paper promotion policy (daily/intraday observation duration, sample requirements and sizing); P1d's backtest rejection rule is already fixed.
 
 ## Blockers / needs-human
-- P1 research-universe turnover source and historical membership data are not implemented/acquired; automated NSE/NSE Indices collection is prohibited by source policy.
-- Upstox action endpoint live access and historical completeness are unverified; demerger coverage is not documented.
-- P1 comparison sizing (capital and per-trade risk) and holding horizon.
-- New untouched holdout boundaries: the previously reviewed 2016-2026 sample cannot be reused as an unseen holdout under ADR-0024.
+- P1 cannot be formally closed or run on real data until a complete authorized corporate-action ledger/coverage exists; automated NSE/NSE Indices collection remains prohibited.
+- A fresh unread holdout/split plan is required; 2016-2026 cannot be reused under ADR-0024.
+- Forward-paper policy for daily versus intraday candidates is an owner decision. It is separate from and not satisfied by P1d's fixed backtest rejection rule.
 
 ## Environment facts (update when they change)
 - Owner plans: Claude Pro (ends ~2026-11-16), ChatGPT Plus (ongoing).
