@@ -290,6 +290,45 @@ the identical exit produces zero new fills, one `exit_already_applied` audit
 row). Full suite, `ruff`, `mypy --strict` re-verified clean after the change.
 
 ---
+
+**ADR-0029 · 2026-11-16 · accepted · Reconciliation mismatch has no tolerance
+band; any difference engages the kill switch.** Context: P7 go-live
+readiness needs a rule for what counts as a reconciliation mismatch between
+our SQLite-recorded positions and a broker's reported positions, and what
+happens when one is found. A tolerance band (e.g. "off by one share is
+fine") was considered, to avoid false alarms from a broker's rounding or
+lot-size display quirks. Decision: no tolerance band — any quantity
+difference, or a position present on only one side, is a mismatch, and it
+unconditionally engages the kill switch (`src/trading/reconciliation/
+reconcile.py::run_drill`), which blocks new entries (not existing stops)
+until a human investigates and explicitly releases it. Consequences: this
+can produce an avoidable halt from a benign broker quirk (e.g. a
+not-yet-settled corporate action adjusting a displayed quantity); the
+alternative — guessing at a tolerance threshold — risks silently trading
+through a real discrepancy, which AGENTS.md §4.2 (fail closed) and §4.9 (do
+not weaken a check to make something pass) both rule out. If a specific
+broker's benign quirk causes repeated false halts, record that broker's
+exact behaviour here and adjust with evidence, not a guessed number.
+
+**ADR-0030 · 2026-11-16 · proposed · Cloud VM provider for the static IP
+requirement.** Context: Indian brokers require IP whitelisting for API
+access, which needs a cloud VM with a provider-guaranteed static/reserved
+IP, not a laptop's changing home IP. Low budget is a hard constraint
+(AGENTS.md §2). Decision: no VM has been provisioned yet — this ADR records
+the *criteria*, not a committed provider, pending the owner's choice:
+pick whichever has (a) a reserved/static IP available free or at near-zero
+marginal cost, (b) a free-tier or sub-$5/month always-on instance (not a
+function/serverless product, which won't hold a stable long-running
+process or a consistent outbound IP), and (c) a region close to India for
+latency to NSE-adjacent services. Candidates to compare before deciding:
+Oracle Cloud's Always Free tier (includes a reserved public IP at no
+charge), a low-cost AWS/GCP/DigitalOcean/Linode "lightsail"-class VM
+($4-6/month) with an elastic/reserved IP add-on, or a cheap Indian VPS
+provider. Consequences: this is a **needs-human** decision — see the P7
+handoff note; nothing in this PR provisions, configures, or connects to
+any VM.
+
+---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
 Context: ...
