@@ -121,6 +121,11 @@ source for the minimum sample sizes, coverage requirements, decision thresholds
 and failure reasons. Rejection always includes a reason; no candidate is
 dropped merely because it ranks low.
 
+The profitable-instrument robustness gate is a one-sided `Binomial(N, 0.5)`
+upper-tail test computed from the actual complete universe-snapshot size `N`,
+not a fixed "3 of 5" fraction. `P1_REJECTION_RULE.md` contains the locked
+rule, its `N=50` worked example, and the rule-change protection.
+
 ## Promotion bar by frequency
 
 Intraday candidates require a stricter promotion bar than daily candidates:

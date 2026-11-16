@@ -179,7 +179,9 @@ def test_holdout_decision_is_append_only_audit_evidence_with_valid_authorization
     database = tmp_path / "runs.duckdb"
     plan = holdout_plan()
     prepared = completed_holdout_record(plan)
-    decision = HoldoutDecision("rejected", ("profitable_instruments_below_3_of_5",))
+    decision = HoldoutDecision(
+        "rejected", ("profitable_instruments_binomial_p_value_not_below_0.05",)
+    )
     with ExperimentRegistry(database) as registry, HoldoutEvaluator(database) as guard:
         with pytest.raises(PermissionError, match="authorization"):
             registry.append_holdout_decision(
@@ -211,7 +213,9 @@ def test_holdout_decision_is_append_only_audit_evidence_with_valid_authorization
         )
 
         assert stored.status == "rejected"
-        assert stored.error == '{"holdout_reasons":["profitable_instruments_below_3_of_5"]}'
+        assert stored.error == (
+            '{"holdout_reasons":["profitable_instruments_binomial_p_value_not_below_0.05"]}'
+        )
         assert registry.holdout_records(authorization=authorization, holdout_guard=guard) == [
             stored
         ]

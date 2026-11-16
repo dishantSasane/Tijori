@@ -7,16 +7,12 @@ the actual switch: it reads `selected_isins` from a real selector run
 (`full_universe_loader.build_full_universe_snapshot`) and replays each one,
 rather than iterating a hardcoded symbol list.
 
-This does not change the P1d rejection rule (`backtest/promotion.py`) or
-its locked "3 of 5" threshold -- that threshold is the pre-registered,
-frozen-before-any-holdout-result P1d decision rule
-(`docs/specs/P1_REJECTION_RULE.md`: "Do not change the candidate, costs,
-universe, or boundaries after this result"). A broader-universe evaluation
-needs its own, separately pre-registered rejection rule with an
-owner-chosen majority threshold for the new instrument count -- that is an
-explicit methodology decision for the owner, not inferred here by scaling
-"3 of 5" arithmetically. This module only answers "which instruments does
-this period's candidate replay cover", not "did it pass".
+The P1d rejection rule (`backtest/promotion.py`) applies a locked one-sided
+binomial profitability test dynamically to the count selected by the frozen
+snapshot. This module only answers "which instruments does this period's
+candidate replay cover", not "did it pass". Missing selected instruments are
+reported explicitly so the decision layer can fail closed rather than reducing
+the test's denominator.
 """
 
 from __future__ import annotations

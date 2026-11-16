@@ -2,7 +2,13 @@ from decimal import Decimal
 
 import pytest
 
-from trading.backtest.promotion import HoldoutDecision, HoldoutEvidence, evaluate_holdout
+from trading.backtest.promotion import (
+    HoldoutDecision,
+    HoldoutEvidence,
+    binomial_upper_tail_probability,
+    evaluate_holdout,
+    minimum_profitable_instruments_for_significance,
+)
 from trading.core.enums import Timeframe
 
 
@@ -14,7 +20,7 @@ def evidence(**changes: object) -> HoldoutEvidence:
         "mean_daily_excess_return_after_costs": Decimal("0.0008"),
         "bonferroni_adjusted_p_value": Decimal("0.03"),
         "bootstrap_ci_lower_bound": Decimal("0.01"),
-        "profitable_instruments": 4,
+        "profitable_instruments": 5,
         "instrument_count": 5,
         "profitable_time_blocks": 2,
         "time_block_count": 3,
@@ -28,6 +34,28 @@ def test_all_preregistered_gates_pass_before_paper_eligibility() -> None:
     decision = evaluate_holdout(evidence())
     assert decision.status == "pass_to_paper"
     assert decision.reasons == ("all_preregistered_gates_passed",)
+
+
+def test_binomial_threshold_is_dynamic_and_uses_a_strict_one_sided_tail() -> None:
+    """31/50 is close, but its P[X >= 31 | p=0.5] is still above 5%."""
+    assert binomial_upper_tail_probability(31, 50) > Decimal("0.05")
+    assert binomial_upper_tail_probability(32, 50) < Decimal("0.05")
+    assert minimum_profitable_instruments_for_significance(50) == 32
+
+
+def test_fifty_instrument_result_rejects_at_31_and_passes_at_32() -> None:
+    rejected = evaluate_holdout(evidence(instrument_count=50, profitable_instruments=31))
+    assert rejected.status == "rejected"
+    assert rejected.reasons == ("profitable_instruments_binomial_p_value_not_below_0.05",)
+
+    passed = evaluate_holdout(evidence(instrument_count=50, profitable_instruments=32))
+    assert passed.status == "pass_to_paper"
+
+
+def test_small_universe_without_a_significant_success_count_cannot_pass() -> None:
+    decision = evaluate_holdout(evidence(instrument_count=1, profitable_instruments=1))
+    assert decision.status == "rejected"
+    assert decision.reasons == ("profitable_instruments_binomial_p_value_not_below_0.05",)
 
 
 @pytest.mark.parametrize(
@@ -55,7 +83,10 @@ def test_incomplete_data_cannot_pass_or_be_misreported_as_a_rejection() -> None:
             {"mean_daily_excess_return_after_costs": Decimal("0")},
             "mean_daily_excess_return_not_positive",
         ),
-        ({"profitable_instruments": 2}, "profitable_instruments_below_3_of_5"),
+        (
+            {"profitable_instruments": 4},
+            "profitable_instruments_binomial_p_value_not_below_0.05",
+        ),
         ({"profitable_time_blocks": 1}, "profitable_time_blocks_below_2_of_3"),
     ],
 )
