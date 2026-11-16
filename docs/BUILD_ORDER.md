@@ -70,7 +70,7 @@ candle, action, calendar, split, or evaluation gates.
 | Corporate-action adjustment, source adapter added; data/coverage gates open | Terra / Sol | Authenticated Upstox per-ISIN API access works with the browser-like User-Agent after the earlier 403. Five pilot responses were archived locally; all contained dividends only, so they do not establish historical action completeness. A manual, offline register and fail-closed coverage gate are being added; no NSE/NiftyIndices automation is used. A real Reliance 1:1 bonus sample is price-continuous (Oct 2024), but volume basis and broad provider behavior remain unverified. Do not rebuild candles or claim coverage from an empty/partial response. Position replay remains incomplete. |
 | Research universe: pure turnover selector; broad source unimplemented | Terra / Sol | ADR-0026's Top-50 rolling 60-session median-turnover selector remains implemented with synthetic tests only. It is not used by the five-symbol pilot. No real Top-50 snapshot or survivorship-free claim is allowed until a permitted, complete historical source is established; automated NSE/NiftyIndices collection remains prohibited. |
 | Nifty 50 point-in-time manifest: validator only, benchmark-only | Terra / Sol | Membership models validate supplied manifests; no automated NSE Indices collection exists. This is outside the five-stock pilot's eligibility universe. Benchmark comparisons require an authorized series with documented return type and coverage. Broad point-in-time membership remains a follow-up. |
-| Chronological split boundaries, written and frozen in config before any strategy runs | Sol / Terra | Contract in `specs/RESEARCH_SPLITS.md`; dates remain unset until authorized source/window and fresh unread holdout are available |
+| Chronological split boundaries, written and frozen before any strategy runs | Sol / Terra | Daily and intraday historical plans are locked in `specs/RESEARCH_SPLITS.md`; their shared 2026 holdout remains unread and all source/coverage gates still apply |
 
 P1 candle scope includes **daily swing and intraday from the start**. Upstox
 historical 1m and 5m data has a fixed floor of January 2022; earlier intraday
@@ -143,9 +143,10 @@ Progress note (2026-11-15, selector slice):
 tests implement the pure monthly turnover ranker. Real feed parsing and
 collection remain blocked by the source gate above. The selector API and
 provenance contract are specified in `specs/RESEARCH_UNIVERSE.md`.
-The three-way split contract is in `specs/RESEARCH_SPLITS.md`; it deliberately
-contains no boundaries because the available 2016–2026 window is burned and
-source/coverage gates remain unresolved.
+The three-way split contract and the owner-confirmed daily/intraday historical
+boundaries are in `specs/RESEARCH_SPLITS.md`. Under the owner-confirmed
+ADR-0024 clarification, only a strategy-outcome result burns a holdout;
+data-integrity checks do not. Source and coverage gates remain unresolved.
 
 ### P1b — Candidate library (pre-registered)
 
