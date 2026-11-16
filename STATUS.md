@@ -1,6 +1,6 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-16 by Claude (P8 expansion sleeves shipped PR #61 — see note 0042; this closes out every line item in docs/BUILD_ORDER.md P0-P8, options excepted (deliberately deferred). **Zero PRs across the whole P2-P8 sweep are merged to `main` yet** — note 0042 has the full merge-order picture.)
+Last updated: 2026-11-16 by Claude (4-stage audit complete, docs/STATUS_AUDIT.md on `main` via PR #62; **PR #53 merged** — first merge of the whole P1-P8 sweep; #54's 3 known review blockers fixed and #58/#61's CI-never-ran issue resolved — all 8 remaining open PRs are now CI-green and cross-model review has been requested from Codex, risk-ordered, in note 0043. None of #54/#56/#57/#58/#59/#60/#61 merged yet — waiting on that review.)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
