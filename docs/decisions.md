@@ -649,6 +649,43 @@ Consequences: P3's live-data wiring can plug either adapter in as the
 cross-check leg once a primary is chosen and real credentials exist; no
 live order or sizing path depends on this yet.
 
+**ADR-0033 · 2026-11-16 · accepted, owner-directed · Isolated single-session gaps decoded as confirmed no-trade days in the full-universe selector**
+
+Context: running `full_universe_loader.build_full_universe_snapshot` against
+all 2,763 real NSE_EQ/EQ instruments (ADR-0030) failed outright: Upstox omits
+the candle row entirely for an illiquid instrument's no-trade day rather than
+returning an explicit zero-volume row (confirmed empirically: SONAL/
+INE321M01017 has no row at all for 2026-08-12, an ordinary trading day —
+RELIANCE and every other liquid name has a row that day). `research_
+universe.build_snapshot` correctly treats any missing session as a hard
+error for the *entire* monthly snapshot, by design, since missing data must
+never be silently converted to zero. That design is right at five-symbol
+pilot scale (never triggers on liquid blue chips) but makes a full-universe
+run effectively impossible as-is, since at least one illiquid name having a
+no-trade day somewhere in a 60-session window is near-certain.
+Decision (owner-directed, not the agent's default call): a missing session
+is decoded as a confirmed zero-turnover observation **only** when (1) the
+session is already a verified trading day — satisfied automatically, since
+`sessions` is the caller-supplied verified calendar `build_snapshot` already
+requires — and (2) the gap is *isolated*: this exact instrument has a real
+candle on both the **immediately adjacent** sessions (not merely "some
+earlier/later candle in the whole window", which would also wrongly catch a
+multi-day suspension run). A leading/trailing gap or any run of 2+
+consecutive missing sessions is never decoded this way and still fails
+closed exactly as before — those shapes could mean not-yet-listed, delisted,
+suspended, or a provider outage, none of which may be assumed to mean zero
+turnover. Every decoded (isin, date) pair is reported via a new
+`on_decoded_no_trade_day` callback on `build_full_universe_snapshot`, so the
+assumption stays auditable rather than silent. Three new tests cover the
+decode case, the multi-session-gap non-decode case, and the leading-gap
+non-decode case.
+Consequences: this is an assumption about Upstox's API behavior (an omitted
+row on a known-open session means zero trades, not missing data), not a
+directly observed fact from Upstox's own docs — flagged as such, same
+discipline as the turnover-proxy assumption in ADR-0030. The underlying
+`build_snapshot` selector itself is unchanged; this only changes what the
+*loader* feeds into it.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
