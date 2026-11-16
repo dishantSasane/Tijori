@@ -1,6 +1,6 @@
 # STATUS (living board — update every session)
 
-Last updated: 2026-11-16 by Codex (PR #71 is draft because it was pilot-bound. Nifty 50 scheduled-only chain now balances, but exact historical ISIN reconstruction is blocked by LTIM and Tata Motors identity mappings plus the existing membership source gate; note 0056.)
+Last updated: 2026-11-16 by Codex (PR #71 is draft because it was pilot-bound. Nifty 50 scheduled-only chain now has all 60 identities resolved, but reverse reconstruction from a 2026 anchor conflicts with the accepted membership provenance contract; note 0057.)
 
 ## Phase tracker (see docs/BUILD_ORDER.md on main)
 
@@ -22,14 +22,14 @@ Last updated: 2026-11-16 by Codex (PR #71 is draft because it was pilot-bound. N
 | P8 Expansion (MCX, NSE currency, ML ranker, memecoin, gold/bond ETFs, options) | Claude | **implementation-complete except options (deliberately deferred), under mandatory cross-model review — LAST PHASE of BUILD_ORDER.md** — MCX/NSE-currency strategy instances (reusing PR #54's data layer and existing T1/T4 rules), `GLD`/`BND` added to US Tier A (the "gold/bond ETF filter" turned out to be a one-line addition), an experimental advisory-only walk-forward champion/challenger `ml_ranker.py` scoped to rank only already-pre-registered P1 candidates (never a new search), and a memecoin sleeve with a hard code-level paper-only gate (`risk/engine.py`'s `ModeGate.PAPER_ONLY_SLEEVES`, proven by test across every Mode x human_action combination). Options trading code was explicitly NOT written — `docs/specs/OPTIONS_LEARNING_PLAN.md` gates it behind owner learning + a future ADR, per BUILD_ORDER's own "after dedicated learning" instruction. PR #61 on `claude/p8-expansion-sleeves`, based on `claude/p5-crypto-us-sleeves` (#58) based on `claude/sleeve-allocation-and-adapters` (#54); not merged. 139 tests pass, ruff/mypy clean. See note 0042 for the full open-PR merge-order table across #53/#54/#56-#61. | needs-human: options sleeve gate (owner must do the OPTIONS_LEARNING_PLAN.md reading + record a go-ahead ADR); PR merge order across the whole P2-P8 sweep (note 0042) |
 
 ## Next 3 actions
-1. Owner: resolve the Nifty 50 historical-identity/source decision in note 0056 (LTIM, historical Tata Motors, and ZOMATO/Eternal evidence).
-2. After permitted identity/membership evidence exists, materialize/audit the monthly snapshots and then enumerate the exact action-ledger scope.
+1. Owner: decide whether to retain the membership provenance contract or approve a limited non-authoritative reverse reconstruction (note 0057).
+2. After permitted historical membership evidence exists, materialize/audit the monthly snapshots and then enumerate the exact action-ledger scope.
 3. Owner: freeze the forward-paper promotion policy (daily/intraday observation duration, sample requirements and sizing); P1d's backtest rejection rule is already fixed.
 
 ## Blockers / needs-human
 - P1 cannot be formally closed or run on real data until a complete authorized corporate-action ledger/coverage exists; automated NSE/NSE Indices collection remains prohibited.
 - PR #71 is draft: its evidence binding is the stale five-symbol pilot, not the real research universe. Do not merge it as the real split freeze.
-- Nifty 50 reconstruction is blocked on explicit source permission/bounded owner-supplied evidence plus LTIM and historical Tata Motors identity mappings (note 0056). Nifty 100 is deferred.
+- Nifty 50 reconstruction is blocked on an owner choice between contemporaneous/licensed evidence and a clearly non-authoritative reverse reconstruction (note 0057). All 60 identity mappings now resolve. Nifty 100 is deferred.
 - Forward-paper policy for daily versus intraday candidates is an owner decision. It is separate from and not satisfied by P1d's fixed backtest rejection rule.
 
 ## Environment facts (update when they change)
