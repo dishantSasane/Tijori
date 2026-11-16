@@ -881,6 +881,31 @@ Consequences: the binomial promotion gate can no longer be corrupted by a
 caller passing mismatched or malformed inputs to the aggregation layer.
 Flagging for Codex's re-review -- not claiming resolved until that happens.
 
+**ADR-0048 · 2026-11-16 · accepted, owner-confirmed · P1a historical split boundaries and ADR-0024 outcome-exposure scope**
+
+Context: ADR-0024 required a genuinely unread holdout after strategy
+discovery, but the shorthand that 2016–2026 was "burned" was read too
+broadly. The only recorded inspections of historical data were integrity
+checks: corporate-action continuity, the SONAL no-trade-day decode, and
+universe-selector sanity checks. No P1 strategy P&L, ranking, backtest result,
+or holdout result has been computed or viewed for any recorded-history period.
+The frozen daily source begins in 2010; M1/M5 begin in 2022 and both end on
+2026-11-14.
+
+Decision: outcome exposure, rather than a data-integrity check, is what
+consumes a prospective holdout. Freeze `p1a-daily-historical-v1` as development
+`[2010-01-01, 2025-01-01)`, validation `[2025-01-01, 2026-01-01)`, and
+holdout `[2026-01-01, 2026-11-15)`. Freeze
+`p1a-intraday-historical-v1` as development `[2022-01-01, 2025-01-01)`, with
+the same validation and holdout windows. The exact source, universe, calendar,
+and corporate-action bindings, one-bar embargoes, and the no-change-after-
+result rule are locked in `docs/specs/RESEARCH_SPLITS.md`.
+
+Consequences: the 2026 holdout remains unread and can be evaluated once, not
+tuned. The historical action-coverage, calendar, source, and broader-universe
+gates remain fail-closed; freezing dates does not authorize a real-data run.
+Any successor requires a new study version and a genuinely unread holdout.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**
