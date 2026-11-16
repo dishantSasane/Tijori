@@ -686,6 +686,29 @@ discipline as the turnover-proxy assumption in ADR-0030. The underlying
 `build_snapshot` selector itself is unchanged; this only changes what the
 *loader* feeds into it.
 
+**Addendum (same day, same ADR number — owner-directed):** the rerun with
+the above fix still failed, on the *same* instrument (SONAL), for a
+*different* reason: it has a genuine 4-consecutive-session trading gap
+(2026-08-19 through 2026-08-22) later in the same window, correctly refused
+decoding by the isolated-gap rule above — that part worked exactly as
+intended. The real problem was one level up: `build_snapshot` had no way to
+exclude *only* an instrument with an unresolved gap; any single eligible
+instrument's unresolved gap aborted the *entire* monthly snapshot, for every
+other instrument too. Fixed in `research_universe.build_snapshot`: a new
+exclusion reason, `unresolved_data_gap_in_lookback_window`, alongside the
+existing `inactive_as_of`/`ineligible_instrument_class`/
+`less_than_60_sessions_verified_history` reasons — excludes only the
+affected instrument from that month's ranking; the rest of the universe
+still ranks normally. The existing `missing turnover observation` hard
+error is preserved in spirit, now surfacing as "fewer than K eligible
+candidates" if exclusions leave too few candidates to fill K, rather than
+an immediate raise regardless of pool size — the explicit invariant this
+is built to protect (missing data is never silently a zero) is unchanged;
+only the blast radius of one instrument's unresolved gap is narrowed. One
+new test (`test_instrument_with_unresolved_gap_is_excluded_not_a_whole_
+snapshot_failure`) proves a gapped instrument is excluded while an
+unaffected instrument in the same pool still ranks.
+
 ---
 <!-- Add new ADRs below. Template:
 **ADR-00NN · YYYY-MM-DD · proposed|accepted|superseded · Title**

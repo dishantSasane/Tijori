@@ -165,32 +165,47 @@ def build_snapshot(
         observations_by_identity[key] = observation.turnover_inr
 
     values_by_isin: dict[str, list[Decimal]] = defaultdict(list)
+    exclusions: list[ExcludedInstrument] = []
     for instrument in instruments:
         if instrument.eligible is None:
             raise ValueError(f"unknown eligibility: {instrument.isin}")
         if not instrument.active_as_of:
+            exclusions.append(ExcludedInstrument(isin=instrument.isin, reason="inactive_as_of"))
             continue
         if not instrument.eligible:
+            exclusions.append(
+                ExcludedInstrument(isin=instrument.isin, reason="ineligible_instrument_class")
+            )
             continue
         if instrument.verified_history_start > lookback[0]:
+            exclusions.append(
+                ExcludedInstrument(
+                    isin=instrument.isin, reason="less_than_60_sessions_verified_history"
+                )
+            )
             continue
+        # An otherwise-eligible, long-enough-listed instrument can still have
+        # an unresolved gap somewhere inside the lookback (e.g. a genuine
+        # multi-session trading halt that the caller correctly declined to
+        # paper over). That excludes only this instrument from this month's
+        # ranking -- it must never silently zero the gap, and it must never
+        # abort every other instrument's ranking either.
+        session_values: list[Decimal] = []
+        has_gap = False
         for session in lookback:
             key = (session, instrument.isin)
             if key not in observations_by_identity:
-                raise ValueError(f"missing turnover observation: {key}")
-            values_by_isin[instrument.isin].append(observations_by_identity[key])
-
-    exclusions: list[ExcludedInstrument] = []
-    for instrument in instruments:
-        if not instrument.active_as_of:
-            reason = "inactive_as_of"
-        elif not instrument.eligible:
-            reason = "ineligible_instrument_class"
-        elif instrument.verified_history_start > lookback[0]:
-            reason = "less_than_60_sessions_verified_history"
-        else:
+                has_gap = True
+                break
+            session_values.append(observations_by_identity[key])
+        if has_gap:
+            exclusions.append(
+                ExcludedInstrument(
+                    isin=instrument.isin, reason="unresolved_data_gap_in_lookback_window"
+                )
+            )
             continue
-        exclusions.append(ExcludedInstrument(isin=instrument.isin, reason=reason))
+        values_by_isin[instrument.isin] = session_values
 
     ranked = sorted(
         (
