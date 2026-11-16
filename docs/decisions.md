@@ -319,7 +319,7 @@ actually recorded carries the independently-derived `exit_id`) and
 the identical exit produces zero new fills, one `exit_already_applied` audit
 row). Full suite, `ruff`, `mypy --strict` re-verified clean after the change.
 
-**ADR-0029 · 2026-11-16 · accepted · P3 daily report reads the state DB directly, scoped by UTC date-prefix match**
+**ADR-0043 · 2026-11-16 · accepted · P3 daily report reads the state DB directly, scoped by UTC date-prefix match**
 Context: BUILD_ORDER.md P3 item 5 needs an end-of-day summary (signals, fills,
 P&L, rejection reasons). The state DB (`state_db.py`) already carries
 `fills`, `decisions`, and `signal_outcomes` tables with `TEXT` UTC timestamp
@@ -429,7 +429,7 @@ no functional change, just removing the now-redundant duplicate.
 
 ---
 
-**ADR-0029 · 2026-11-16 · accepted · Reconciliation mismatch has no tolerance
+**ADR-0041 · 2026-11-16 · accepted · Reconciliation mismatch has no tolerance
 band; any difference engages the kill switch.** Context: P7 go-live
 readiness needs a rule for what counts as a reconciliation mismatch between
 our SQLite-recorded positions and a broker's reported positions, and what
@@ -448,7 +448,7 @@ not weaken a check to make something pass) both rule out. If a specific
 broker's benign quirk causes repeated false halts, record that broker's
 exact behaviour here and adjust with evidence, not a guessed number.
 
-**ADR-0030 · 2026-11-16 · proposed · Cloud VM provider for the static IP
+**ADR-0042 · 2026-11-16 · proposed · Cloud VM provider for the static IP
 requirement.** Context: Indian brokers require IP whitelisting for API
 access, which needs a cloud VM with a provider-guaranteed static/reserved
 IP, not a laptop's changing home IP. Low budget is a hard constraint
@@ -649,7 +649,7 @@ Consequences: P3's live-data wiring can plug either adapter in as the
 cross-check leg once a primary is chosen and real credentials exist; no
 live order or sizing path depends on this yet.
 
-**ADR-0033 · 2026-11-16 · accepted, owner-directed · Isolated single-session gaps decoded as confirmed no-trade days in the full-universe selector**
+**ADR-0039 · 2026-11-16 · accepted, owner-directed · Isolated single-session gaps decoded as confirmed no-trade days in the full-universe selector**
 
 Context: running `full_universe_loader.build_full_universe_snapshot` against
 all 2,763 real NSE_EQ/EQ instruments (ADR-0030) failed outright: Upstox omits
@@ -709,7 +709,7 @@ new test (`test_instrument_with_unresolved_gap_is_excluded_not_a_whole_
 snapshot_failure`) proves a gapped instrument is excluded while an
 unaffected instrument in the same pool still ranks.
 
-**ADR-0034 · 2026-11-16 · accepted, owner-directed · Switch P1's evaluation universe from the fixed five-symbol pilot to the real selector output; promotion threshold explicitly NOT touched**
+**ADR-0040 · 2026-11-16 · accepted, owner-directed · Switch P1's evaluation universe from the fixed five-symbol pilot to the real selector output; promotion threshold explicitly NOT touched**
 
 Context: owner directed switching P1's backtest/discovery pipeline from the
 bounded five-symbol pilot to the now-verified full-universe selector (ADR
